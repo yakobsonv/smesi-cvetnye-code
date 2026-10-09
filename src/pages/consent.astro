@@ -1,0 +1,25 @@
+---
+// Согласие на обработку персональных данных — документ самого клиента (src/data/legal.ts),
+// подставляется только адрес сайта.
+import Page from '../layouts/Page.astro';
+import Container from '../components/layout/Container.astro';
+import Breadcrumbs from '../components/layout/Breadcrumbs.astro';
+import LegalDoc from '../components/content/LegalDoc.astro';
+import { CONSENT_BLOCKS, fillLegal } from '../data/legal';
+import { PREVIEW_ORIGIN } from '../lib/sites';
+import { PAGES } from '../data/nav';
+
+const blocks = fillLegal(CONSENT_BLOCKS, PREVIEW_ORIGIN);
+---
+
+<Page
+  title="Согласие на обработку персональных данных — Кирпичный трест"
+  description="Согласие на обработку персональных данных пользователей сайта ООО «Кирпичный трест»."
+  slug="consent"
+  priceModal={false}
+>
+  <Container>
+    <Breadcrumbs site="smesi" trail={[{ label: 'Главная', href: PAGES.home.href }, { label: 'Согласие на обработку персональных данных' }]} />
+  </Container>
+  <LegalDoc blocks={blocks} />
+</Page>

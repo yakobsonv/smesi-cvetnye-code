@@ -1,0 +1,61 @@
+---
+// Кнопка «Заказать звонок» + модальное окно с лид-формой.
+// Одна пара кнопка↔окно; на боевых сайтах таких попапов до 23 на страницу — здесь это данные, не вёрстка.
+import Button from '../ui/Button.astro';
+import Modal from '../ui/Modal.astro';
+import LeadForm from './LeadForm.astro';
+import type { FieldDef, SiteKey } from '../../lib/types';
+
+interface Props {
+  /** id модального окна; должен быть уникален на странице */
+  id: string;
+  label?: string;
+  /** заголовок окна */
+  formTitle?: string;
+  formSubtitle?: string;
+  submitLabel?: string;
+  fields?: FieldDef[];
+  /** откуда лид */
+  source: string;
+  site?: SiteKey;
+  action?: string;
+  policyHref?: string;
+  consentHref?: string;
+  variant?: 'primary' | 'secondary' | 'ghost' | 'ghost-inv';
+  size?: 'sm' | 'md' | 'lg';
+  full?: boolean;
+  class?: string;
+}
+
+const {
+  id,
+  label = 'Заказать звонок',
+  formTitle = 'Заказать звонок',
+  formSubtitle = 'Перезвоним в рабочее время и ответим на вопросы.',
+  submitLabel = 'Жду звонка',
+  fields,
+  source,
+  action,
+  policyHref,
+  consentHref,
+  variant = 'primary',
+  size = 'md',
+  full = false,
+  class: className,
+} = Astro.props;
+---
+
+<Button modal={id} variant={variant} size={size} full={full} class={className}>{label}</Button>
+
+<Modal id={id} title={formTitle}>
+  <LeadForm
+    id={`${id}-form`}
+    source={source}
+    subtitle={formSubtitle}
+    submitLabel={submitLabel}
+    fields={fields}
+    action={action}
+    policyHref={policyHref}
+    consentHref={consentHref}
+  />
+</Modal>

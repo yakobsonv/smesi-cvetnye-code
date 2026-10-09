@@ -1,0 +1,96 @@
+---
+// Образцы цвета серии: плашка оттенка, название, код. Клик — окно «Узнать цену» с этой позицией.
+// Оттенок плашки — приближённый замер по картинке-палитре производителя (src/data/swatches.ts),
+// а не данные производителя; поэтому под сеткой всегда стоит оговорка о цветопередаче.
+import { POSITIONS, seriesById, type SeriesId, type Tone } from '../../data/catalog';
+import { swatchFor } from '../../data/swatches';
+
+interface Props {
+  series: SeriesId;
+  /** показать только эти группы оттенка */
+  tones?: Tone[];
+  size?: 'md' | 'sm';
+  /** подпись серии над плашкой (когда в одной сетке позиции разных серий) */
+  showSeries?: boolean;
+  class?: string;
+}
+
+const { series, tones, size = 'md', showSeries = false, class: className } = Astro.props;
+const s = seriesById(series);
+const items = POSITIONS.filter((p) => p.series === series && (!tones || tones.includes(p.color.tone)));
+---
+
+<ul class:list={['sw-grid', `sw-grid--${size}`, className]} data-swatch-grid>
+  {items.map((p) => (
+    <li data-tone={p.color.tone}>
+      <button class="sw" type="button" data-ask={p.title} aria-label={`${p.title} — узнать цену`}>
+        <span class="sw__chip" style={`--c:${swatchFor(p.series, p.color.code)}`} aria-hidden="true"></span>
+        <span class="sw__text">
+          {showSeries && <span class="sw__series">{s.name}</span>}
+          <span class="sw__name">{p.color.name}</span>
+          <span class="sw__code">{s.brand === 'perel' ? 'арт.' : 'цвет'} {p.article}</span>
+        </span>
+      </button>
+    </li>
+  ))}
+</ul>
+
+<style>
+  .sw-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: var(--space-4) var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-grid--sm { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--space-3); }
+
+  .sw {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .sw__chip {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--radius-sm);
+    background-color: var(--c);
+    /* зерно раствора: плашка читается как образец шва, а не как кнопка интерфейса */
+    background-image:
+      radial-gradient(circle at 20% 30%, rgb(255 255 255 / 0.14) 0 1px, transparent 1.6px),
+      radial-gradient(circle at 70% 60%, rgb(0 0 0 / 0.1) 0 1px, transparent 1.6px),
+      radial-gradient(circle at 40% 80%, rgb(0 0 0 / 0.07) 0 1px, transparent 1.4px);
+    background-size: 7px 7px, 9px 9px, 5px 5px;
+    box-shadow: inset 0 0 0 1px rgb(28 26 23 / 0.12);
+    transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+
+  .sw:hover .sw__chip,
+  .sw:focus-visible .sw__chip {
+    transform: translateY(-3px);
+    box-shadow: inset 0 0 0 1px rgb(28 26 23 / 0.16), var(--shadow-card);
+  }
+
+  .sw:focus-visible { outline: none; }
+  .sw:focus-visible .sw__chip { outline: var(--focus-ring) solid var(--color-brand); outline-offset: 3px; }
+
+  .sw__text { display: flex; flex-direction: column; gap: 1px; }
+  .sw__series { font-size: var(--fs-tiny); color: var(--color-muted); }
+  .sw__name { font-weight: 600; font-size: var(--fs-small); line-height: 1.25; }
+  .sw__code { font-size: var(--fs-tiny); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 359px) {
+    .sw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>

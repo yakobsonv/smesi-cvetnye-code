@@ -1,0 +1,65 @@
+---
+// Карточка серии: для какого кирпича, сколько цветов у дилера, полоска оттенков, фасовка.
+import { BRICK_TYPES, seriesById, type SeriesId } from '../../data/catalog';
+import { swatchFor } from '../../data/swatches';
+import { localPath } from '../../lib/sites';
+
+interface Props {
+  id: SeriesId;
+  /** уровень заголовка */
+  level?: 2 | 3;
+  /** ссылка «подробнее» (по умолчанию — на страницу бренда, якорь серии) */
+  href?: string;
+}
+
+const { id, level = 3, href } = Astro.props;
+const s = seriesById(id);
+const Heading = `h${level}` as any;
+const link = href ?? `${localPath('smesi', s.page)}#${s.id}`;
+const bt = s.brickType ? BRICK_TYPES[s.brickType] : null;
+---
+
+<article class="sc">
+  <div class="sc__strip" aria-hidden="true">
+    {s.colors.map((c) => <span style={`--c:${swatchFor(s.id, c.code)}`}></span>)}
+  </div>
+  <div class="sc__body">
+    <p class="sc__kind">{s.purpose === 'kladka' ? 'Кладочная смесь' : 'Для расшивки швов'}</p>
+    <Heading class="sc__title"><a href={link}>{s.name}</a></Heading>
+    <p class="sc__short">{s.short}</p>
+    <ul class="sc__facts">
+      {bt && <li><span>Кирпич</span><b>{bt.short.toLowerCase()}, {bt.absorption}</b></li>}
+      <li><span>Цветов у нас</span><b>{s.colors.length}</b></li>
+      <li><span>Мешок</span><b>{s.packKg} кг</b></li>
+    </ul>
+    <div class="sc__actions">
+      <a class="btn btn--ghost btn--sm" href={link}>Подробнее</a>
+      <button class="btn btn--primary btn--sm" type="button" data-ask={`${s.name} — цвет подберём`}>Узнать цену</button>
+    </div>
+  </div>
+</article>
+
+<style>
+  .sc {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+  .sc__strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: 56px; }
+  .sc__strip span { background: var(--c); }
+  .sc__body { display: flex; flex-direction: column; gap: var(--space-3); flex: 1; padding: var(--space-5); }
+  .sc__kind { margin: 0; font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-muted); }
+  .sc__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); line-height: 1.15; }
+  .sc__title a { color: inherit; text-decoration: none; }
+  .sc__title a:hover { color: var(--color-accent-text); }
+  .sc__short { margin: 0; color: var(--color-text-soft); }
+  .sc__facts { display: grid; gap: var(--space-2); margin: 0; padding: var(--space-3) 0 0; list-style: none; border-top: 1px solid var(--color-border-soft); }
+  .sc__facts li { display: flex; justify-content: space-between; gap: var(--space-4); font-size: var(--fs-small); }
+  .sc__facts span { color: var(--color-muted); }
+  .sc__facts b { text-align: right; }
+  .sc__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: auto; padding-top: var(--space-3); }
+</style>

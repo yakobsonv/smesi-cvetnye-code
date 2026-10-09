@@ -1,0 +1,72 @@
+---
+// Шапка внутренней страницы: хлебные крошки, надзаголовок, H1, лид и необязательная правая колонка
+// (кадр кладки, полоса образцов). На телефоне колонка уходит под текст.
+import Container from '../layout/Container.astro';
+import Breadcrumbs from '../layout/Breadcrumbs.astro';
+import { PAGES } from '../../data/nav';
+import type { BreadcrumbItem } from '../../lib/types';
+
+interface Props {
+  h1: string;
+  kicker?: string;
+  lead?: string;
+  /** звенья между «Главная» и текущей страницей */
+  trail?: BreadcrumbItem[];
+  /** подпись текущей страницы в крошках (по умолчанию — h1) */
+  crumb?: string;
+  tone?: 'base' | 'alt';
+}
+
+const { h1, kicker, lead, trail = [], crumb, tone = 'alt' } = Astro.props;
+const hasAside = Astro.slots.has('aside');
+---
+
+<section class:list={['phead', `phead--${tone}`, hasAside && 'phead--split']}>
+  <Container>
+    <Breadcrumbs site="smesi" trail={[{ label: 'Главная', href: PAGES.home.href }, ...trail, { label: crumb ?? h1 }]} />
+    <div class="phead__grid">
+      <div class="phead__text">
+        {kicker && <p class="phead__kicker" data-reveal>{kicker}</p>}
+        <h1 class="phead__title" data-reveal="head">{h1}</h1>
+        {lead && <p class="phead__lead" data-reveal>{lead}</p>}
+        <slot />
+      </div>
+      {hasAside && <div class="phead__aside" data-reveal><slot name="aside" /></div>}
+    </div>
+  </Container>
+</section>
+
+<style>
+  .phead { padding: var(--space-5) 0 clamp(40px, 6vw, 80px); }
+  .phead--alt { background: var(--color-bg-alt); }
+
+  .phead__grid { display: grid; gap: var(--space-6); margin-top: clamp(16px, 3vw, 40px); align-items: center; }
+  .phead__kicker {
+    margin: 0 0 var(--space-3);
+    font-size: var(--fs-tiny);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-accent-text);
+  }
+  .phead__title {
+    margin: 0;
+    font-family: var(--font-head);
+    font-weight: var(--fw-head);
+    font-size: var(--fs-h1);
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+    max-width: 16ch;
+    text-wrap: balance;
+  }
+  .phead__lead {
+    max-width: 58ch;
+    margin: var(--space-5) 0 0;
+    font-size: var(--fs-lead);
+    color: var(--color-text-soft);
+  }
+
+  @media (min-width: 960px) {
+    .phead--split .phead__grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: clamp(32px, 5vw, 72px); }
+  }
+</style>

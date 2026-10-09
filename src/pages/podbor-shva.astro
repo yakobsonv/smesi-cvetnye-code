@@ -1,0 +1,97 @@
+---
+// Подбор цвета шва под кирпич (план, волна 1, № 7): ответ на запросы вида «красный кирпич
+// с белым швом», «тёмный кирпич белый или тёмный раствор» (Вебмастер сайтов дилера, подсказки Яндекса).
+// Наше отличие от конкурентов — настоящие сочетания кирпича и шва на кадрах кладки из материалов
+// клиента (визуализации заводов ОСМиБТ и ЖКЗ, Яндекс.Диск «Текстуры (кладки)»).
+//
+// Правила «в тон / контраст» — по смыслу из текстов самого дилера на его сайтах кирпича
+// (вопрос «Зачем класть облицовочный кирпич на цветную кладочную смесь?» и блок «Как подобрать
+// оттенок»: гармония — оттенок смеси близок к кирпичу; контраст — белые швы с красным и коричневым,
+// тёмные с белым и серым; для тёмного кирпича — тёмный раствор, для светлого — светлый или
+// нейтральный; контрастный шов требует ровной кладки). Пересказано своими словами, без копирования.
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Section from '../components/layout/Section.astro';
+import JointPicker from '../components/smesi/JointPicker.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import { KLADKA } from '../data/kladka';
+import { PAGES } from '../data/nav';
+
+const start = KLADKA.find((b) => b.id === 'osmibt-krasnyj')?.id ?? KLADKA[0]?.id;
+const bricksCount = KLADKA.length;
+const framesCount = KLADKA.reduce((n, b) => n + b.seams.length, 0);
+
+const rules = [
+  {
+    title: 'В тон кирпичу',
+    text: 'Шов близок по цвету к кирпичу — например, бежевый к соломенному или светлый к слоновой кости. Стена читается одной спокойной плоскостью.',
+    ton: 'beige',
+  },
+  {
+    title: 'Контраст',
+    text: 'Белый шов на красном и коричневом кирпиче, тёмный — на белом и сером. Рисунок кладки становится графичным, но контрастный шов подчёркивает и каждую неровность — нужна аккуратная кладка.',
+    ton: 'white',
+  },
+  {
+    title: 'Тёмное к тёмному',
+    text: 'Общее правило: для тёмного кирпича — тёмный раствор, для светлого — светлый или нейтральный.',
+    ton: 'grey',
+  },
+];
+---
+
+<Page
+  title="Подбор цвета шва под кирпич — как будет выглядеть кладка"
+  description={`Посмотрите, как выглядит кирпич Старого Оскола и Железногорска с белым, серым, чёрным и коричневым швом: ${framesCount} вариантов кладки. Подберите тон и цветную кладочную смесь.`}
+  slug="podbor-shva"
+  current="podbor"
+  source="podbor"
+  priceModal={false}
+>
+  <PageHead
+    kicker="Подбор шва"
+    h1="Как будет выглядеть шов на вашем кирпиче"
+    crumb="Подбор шва под кирпич"
+    lead={`Выберите цвет кирпича и переключайте цвет шва: ${bricksCount} цветов кирпича двух заводов, до восьми вариантов шва у каждого. Понравившийся тон — сразу в каталог смесей.`}
+    tone="base"
+  />
+
+  <Section pad="sm" bg="base">
+    <JointPicker variant="full" start={start} id="podbor-jp" />
+  </Section>
+
+  <Section kicker="Как выбирать" title="Три подхода к цвету шва" bg="alt">
+    <ul class="rules" data-reveal-stagger>
+      {rules.map((r, i) => (
+        <li class="rule">
+          <span class="rule__num" aria-hidden="true">0{i + 1}</span>
+          <h3 class="rule__title">{r.title}</h3>
+          <p>{r.text}</p>
+          <a class="rule__link" href={`${PAGES.katalog.href}?ton=${r.ton}`}>Подходящие смеси <span aria-hidden="true">→</span></a>
+        </li>
+      ))}
+    </ul>
+    <p class="rules__note">
+      Кадры — визуализации кладки, а не фотографии: цвет на экране приблизительный. Оттенок готового шва
+      зависит от количества воды и способа расшивки, поэтому перед заказом партии стоит сделать пробную кладку.
+    </p>
+  </Section>
+
+  <CtaBand
+    source="podbor"
+    title="Сомневаетесь в цвете шва?"
+    text="Назовите кирпич — подскажем, какой шов к нему подойдёт, и подберём смесь нужной серии."
+  />
+</Page>
+
+<style>
+  .rules { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 860px) { .rules { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .rule { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); }
+  .rule p { margin: 0; color: var(--color-text-soft); }
+  .rule__num { font-family: var(--font-head); font-weight: 800; color: var(--color-accent-text); }
+  .rule__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
+  .rule__link { margin-top: auto; font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
+  .rule__link:hover { text-decoration: underline; }
+  .rules__note { max-width: 68ch; margin: var(--space-6) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
+</style>

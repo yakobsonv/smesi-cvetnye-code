@@ -1,0 +1,26 @@
+---
+// Положение об обработке персональных данных. Оператор — ООО «Кирпичный трест», текст — его же
+// опубликованный документ (src/data/legal.ts), подставляется только адрес сайта. На сайте есть
+// форма с именем и телефоном, поэтому страница обязательна: ссылка из формы ведёт сюда.
+import Page from '../layouts/Page.astro';
+import Container from '../components/layout/Container.astro';
+import Breadcrumbs from '../components/layout/Breadcrumbs.astro';
+import LegalDoc from '../components/content/LegalDoc.astro';
+import { REGULATION_BLOCKS, fillLegal } from '../data/legal';
+import { PREVIEW_ORIGIN } from '../lib/sites';
+import { PAGES } from '../data/nav';
+
+const blocks = fillLegal(REGULATION_BLOCKS, PREVIEW_ORIGIN);
+---
+
+<Page
+  title="Положение об обработке персональных данных — Кирпичный трест"
+  description="Положение об обработке персональных данных ООО «Кирпичный трест»: цели и порядок обработки, права субъекта, сроки хранения и меры защиты."
+  slug="regulation"
+  priceModal={false}
+>
+  <Container>
+    <Breadcrumbs site="smesi" trail={[{ label: 'Главная', href: PAGES.home.href }, { label: 'Положение об обработке персональных данных' }]} />
+  </Container>
+  <LegalDoc blocks={blocks} />
+</Page>

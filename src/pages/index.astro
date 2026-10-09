@@ -1,0 +1,274 @@
+---
+// Главная: входная страница под самый сильный общий запрос «цветная кладочная смесь
+// (для облицовочного кирпича)» — план страниц, волна 1, № 1. Ведёт дальше: выбор по кирпичу,
+// серии, оттенки, подбор шва, расход, заявка.
+// Факты — только из данных (src/data/*): ассортимент дилера, кадры клиента, характеристики
+// производителей с источниками. Цен нет намеренно (см. src/data/catalog.ts).
+//
+// «Швы — 15–20 % площади фасада» — утверждение самого дилера (вопросы и ответы на его сайтах
+// кирпича Старого Оскола и Железногорска: «Швы составляют до 15-20% площади фасада»).
+import Page from '../layouts/Page.astro';
+import Container from '../components/layout/Container.astro';
+import Section from '../components/layout/Section.astro';
+import JointPicker from '../components/smesi/JointPicker.astro';
+import BrickTypes from '../components/smesi/BrickTypes.astro';
+import SeriesCard from '../components/smesi/SeriesCard.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import { KLADKA } from '../data/kladka';
+import { POSITIONS, SERIES, TONES, PEREL_COLORS, OSNOVIT_COLORS, PEREL_RL_COLORS, type Tone } from '../data/catalog';
+import { swatchFor } from '../data/swatches';
+import { PAGES } from '../data/nav';
+import { OFFICES } from '../lib/sites';
+
+// стартовый кирпич первого экрана: красный старооскольский, если есть; иначе первый
+const heroBrick = KLADKA.find((b) => b.id === 'osmibt-krasnyj') ?? KLADKA[0];
+
+// Сколько разных оттенков шва у дилера: названия цветов всех палитр без повторов.
+const uniqueColors = new Set([...PEREL_COLORS, ...PEREL_RL_COLORS, ...OSNOVIT_COLORS].map((c) => c.name)).size;
+
+// Тот же кирпич с тремя разными швами — чтобы показать, насколько шов меняет фасад.
+const demoBrick = heroBrick;
+const demo = ['white', 'grey', 'black']
+  .map((id) => demoBrick?.seams.find((s) => s.id === id))
+  .filter((s): s is NonNullable<typeof s> => Boolean(s));
+
+// Оттенки по группам: сколько позиций и чем показать плашку группы.
+const toneOrder: Tone[] = ['white', 'grey', 'black', 'beige', 'brown', 'yellow', 'red', 'accent'];
+const tones = toneOrder
+  .map((t) => {
+    const ps = POSITIONS.filter((p) => p.color.tone === t);
+    const sample = [...new Map(ps.map((p) => [p.color.name, swatchFor(p.series, p.color.code)])).values()].slice(0, 6);
+    return { t, label: TONES[t], count: ps.length, names: [...new Set(ps.map((p) => p.color.name))], sample };
+  })
+  .filter((x) => x.count > 0);
+
+const kladka = SERIES.filter((s) => s.purpose === 'kladka');
+const rasshivka = SERIES.filter((s) => s.purpose === 'rasshivka');
+---
+
+<Page
+  title="Цветные кладочные смеси для облицовочного кирпича — Perel и Основит в Москве"
+  description={`Цветные кладочные смеси Perel и Основит: ${POSITIONS.length} позиций для клинкера, обычного кирпича и кирпича ручной формовки, растворы для расшивки швов. Подбор цвета шва под кирпич, расчёт мешков, два офиса продаж в Москве.`}
+  current="home"
+  source="home"
+>
+  <section class="hero">
+    <Container>
+      <div class="hero__grid">
+        <div class="hero__text">
+          <p class="hero__kicker" data-reveal>Москва и Московская область</p>
+          <h1 class="hero__title" data-reveal="head">Цветные кладочные смеси для облицовочного кирпича</h1>
+          <p class="hero__lead" data-reveal>
+            Perel и Основит — смеси для клинкера, обычного кирпича и кирпича ручной формовки,
+            растворы для расшивки швов. Подберём цвет шва под ваш кирпич и посчитаем, сколько нужно мешков.
+          </p>
+          <div class="hero__actions" data-reveal>
+            <a class="btn btn--primary btn--lg" href={PAGES.podbor.href}>Подобрать цвет шва</a>
+            <a class="btn btn--ghost-inv btn--lg" href={PAGES.katalog.href}>Каталог цветов</a>
+          </div>
+          <ul class="hero__stats" data-reveal-stagger>
+            <li><b data-count={POSITIONS.length}>{POSITIONS.length}</b><span>позиций в каталоге</span></li>
+            <li><b data-count={uniqueColors}>{uniqueColors}</b><span>оттенков шва</span></li>
+            <li><b>{OFFICES.length}</b><span>офиса продаж в Москве</span></li>
+          </ul>
+        </div>
+        <div class="hero__picker" data-reveal>
+          {heroBrick && <JointPicker variant="compact" start={heroBrick.id} id="hero-jp" />}
+        </div>
+      </div>
+    </Container>
+  </section>
+
+  {demo.length === 3 && (
+    <Section kicker="Почему цвет шва важен" title="Швы — до 15–20 % площади фасада" bg="base">
+      <p class="lead" data-reveal>
+        Цвет раствора меняет дом почти так же сильно, как цвет самого кирпича. Ниже — один и тот же
+        {' '}{demoBrick?.brick} кирпич с тремя разными швами.
+      </p>
+      <ul class="trio" data-reveal-stagger>
+        {demo.map((s) => (
+          <li>
+            <figure>
+              <img src={s.src} srcset={`${s.srcSm} 320w, ${s.src} ${s.w}w`} sizes="(min-width: 860px) 31vw, 92vw" width={s.w} height={s.h} loading="lazy" alt={`${demoBrick?.brick} кирпич, ${s.label} шов`} />
+              <figcaption>Шов {s.label}</figcaption>
+            </figure>
+          </li>
+        ))}
+      </ul>
+      <p class="trio__note">Визуализации кладки из материалов дилера. <a href={PAGES.podbor.href}>Все сочетания кирпича и шва →</a></p>
+    </Section>
+  )}
+
+  <Section
+    id="vybor"
+    kicker="Как выбрать смесь"
+    title="Смесь подбирают по кирпичу"
+    subtitle="Производители делят цветные кладочные смеси по водопоглощению кирпича: клинкеру, обычному облицовочному кирпичу и кирпичу ручной формовки нужен разный раствор. Водопоглощение указано в паспорте кирпича."
+    bg="alt"
+  >
+    <BrickTypes />
+  </Section>
+
+  <Section id="serii" kicker="Каталог" title="Серии Perel и Основит" bg="base">
+    <h3 class="sub">Кладочные смеси — кладка и цветной шов за один проход</h3>
+    <ul class="cards" data-reveal-stagger>
+      {kladka.map((s) => <li><SeriesCard id={s.id} /></li>)}
+    </ul>
+    <h3 class="sub">Для расшивки и заполнения швов готовой кладки</h3>
+    <ul class="cards cards--2" data-reveal-stagger>
+      {rasshivka.map((s) => <li><SeriesCard id={s.id} /></li>)}
+    </ul>
+  </Section>
+
+  <Section id="ottenki" kicker="Оттенки" title="Выберите тон шва" bg="alt">
+    <ul class="tones" data-reveal-stagger>
+      {tones.map((x) => (
+        <li>
+          <a class="tone" href={`${PAGES.katalog.href}?ton=${x.t}`}>
+            <span class="tone__strip" aria-hidden="true">{x.sample.map((c) => <span style={`--c:${c}`}></span>)}</span>
+            <span class="tone__label">{x.label}</span>
+            <span class="tone__names">{x.names.slice(0, 4).join(', ')}{x.names.length > 4 ? '…' : ''}</span>
+            <span class="tone__count">{x.count} поз.</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+    <p class="tones__note">Цвет на экране приблизительный: плашки сняты с палитр производителей.</p>
+  </Section>
+
+  <Section id="populyarnoe" kicker="Часто ищут" title="С чего обычно начинают" bg="base">
+    <ul class="tiles" data-reveal-stagger>
+      <li><a class="tile" href={PAGES.belaya.href}><span class="tile__chip" style="--c:#f3f0ea" aria-hidden="true"></span><b>Белая кладочная смесь</b><span>белый и супер-белый шов у Perel и Основит</span></a></li>
+      <li><a class="tile" href={PAGES.chernaya.href}><span class="tile__chip" style="--c:#2a2826" aria-hidden="true"></span><b>Чёрная и графитовая</b><span>тёмный шов у Perel и Основит</span></a></li>
+      <li><a class="tile" href={PAGES.klinker.href}><span class="tile__chip tile__chip--brick" aria-hidden="true"></span><b>Для клинкерного кирпича</b><span>низкое водопоглощение — своя смесь</span></a></li>
+      <li><a class="tile" href={PAGES.kalkulyator.href}><span class="tile__chip tile__chip--calc" aria-hidden="true">кг</span><b>Калькулятор расхода</b><span>сколько мешков на вашу кладку</span></a></li>
+    </ul>
+  </Section>
+
+  <CtaBand source="home" />
+</Page>
+
+<style>
+  .hero {
+    position: relative;
+    padding: clamp(32px, 5vw, 72px) 0 clamp(48px, 6vw, 96px);
+    background: var(--color-dark);
+    color: var(--color-on-dark);
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(60% 70% at 85% 30%, var(--hero-glow) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero__grid { position: relative; display: grid; gap: var(--space-7); align-items: center; }
+  .hero__kicker {
+    margin: 0 0 var(--space-4);
+    font-size: var(--fs-tiny);
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-brand-on-dark);
+  }
+  .hero__title {
+    margin: 0;
+    font-family: var(--font-head);
+    font-weight: var(--fw-head);
+    font-size: var(--fs-h1);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    max-width: 14ch;
+    text-wrap: balance;
+  }
+  .hero__lead { max-width: 52ch; margin: var(--space-5) 0 0; font-size: var(--fs-lead); color: rgb(255 255 255 / 0.8); }
+  .hero__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
+  .hero__stats { display: flex; flex-wrap: wrap; gap: var(--space-6); margin: var(--space-7) 0 0; padding: var(--space-5) 0 0; list-style: none; border-top: 1px solid rgb(255 255 255 / 0.16); }
+  .hero__stats li { display: flex; flex-direction: column; }
+  .hero__stats b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-stat); }
+  .hero__stats span { font-size: var(--fs-small); color: rgb(255 255 255 / 0.72); }
+
+  @media (min-width: 960px) {
+    .hero__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr); gap: clamp(40px, 5vw, 80px); }
+  }
+
+  .lead { max-width: 62ch; margin: 0 0 var(--space-6); font-size: var(--fs-lead); color: var(--color-text-soft); }
+
+  .trio { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  .trio figure { margin: 0; }
+  .trio img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius); }
+  .trio figcaption { margin-top: var(--space-2); font-weight: 600; }
+  .trio__note { margin: var(--space-5) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
+  .trio__note a { color: var(--color-accent-text); font-weight: 600; }
+  @media (min-width: 640px) { .trio { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+  .sub { margin: var(--space-7) 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .sub:first-of-type { margin-top: 0; }
+  .cards { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 700px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1080px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  .tones { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  .tone {
+    display: grid;
+    gap: var(--space-2);
+    height: 100%;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: translate var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  .tone:hover { translate: 0 -3px; box-shadow: var(--shadow-card); }
+  .tone__strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: 44px; overflow: hidden; border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08); }
+  .tone__strip span { background: var(--c); }
+  .tone__label { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .tone__names { font-size: var(--fs-small); color: var(--color-text-soft); }
+  .tone__count { font-size: var(--fs-tiny); color: var(--color-muted); }
+  .tones__note { margin: var(--space-5) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
+
+  .tiles { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 700px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1080px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    height: 100%;
+    padding: var(--space-5);
+    border-radius: var(--radius);
+    background: var(--color-bg-alt);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: background var(--dur) var(--ease), translate var(--dur) var(--ease);
+  }
+  .tile:hover { background: var(--color-brand-soft); translate: 0 -3px; }
+  .tile b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .tile span:not(.tile__chip) { color: var(--color-text-soft); font-size: var(--fs-small); }
+  .tile__chip {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: var(--space-2);
+    border-radius: 12px;
+    background: var(--c, var(--color-brand));
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+    color: #fff;
+    font-weight: 800;
+  }
+  .tile__chip--brick {
+    background:
+      linear-gradient(#e9e3d9 0 0) 0 15px / 100% 3px no-repeat,
+      linear-gradient(#e9e3d9 0 0) 0 31px / 100% 3px no-repeat,
+      linear-gradient(#e9e3d9 0 0) 22px 0 / 3px 15px no-repeat,
+      linear-gradient(#e9e3d9 0 0) 10px 18px / 3px 13px no-repeat,
+      linear-gradient(#e9e3d9 0 0) 32px 18px / 3px 13px no-repeat,
+      linear-gradient(#e9e3d9 0 0) 22px 34px / 3px 14px no-repeat,
+      #7a3b26;
+  }
+  .tile__chip--calc { background: var(--color-dark); }
+</style>

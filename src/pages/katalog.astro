@@ -1,0 +1,236 @@
+---
+// Каталог — весь ассортимент дилера Perel и Основит на одной странице (план, волна 1, № 2).
+// Карточки на каждую позицию НЕ делаем (≈120 тонких страниц): позиция — образец в сетке
+// своей серии, клик открывает окно «Узнать цену» с этой позицией.
+// Фильтры работают без перезагрузки и пишут выбор в адрес (?kirpich=…&ton=…&brend=…&dlya=…),
+// поэтому с главной и других страниц можно прийти сразу в нужный срез.
+// Без JS видны все серии целиком — фильтры просто не работают.
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Container from '../components/layout/Container.astro';
+import SwatchGrid from '../components/smesi/SwatchGrid.astro';
+import SwatchNote from '../components/smesi/SwatchNote.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import { SERIES, BRICK_TYPES, BRANDS, TONES, POSITIONS, ALSO_FOR, type BrickType, type Tone } from '../data/catalog';
+import { swatchFor } from '../data/swatches';
+import { localPath } from '../lib/sites';
+
+const typeOrder: BrickType[] = ['obychnyj', 'ruchnoj', 'klinker'];
+const toneOrder: Tone[] = ['white', 'grey', 'black', 'beige', 'brown', 'yellow', 'red', 'accent'];
+const toneSample = (t: Tone) => {
+  const p = POSITIONS.find((x) => x.color.tone === t);
+  return p ? swatchFor(p.series, p.color.code) : '#bdb6ab';
+};
+
+const itemList = {
+  '@type': 'ItemList',
+  name: 'Цветные кладочные смеси и растворы для расшивки швов',
+  numberOfItems: SERIES.length,
+  itemListElement: SERIES.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s.name })),
+};
+---
+
+<Page
+  title="Каталог цветных кладочных смесей Perel и Основит — все цвета шва"
+  description={`Каталог цветных кладочных смесей: ${POSITIONS.length} позиций Perel SL, VL, NL и Основит Брикформ МС11, МС11/1, растворы для расшивки Perel RL и Основит Бриксэйв ХС30. Фильтр по кирпичу, производителю и цвету шва.`}
+  slug="katalog"
+  current="katalog"
+  source="katalog"
+  jsonLd={[itemList]}
+>
+  <PageHead
+    kicker="Каталог"
+    h1="Цветные кладочные смеси"
+    crumb="Каталог"
+    lead={`Perel и Основит — ${POSITIONS.length} позиций. Выберите кирпич, производителя и тон шва; нажмите на образец, чтобы узнать цену и наличие.`}
+  />
+
+  <section class="kat" data-kat>
+    <Container>
+      <form class="flt" data-flt aria-label="Фильтр каталога" onsubmit="return false">
+        <fieldset class="flt__group">
+          <legend class="flt__label">Кирпич</legend>
+          <div class="flt__opts">
+            <label class="flt__opt"><input type="radio" name="kirpich" value="" checked /><span>Любой</span></label>
+            {typeOrder.map((t) => (
+              <label class="flt__opt"><input type="radio" name="kirpich" value={t} /><span>{BRICK_TYPES[t].short} <small>{BRICK_TYPES[t].absorption}</small></span></label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset class="flt__group">
+          <legend class="flt__label">Назначение</legend>
+          <div class="flt__opts">
+            <label class="flt__opt"><input type="radio" name="dlya" value="" checked /><span>Всё</span></label>
+            <label class="flt__opt"><input type="radio" name="dlya" value="kladka" /><span>Кладка</span></label>
+            <label class="flt__opt"><input type="radio" name="dlya" value="rasshivka" /><span>Расшивка швов</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="flt__group">
+          <legend class="flt__label">Производитель</legend>
+          <div class="flt__opts">
+            <label class="flt__opt"><input type="radio" name="brend" value="" checked /><span>Все</span></label>
+            {(Object.keys(BRANDS) as (keyof typeof BRANDS)[]).map((b) => (
+              <label class="flt__opt"><input type="radio" name="brend" value={b} /><span>{BRANDS[b].name}</span></label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset class="flt__group flt__group--tones">
+          <legend class="flt__label">Тон шва</legend>
+          <div class="flt__opts">
+            <label class="flt__opt"><input type="radio" name="ton" value="" checked /><span>Любой</span></label>
+            {toneOrder.map((t) => (
+              <label class="flt__opt flt__opt--tone">
+                <input type="radio" name="ton" value={t} />
+                <span><i style={`--c:${toneSample(t)}`} aria-hidden="true"></i>{TONES[t]}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <p class="flt__count" aria-live="polite"><span data-flt-count>{POSITIONS.length}</span> поз. <button type="button" class="flt__reset" data-flt-reset hidden>Сбросить фильтр</button></p>
+      </form>
+
+      <div class="kat__list">
+        {SERIES.map((s) => {
+          const types = [s.brickType, ...(ALSO_FOR[s.id] ?? [])].filter(Boolean).join(' ');
+          return (
+            <section class="ser" id={s.id} data-ser data-brand={s.brand} data-purpose={s.purpose} data-types={types}>
+              <header class="ser__head">
+                <div>
+                  <h2 class="ser__title">{s.name}</h2>
+                  <p class="ser__short">
+                    {s.short}
+                    {s.brickType && <Fragment> · водопоглощение кирпича {BRICK_TYPES[s.brickType].absorption}</Fragment>}
+                    {' '}· мешок {s.packKg} кг
+                  </p>
+                </div>
+                <a class="ser__more" href={`${localPath('smesi', s.page)}#${s.id}`}>Характеристики <span aria-hidden="true">→</span></a>
+              </header>
+              <SwatchGrid series={s.id} />
+            </section>
+          );
+        })}
+        <p class="kat__empty" data-kat-empty hidden>
+          Под такой набор фильтров позиций нет. Попробуйте другой тон или сбросьте фильтр — а если нужен
+          редкий цвет, позвоните: подскажем ближайший.
+        </p>
+      </div>
+      <SwatchNote />
+    </Container>
+  </section>
+
+  <CtaBand source="katalog" title="Не нашли нужный оттенок?" text="Назовите кирпич и желаемый цвет шва — подскажем ближайшую позицию и посчитаем количество мешков." />
+</Page>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-flt]');
+  const sers = [...document.querySelectorAll<HTMLElement>('[data-ser]')];
+  const empty = document.querySelector<HTMLElement>('[data-kat-empty]');
+  const count = document.querySelector<HTMLElement>('[data-flt-count]');
+  const reset = document.querySelector<HTMLButtonElement>('[data-flt-reset]');
+  const KEYS = ['kirpich', 'dlya', 'brend', 'ton'] as const;
+
+  const read = () => Object.fromEntries(KEYS.map((k) => [k, (form?.elements.namedItem(k) as RadioNodeList | null)?.value ?? ''])) as Record<(typeof KEYS)[number], string>;
+
+  const apply = (push = true) => {
+    if (!form) return;
+    const f = read();
+    let shown = 0;
+    sers.forEach((ser) => {
+      const okSeries =
+        (!f.brend || ser.dataset.brand === f.brend) &&
+        (!f.dlya || ser.dataset.purpose === f.dlya) &&
+        (!f.kirpich || (ser.dataset.types || '').split(' ').includes(f.kirpich));
+      let inSer = 0;
+      ser.querySelectorAll<HTMLElement>('[data-tone]').forEach((li) => {
+        const ok = okSeries && (!f.ton || li.dataset.tone === f.ton);
+        li.hidden = !ok;
+        if (ok) inSer++;
+      });
+      ser.hidden = inSer === 0;
+      shown += inSer;
+    });
+    if (count) count.textContent = String(shown);
+    if (empty) empty.hidden = shown > 0;
+    const any = KEYS.some((k) => f[k]);
+    if (reset) reset.hidden = !any;
+    if (push) {
+      const url = new URL(location.href);
+      KEYS.forEach((k) => (f[k] ? url.searchParams.set(k, f[k]) : url.searchParams.delete(k)));
+      history.replaceState(null, '', url);
+    }
+  };
+
+  if (form) {
+    // выбор из адреса: ?kirpich=klinker&ton=white
+    const params = new URLSearchParams(location.search);
+    KEYS.forEach((k) => {
+      const v = params.get(k);
+      if (!v) return;
+      const input = form.querySelector<HTMLInputElement>(`input[name="${k}"][value="${CSS.escape(v)}"]`);
+      if (input) input.checked = true;
+    });
+    form.addEventListener('change', () => apply());
+    reset?.addEventListener('click', () => {
+      KEYS.forEach((k) => {
+        const first = form.querySelector<HTMLInputElement>(`input[name="${k}"][value=""]`);
+        if (first) first.checked = true;
+      });
+      apply();
+    });
+    apply(false);
+  }
+</script>
+
+<style>
+  .kat { padding: clamp(28px, 4vw, 48px) 0 clamp(48px, 6vw, 88px); }
+
+  .flt {
+    display: grid;
+    gap: var(--space-4);
+    margin-bottom: var(--space-7);
+    padding: var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+  .flt__group { margin: 0; padding: 0; border: 0; min-width: 0; }
+  .flt__label { margin-bottom: var(--space-2); padding: 0; font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-muted); }
+  .flt__opts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .flt__opt { position: relative; }
+  .flt__opt input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .flt__opt span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 6px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    font-size: var(--fs-small);
+    background: var(--color-surface);
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .flt__opt span small { color: var(--color-muted); font-size: var(--fs-tiny); }
+  .flt__opt input:checked + span { border-color: var(--color-text); background: var(--color-text); color: var(--color-bg); }
+  .flt__opt input:checked + span small { color: rgb(255 255 255 / 0.75); }
+  .flt__opt input:focus-visible + span { outline: var(--focus-ring) solid var(--color-brand); outline-offset: 2px; }
+  .flt__opt:hover span { border-color: var(--color-text); }
+  .flt__opt--tone i { width: 16px; height: 16px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2); }
+  .flt__count { margin: 0; font-weight: 700; display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+  .flt__reset { padding: 0; border: 0; background: none; color: var(--color-accent-text); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+
+  @media (min-width: 1080px) {
+    .flt { grid-template-columns: repeat(3, auto) 1fr; align-items: start; column-gap: var(--space-7); }
+    .flt__group--tones, .flt__count { grid-column: 1 / -1; }
+  }
+
+  .kat__list { display: grid; gap: clamp(40px, 5vw, 64px); }
+  .ser[hidden] { display: none; }
+  .ser__head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-3) var(--space-6); margin-bottom: var(--space-5); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border); }
+  .ser__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
+  .ser__short { margin: var(--space-1) 0 0; color: var(--color-text-soft); font-size: var(--fs-small); }
+  .ser__more { font-weight: 700; color: var(--color-accent-text); text-decoration: none; white-space: nowrap; }
+  .ser__more:hover { text-decoration: underline; }
+  .ser :global([data-tone][hidden]) { display: none; }
+  .kat__empty { padding: var(--space-6); border-radius: var(--radius); background: var(--color-bg-alt); }
+</style>

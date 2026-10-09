@@ -1,0 +1,186 @@
+/* Токены оформления сайта «Цветные кладочные смеси».
+   Общая база (из механики recke-code) + одна тема: <html data-site="smesi">.
+   Правило: компоненты используют только семантические токены (--color-brand, --fs-h2),
+   а не сырые hex.
+
+:root {
+  /* ==== СЕТКА ==== */
+  --container: 1170px;          /* родная ширина всех трёх сайтов */
+  --container-narrow: 820px;    /* для длинных текстов */
+  --gutter: 16px;               /* поля на телефоне */
+  --gutter-md: 24px;
+  --gutter-lg: 35px;            /* на боевых блоки стоят на left:33–38 */
+  --grid-gap: 20px;             /* шаг каталожной сетки (352 + 20 = 372) */
+
+  /* ==== ОТСТУПЫ ==== */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* Вертикальный ритм секций (на боевых его нет — высоты жёсткие в px) */
+  --section-pad-sm: clamp(20px, 3vw, 32px);
+  --section-pad-md: clamp(32px, 5vw, 64px);
+  --section-pad-lg: clamp(48px, 7vw, 96px);
+
+  /* ==== ЦВЕТ: нейтральная база ==== */
+  --color-text: #1d1d1d;        /* доминанта видимого текста на всех сайтах */
+  --color-text-soft: #454545;
+  --color-muted: #7a7a7a;
+  --color-bg: #ffffff;
+  --color-bg-alt: #f6f6f6;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f9f9f9;
+  --color-border: #d7d7d7;
+  --color-border-soft: #e6e6e6;
+  --color-border-strong: #1e1e1e; /* контур ghost-кнопки, так на боевых */
+  --color-dark: #1b1b1b;
+  --color-on-dark: #ffffff;
+  --color-success: #1abd00;
+  --color-error: #c0392b;
+
+  /* Бренд — перекрывается темой. База = нейтральный тёмный, чтобы без темы ничего не «светилось». */
+  --color-brand: #1d1d1d;
+  --color-brand-strong: #000000;
+  --color-brand-soft: #f2f2f2;    /* светлая подложка бренд-акцента */
+  --color-accent-text: #1d1d1d;   /* акцент в тексте */
+  --color-on-brand: #ffffff;      /* текст на бренд-заливке */
+  --color-brand-fill: var(--color-brand); /* заливка primary-кнопки (у Стелларда — градиент) */
+  --color-link: var(--color-accent-text);
+
+  /* ==== ТИПОГРАФИКА ==== */
+  /* TODO: шрифты пока системные. Самохост woff2 (Montserrat/Roboto/Inter) — шаг импорта ассетов,
+     файлы лежат в kirpichtrest-vercel/public/assets/*; лицензия Rounds (ЖКЗ) не подтверждена. */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-head: var(--font-body);
+  --fw-head: 700;               /* вес заголовков; Оскол поднимает до 800 */
+  --lh-body: 1.4;               /* 140% — единый на трёх сайтах */
+  --lh-head: 1.15;              /* чуть плотнее 120% — крупные заголовки дышат лучше */
+  --tracking: 0;
+
+  /* Тайпскейл через clamp: снимает ручную подрезку заголовков (60/56/54/47px у Оскола) */
+  --fs-h1: clamp(30px, 5.2vw, 48px);
+  --fs-h2: clamp(23px, 3.2vw, 34px);
+  --fs-h3: clamp(19px, 2.1vw, 24px);
+  --fs-h4: clamp(17px, 1.8vw, 20px);
+  --fs-body: 17px;
+  --fs-lead: clamp(18px, 2vw, 21px);
+  --fs-small: 15px;
+  --fs-tiny: 13px;
+  --fs-price: clamp(30px, 4vw, 44px);     /* на боевых 50px десктоп / 30px мобайл */
+  --fs-currency: clamp(20px, 2.4vw, 28px); /* «₽» — отдельный кегль */
+
+  /* ==== РАДИУСЫ / ТЕНИ ==== */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-card: 0 4px 11px 2px rgba(0, 0, 0, 0.12);
+  --shadow-lift: 0 8px 24px 2px rgba(0, 0, 0, 0.18);
+
+  /* ==== КНОПКИ ==== */
+  --btn-radius: var(--radius);
+  --btn-pad-y: 14px;
+  --btn-pad-x: 26px;
+  --btn-fs: 16px;
+  --btn-weight: 700;
+  --btn-transform: none;        /* капса в CSS нет: на боевых он набран в тексте */
+
+  /* ==== ФОРМЫ ==== */
+  --field-h: 48px;              /* на боевых 40px; 48 — минимум для пальца */
+  --field-radius: 6px;
+  --field-border: #c7c7c7;
+  --field-bg: #ffffff;
+  --field-fs: 16px;             /* <16px iOS зумит страницу при фокусе */
+  --field-pad-x: 14px;
+
+  /* ==== ПРОЧЕЕ ==== */
+  --tap: 44px;                  /* минимальная кликабельная зона */
+  --dur: 200ms;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --focus-ring: 3px;
+  --overlay: rgba(0, 0, 0, 0.55);
+  --hero-overlay: 0.35;         /* затемнение фото первого экрана */
+  --z-header: 100;
+  --z-modal: 1000;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: var(--gutter-md);
+    --fs-body: 18px;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --gutter: var(--gutter-lg);
+  }
+}
+
+/* ─────────────────────────── ЦВЕТНЫЕ СМЕСИ ───────────────────────────
+   Тема сайта о цветном шве. Тёплая бумажная база, почти чёрный текст, один акцент —
+   терракота (цвет обожжённой глины и тёплого шва). Цвет на странице даёт товар:
+   образцы шва и кадры кладки, поэтому интерфейс намеренно сдержанный.
+   Контраст замерен (WCAG, 09.10.2026), не на глаз:
+     акцент #9a4f24 — на белом 5,97:1, на бумаге #f5f1ea 5,30:1, белый на заливке 5,97:1;
+     приглушённый #6b655d — на белом 5,76:1, на бумаге 5,12:1, на #ece6dc 4,64:1;
+     акцент на тёмной подложке #e3a77a на #1b1916 — 8,41:1. */
+:root[data-site="smesi"] {
+  --color-brand: #9a4f24;
+  --color-brand-strong: #7d4320;
+  --color-brand-hover: #7d4320;
+  --color-brand-soft: #f6ece4;
+  --color-accent-text: #9a4f24;
+  --color-on-brand: #ffffff;
+  --color-brand-fill: #9a4f24;
+  --color-brand-on-dark: #e3a77a;
+
+  --color-bg: #ffffff;
+  --color-bg-alt: #f5f1ea;
+  --color-surface: #ffffff;
+  --color-surface-alt: #faf8f4;
+  --color-dark: #1b1916;
+  --color-on-dark: #ffffff;
+  --color-text: #1c1a17;
+  --color-text-soft: #55504a;
+  --color-muted: #6b655d;
+  --color-border: #e2dbd0;
+  --color-border-soft: #ece6dc;
+  --color-border-strong: #1c1a17;
+
+  --font-head: "Manrope", "Onest", system-ui, Arial, sans-serif;
+  --font-body: "Onest", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --fw-head: 800;
+  --tracking: -0.01em;
+
+  --fs-h1: clamp(34px, 5.6vw, 76px);
+  --fs-h2: clamp(26px, 3.6vw, 46px);
+  --fs-h3: clamp(19px, 1.9vw, 25px);
+  --fs-h4: clamp(17px, 1.5vw, 20px);
+  --fs-body: 17px;
+  --fs-lead: clamp(17px, 1.45vw, 20px);
+  --fs-small: 15px;
+  --fs-tiny: 13px;
+  --fs-stat: clamp(22px, 2.2vw, 30px);
+
+  --radius-sm: 6px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --btn-radius: 999px;
+  --shadow-card: 0 14px 36px -20px rgba(28, 26, 23, 0.45);
+  --shadow-lift: 0 26px 56px -24px rgba(28, 26, 23, 0.5);
+
+  --hero-grad: linear-gradient(180deg, rgb(20 18 15 / 0.62) 0%, rgb(20 18 15 / 0.5) 45%, rgb(20 18 15 / 0.8) 100%);
+  --hero-glow: rgb(154 79 36 / 0.2);
+  --hero-glow-soft: rgb(154 79 36 / 0.08);
+}
+
+@media (min-width: 768px) {
+  :root[data-site="smesi"] { --fs-body: 18px; }
+}

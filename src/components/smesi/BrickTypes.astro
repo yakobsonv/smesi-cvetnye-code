@@ -1,0 +1,64 @@
+---
+// Три ступени выбора по водопоглощению кирпича — так делят смеси и производители, и сам дилер
+// (подразделы tk-sm.ru: «Клинкерный кирпич 0-5%», «Обычный кирпич 5-12%», «Ручная формовка 10-17%»).
+// Каждая карточка ведёт в каталог с уже выбранным типом.
+import { BRICK_TYPES, seriesFor, type BrickType } from '../../data/catalog';
+import { PAGES } from '../../data/nav';
+
+interface Props { class?: string }
+const { class: className } = Astro.props;
+const order: BrickType[] = ['obychnyj', 'ruchnoj', 'klinker'];
+---
+
+<ol class:list={['bt', className]} data-reveal-stagger>
+  {order.map((t, i) => {
+    const info = BRICK_TYPES[t];
+    const series = seriesFor(t);
+    return (
+      <li class="bt__item">
+        <a class="bt__card" href={`${PAGES.katalog.href}?kirpich=${t}`}>
+          <span class="bt__num" aria-hidden="true">0{i + 1}</span>
+          <span class="bt__label">{info.label}</span>
+          <span class="bt__abs">водопоглощение <b>{info.absorption}</b></span>
+          <span class="bt__series">
+            {series.map((s) => <span class="bt__chip">{s.name}</span>)}
+          </span>
+          <span class="bt__more">Смотреть смеси <span aria-hidden="true">→</span></span>
+        </a>
+      </li>
+    );
+  })}
+</ol>
+
+<style>
+  .bt { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  .bt__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    height: 100%;
+    padding: var(--space-6) var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  .bt__card:hover { border-color: var(--color-brand); translate: 0 -4px; box-shadow: var(--shadow-card); }
+  .bt__num { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-small); color: var(--color-accent-text); }
+  .bt__label { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); line-height: 1.15; }
+  .bt__abs { color: var(--color-text-soft); }
+  .bt__abs b { color: var(--color-text); }
+  .bt__series { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .bt__chip {
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-alt);
+    font-size: var(--fs-tiny);
+    font-weight: 600;
+  }
+  .bt__more { margin-top: auto; padding-top: var(--space-3); font-weight: 700; color: var(--color-accent-text); }
+
+  @media (min-width: 860px) { .bt { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+</style>

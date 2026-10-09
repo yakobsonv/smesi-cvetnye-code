@@ -1,0 +1,45 @@
+---
+// Обёртка всех страниц сайта: Base + меню, шапка, подвал и окно «Узнать цену» по умолчанию.
+// Страница передаёт только своё: title, description, slug, current и содержимое.
+import Base from './Base.astro';
+import PriceModal from '../components/smesi/PriceModal.astro';
+import { mainNav, footerColumns, PAGES, type PageKey } from '../data/nav';
+
+interface Props {
+  title: string;
+  description: string;
+  slug?: string;
+  current?: PageKey;
+  jsonLd?: (Record<string, unknown> | null | undefined)[];
+  ogImage?: string;
+  /** окно «Узнать цену» (по клику на образец) — есть на странице, если на ней есть образцы */
+  priceModal?: boolean;
+  /** откуда заявка: 'katalog', 'perel'… */
+  source?: string;
+}
+
+const { title, description, slug = '', current, jsonLd = [], ogImage, priceModal = true, source = slug || 'home' } = Astro.props;
+---
+
+<Base
+  site="smesi"
+  title={title}
+  description={description}
+  slug={slug}
+  nav={mainNav(current)}
+  jsonLd={jsonLd}
+  ogImage={ogImage}
+  header={{ sticky: true, cta: { label: 'Заказать звонок' } }}
+  footer={{
+    columns: footerColumns(),
+    tagline: 'Цветные кладочные смеси Perel и Основит для облицовочного кирпича. Москва и Московская область.',
+    address: 'Москва, Научный проезд, 10 · ул. Большая Почтовая, 55/59',
+    policy: [
+      { href: PAGES.regulation.href, label: 'Положение об обработке персональных данных' },
+      { href: PAGES.consent.href, label: 'Согласие на обработку персональных данных' },
+    ],
+  }}
+>
+  <slot />
+  {priceModal && <PriceModal source={source} />}
+</Base>

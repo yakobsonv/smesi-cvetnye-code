@@ -1,0 +1,131 @@
+---
+// Доставка, оплата и контакты (план, волна 1, № 10). Служебная страница — чтобы человек
+// оставил заявку или позвонил.
+// ИСТОЧНИК — действующий сайт смесей клиента tk-sm.ru (снято 09.10.2026):
+//   https://tk-sm.ru/contact/ — два офиса продаж (Научный проезд, 10, м. Калужская,
+//     +7(495)505-50-68; ул. Большая Почтовая, 55/59, м. Электрозаводская, +7(495)669-40-64),
+//     часы работы, «перед посещением офиса просим заблаговременно связываться с нашими
+//     менеджерами для согласования времени визита и оформления гостевого пропуска»;
+//   https://tk-sm.ru/ — «Работа осуществляется по безналичному расчету с предоставлением полного
+//     пакета документов» (для организаций), расчёт потребности в материалах, подбор материалов.
+// ⚠️ Условий доставки (стоимость, минимальная партия, срок) у клиента в открытом доступе НЕТ —
+// не выдумываем: стоимость и срок называет менеджер. Вопрос Владу (план, вопрос 7).
+// Фасовка — из ассортимента дилера (src/data/catalog.ts).
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Section from '../components/layout/Section.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import { OFFICES, HOURS_FULL, getSite } from '../lib/sites';
+import { SERIES } from '../data/catalog';
+import { PAGES } from '../data/nav';
+
+const seller = getSite('smesi');
+const packs = [...new Map(SERIES.map((s) => [`${s.name}`, s.packKg])).entries()];
+
+const contactJson = {
+  '@type': 'ContactPage',
+  name: 'Доставка и контакты',
+  about: seller.legal.name,
+};
+---
+
+<Page
+  title="Доставка цветных кладочных смесей по Москве и области — контакты"
+  description="Два офиса продаж в Москве: Научный проезд, 10 (м. Калужская) и Большая Почтовая, 55/59 (м. Электрозаводская). Доставка по Москве и Московской области, безналичный расчёт для организаций."
+  slug="dostavka"
+  current="dostavka"
+  source="dostavka"
+  priceModal={false}
+  jsonLd={[contactJson]}
+>
+  <PageHead
+    kicker="Покупателю"
+    h1="Доставка и контакты"
+    lead="Привезём смесь на объект по Москве и Московской области или поможем с выбором в офисе. Стоимость и срок доставки менеджер назовёт, когда будут известны адрес и объём заказа."
+  />
+
+  <Section kicker="Офисы продаж" title="Где нас найти" bg="base">
+    <ul class="offices" data-reveal-stagger>
+      {OFFICES.map((o) => (
+        <li class="office">
+          <h3 class="office__name">{o.name}</h3>
+          <p class="office__addr">{o.address}</p>
+          <p class="office__metro">{o.metro}</p>
+          <a class="office__phone" href={o.phone.href}>{o.phone.display}</a>
+        </li>
+      ))}
+    </ul>
+    <div class="hours" data-reveal>
+      <h3 class="hours__title">Часы работы</h3>
+      <dl class="hours__list">
+        {HOURS_FULL.map((h) => (
+          <div><dt>{h.days}</dt><dd>{h.time}</dd></div>
+        ))}
+      </dl>
+      <p class="hours__note">
+        Перед визитом, пожалуйста, позвоните: менеджер согласует время и закажет гостевой пропуск.
+        Если задерживаетесь — предупредите, дождёмся.
+      </p>
+    </div>
+  </Section>
+
+  <Section kicker="Заказ" title="Как оформить заказ" bg="alt">
+    <ol class="steps" data-reveal-stagger>
+      <li><b>Позвоните или оставьте заявку.</b> Назовите кирпич, цвет шва и объём кладки — подскажем серию и посчитаем количество мешков.</li>
+      <li><b>Согласуем позиции и доставку.</b> Менеджер назовёт цену, наличие, стоимость и срок доставки на ваш адрес.</li>
+      <li><b>Оплата.</b> Организациям — безналичный расчёт с полным пакетом документов. Способы оплаты для частных покупателей уточняйте у менеджера.</li>
+    </ol>
+  </Section>
+
+  <Section kicker="Фасовка" title="В чём приезжает смесь" bg="base">
+    <ul class="packs" data-reveal-stagger>
+      {packs.map(([name, kg]) => (
+        <li><span>{name}</span><b>мешок {kg} кг</b></li>
+      ))}
+    </ul>
+    <p class="packs__note">Сколько мешков нужно на вашу кладку — посчитает <a href={PAGES.kalkulyator.href}>калькулятор расхода</a>.</p>
+  </Section>
+
+  <section class="req">
+    <div class="container">
+      <p class="req__line">{seller.legal.name} · ИНН {seller.legal.inn} · ОГРН {seller.legal.ogrn}</p>
+    </div>
+  </section>
+
+  <CtaBand source="dostavka" title="Рассчитаем доставку" text="Оставьте телефон и адрес объекта — назовём стоимость и срок доставки и посчитаем количество мешков." />
+</Page>
+
+<style>
+  .offices { display: grid; gap: var(--space-4); margin: 0 0 var(--space-6); padding: 0; list-style: none; }
+  @media (min-width: 760px) { .offices { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .office { padding: var(--space-6) var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius); }
+  .office__name { margin: 0 0 var(--space-3); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .office__addr { margin: 0; font-size: var(--fs-lead); }
+  .office__metro { margin: var(--space-1) 0 var(--space-4); color: var(--color-muted); }
+  .office__phone { font-family: var(--font-head); font-weight: 800; font-size: clamp(20px, 2vw, 26px); color: var(--color-text); text-decoration: none; }
+  .office__phone:hover { color: var(--color-accent-text); }
+
+  .hours { padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-bg-alt); }
+  .hours__title { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .hours__list { display: grid; gap: var(--space-3); margin: 0; }
+  .hours__list div { display: grid; gap: 2px; }
+  @media (min-width: 700px) { .hours__list div { grid-template-columns: 240px 1fr; gap: var(--space-4); } }
+  .hours__list dt { font-weight: 700; }
+  .hours__list dd { margin: 0; color: var(--color-text-soft); }
+  .hours__note { margin: var(--space-5) 0 0; color: var(--color-text-soft); max-width: 62ch; }
+
+  .steps { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; counter-reset: st; }
+  @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .steps li { position: relative; padding: var(--space-6) var(--space-5) var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-soft); counter-increment: st; }
+  .steps li::before { content: '0' counter(st); display: block; margin-bottom: var(--space-3); font-family: var(--font-head); font-weight: 800; color: var(--color-accent-text); }
+  .steps b { display: block; margin-bottom: var(--space-2); color: var(--color-text); }
+
+  .packs { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--color-border); max-width: 720px; }
+  .packs li { display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border); }
+  .packs b { white-space: nowrap; }
+  .packs__note { margin: var(--space-5) 0 0; color: var(--color-text-soft); }
+  .packs__note a { color: var(--color-accent-text); font-weight: 600; }
+
+  .req { padding: var(--space-5) 0; border-top: 1px solid var(--color-border-soft); }
+  .req__line { margin: 0; font-size: var(--fs-small); color: var(--color-muted); }
+</style>

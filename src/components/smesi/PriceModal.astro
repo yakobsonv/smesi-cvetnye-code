@@ -1,0 +1,68 @@
+---
+// Окно «Узнать цену» — ОДНО на страницу. Открывается любым элементом с data-ask="<название позиции>"
+// (образец цвета, кнопка серии): скрипт подставляет позицию в заголовок окна и в скрытое поле
+// заявки. Цен на сайте нет намеренно: цены производителей не ставим, дилерские — по слову
+// Влада (план, вопрос 3). Приём заявок не подключён — форма покажет телефон офиса.
+import Modal from '../ui/Modal.astro';
+import LeadForm from '../forms/LeadForm.astro';
+
+interface Props {
+  source: string;
+}
+const { source } = Astro.props;
+---
+
+<Modal id="ask-price" title="Узнать цену и наличие">
+  <p class="ask__product" data-ask-product hidden></p>
+  <LeadForm
+    id="ask-price-form"
+    source={`${source}:ask-price`}
+    subtitle="Оставьте телефон — назовём цену, наличие и срок, посчитаем количество мешков."
+    submitLabel="Узнать цену"
+    variant="compact"
+    hiddenFields={['product']}
+  />
+</Modal>
+
+<script>
+  // Делегирование: образцов на странице может быть больше сотни, обработчик один.
+  document.addEventListener('click', (event) => {
+    const trigger = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-ask]');
+    if (!trigger) return;
+    event.preventDefault();
+    const product = trigger.dataset.ask || '';
+    const dialog = document.getElementById('ask-price') as HTMLDialogElement | null;
+    if (!dialog) return;
+    const line = dialog.querySelector<HTMLElement>('[data-ask-product]');
+    if (line) {
+      line.textContent = product;
+      line.hidden = !product;
+    }
+    // Как у общего окна (Modal.astro): повторное открытие не должно показывать прошлые
+    // введённые данные и прошлое сообщение. Отправленную форму не трогаем — там итог.
+    const form = dialog.querySelector<HTMLFormElement>('form[data-lead-form]');
+    if (form && form.dataset.sent !== 'true') {
+      form.reset();
+      form.querySelectorAll<HTMLElement>('[data-error]').forEach((e) => { e.hidden = true; });
+      form.querySelectorAll('[aria-invalid]').forEach((e) => e.removeAttribute('aria-invalid'));
+      const status = form.querySelector<HTMLElement>('[data-status]');
+      if (status) status.hidden = true;
+    }
+    const field = dialog.querySelector<HTMLInputElement>('[data-hidden-field="product"]');
+    if (field) field.value = product;
+    if (!dialog.open) dialog.showModal();
+    dialog.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea')?.focus();
+  });
+</script>
+
+<style>
+  .ask__product {
+    margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-alt);
+    font-weight: 600;
+    font-size: var(--fs-small);
+    color: var(--color-text);
+  }
+</style>

@@ -1,0 +1,268 @@
+---
+// Подбор цвета шва под кирпич: кадр кладки + переключатели «завод → цвет кирпича → цвет шва».
+// Кадры — визуализации кладки из материалов клиента (Яндекс.Диск, «Текстуры (кладки)»), подписи
+// шва поставлены по видимому цвету, а не по имени файла (src/data/kladka.ts).
+// ⚠️ Кадр показывает ОТТЕНОК шва, а не конкретную позицию: бренда и кода смеси у кадров нет.
+// Поэтому под кадром — ссылки на близкие по тону позиции каталога, а не «это Perel 0005».
+//
+// Без JS: виден первый кадр и все переключатели-ссылки ведут в каталог; со скриптом кадр
+// меняется на месте, загружаются только выбранные кадры (атрибут data-src, не src).
+import { KLADKA } from '../../data/kladka';
+import { PAGES } from '../../data/nav';
+
+interface Props {
+  /** compact — для первого экрана главной: один кирпич, только швы */
+  variant?: 'full' | 'compact';
+  /** id кирпича для compact и стартовый для full */
+  start?: string;
+  id?: string;
+}
+
+const { variant = 'full', start, id = 'jp' } = Astro.props;
+const bricks = variant === 'compact' ? KLADKA.filter((b) => b.id === (start ?? KLADKA[0]?.id)) : KLADKA;
+const first = bricks.find((b) => b.id === start) ?? bricks[0];
+const firstSeam = first?.seams[0];
+const factories = [...new Map(bricks.map((b) => [b.factory, b.factoryName])).entries()];
+
+// Связь видимого оттенка шва с группой оттенка каталога — для ссылки «смеси этого тона».
+const TONE_OF_SEAM: Record<string, string> = {
+  white: 'white', superwhite: 'white', grey: 'grey', darkgrey: 'grey', black: 'black',
+  brown: 'brown', lightbrown: 'brown', cream: 'beige',
+};
+const data = JSON.stringify(
+  bricks.map((b) => ({ id: b.id, factory: b.factory, brick: b.brick, seams: b.seams.map((s) => ({ id: s.id, label: s.label, src: s.src, srcSm: s.srcSm, tone: TONE_OF_SEAM[s.id] ?? '' })) })),
+);
+---
+
+{first && firstSeam && (
+  <div class:list={['jp', `jp--${variant}`]} id={id} data-jp={data} data-katalog={PAGES.katalog.href}>
+    <figure class="jp__stage">
+      <img
+        class="jp__img"
+        src={firstSeam.src}
+        srcset={`${firstSeam.srcSm} 320w, ${firstSeam.src} ${firstSeam.w}w`}
+        sizes={variant === 'compact' ? '(min-width: 960px) 44vw, 92vw' : '(min-width: 960px) 56vw, 92vw'}
+        width={firstSeam.w}
+        height={firstSeam.h}
+        alt={`Кладка: ${first.brick} кирпич, ${firstSeam.label} шов`}
+        data-jp-img
+        fetchpriority={variant === 'compact' ? 'high' : undefined}
+      />
+      <figcaption class="jp__cap">
+        <span data-jp-caption>{first.brick} кирпич · шов {firstSeam.label}</span>
+        <span class="jp__hint">визуализация кладки, цвет на экране приблизительный</span>
+      </figcaption>
+    </figure>
+
+    <div class="jp__controls">
+      {variant === 'full' && (
+        <Fragment>
+          {factories.length > 1 && (
+            <div class="jp__group">
+              <p class="jp__label">Кирпич</p>
+              <div class="jp__tabs" role="tablist">
+                {factories.map(([f, name], i) => (
+                  <button type="button" class="jp__tab" role="tab" aria-selected={i === 0 ? 'true' : 'false'} data-jp-factory={f}>{name}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div class="jp__group">
+            <p class="jp__label">Цвет кирпича</p>
+            <div class="jp__chips" data-jp-bricks>
+              {bricks.map((b) => (
+                <button
+                  type="button"
+                  class="jp__chip"
+                  data-jp-brick={b.id}
+                  data-factory={b.factory}
+                  aria-pressed={b.id === first.id ? 'true' : 'false'}
+                  hidden={b.factory !== first.factory}
+                >{b.brick}</button>
+              ))}
+            </div>
+          </div>
+        </Fragment>
+      )}
+
+      <div class="jp__group">
+        <p class="jp__label">Цвет шва</p>
+        <div class="jp__seams" data-jp-seams>
+          {first.seams.map((s, i) => (
+            <button type="button" class="jp__seam" data-jp-seam={s.id} aria-pressed={i === 0 ? 'true' : 'false'}>
+              <span class="jp__dot" data-seam={s.id} aria-hidden="true"></span>{s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <a class="jp__link" href={`${PAGES.katalog.href}?ton=${TONE_OF_SEAM[firstSeam.id] ?? ''}`} data-jp-link>
+        Смеси этого тона в каталоге <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  </div>
+)}
+
+<script>
+  type Seam = { id: string; label: string; src: string; srcSm: string; tone: string };
+  type Brick = { id: string; factory: string; brick: string; seams: Seam[] };
+
+  document.querySelectorAll<HTMLElement>('[data-jp]').forEach((root) => {
+    const bricks: Brick[] = JSON.parse(root.dataset.jp || '[]');
+    const katalog = root.dataset.katalog || '/katalog/';
+    const img = root.querySelector<HTMLImageElement>('[data-jp-img]');
+    const caption = root.querySelector<HTMLElement>('[data-jp-caption]');
+    const seamsBox = root.querySelector<HTMLElement>('[data-jp-seams]');
+    const link = root.querySelector<HTMLAnchorElement>('[data-jp-link]');
+    if (!img || !seamsBox || !bricks.length) return;
+
+    let brick = bricks[0];
+    let seamId = brick.seams[0]?.id;
+
+    const press = (sel: string, attr: string, value: string) =>
+      root.querySelectorAll<HTMLElement>(sel).forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute(attr) === value)));
+
+    const show = () => {
+      const seam = brick.seams.find((s) => s.id === seamId) ?? brick.seams[0];
+      if (!seam) return;
+      seamId = seam.id;
+      // srcset снимаем: иначе браузер оставит прежний кадр из набора
+      img.removeAttribute('srcset');
+      img.src = seam.src;
+      img.alt = `Кладка: ${brick.brick} кирпич, ${seam.label} шов`;
+      if (caption) caption.textContent = `${brick.brick} кирпич · шов ${seam.label}`;
+      if (link) link.href = `${katalog}?ton=${seam.tone}`;
+      press('[data-jp-seam]', 'data-jp-seam', seam.id);
+    };
+
+    const renderSeams = () => {
+      seamsBox.innerHTML = '';
+      brick.seams.forEach((s) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'jp__seam';
+        b.dataset.jpSeam = s.id;
+        b.setAttribute('aria-pressed', String(s.id === seamId));
+        const dot = document.createElement('span');
+        dot.className = 'jp__dot';
+        dot.dataset.seam = s.id;
+        dot.setAttribute('aria-hidden', 'true');
+        b.append(dot, s.label);
+        seamsBox.append(b);
+      });
+    };
+
+    root.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      const seamBtn = t.closest<HTMLElement>('[data-jp-seam]');
+      if (seamBtn) { seamId = seamBtn.dataset.jpSeam!; show(); return; }
+      const brickBtn = t.closest<HTMLElement>('[data-jp-brick]');
+      if (brickBtn) {
+        const next = bricks.find((b) => b.id === brickBtn.dataset.jpBrick);
+        if (!next) return;
+        brick = next;
+        if (!brick.seams.some((s) => s.id === seamId)) seamId = brick.seams[0]?.id;
+        press('[data-jp-brick]', 'data-jp-brick', brick.id);
+        renderSeams();
+        show();
+        return;
+      }
+      const tab = t.closest<HTMLElement>('[data-jp-factory]');
+      if (tab) {
+        const f = tab.dataset.jpFactory!;
+        root.querySelectorAll<HTMLElement>('[data-jp-factory]').forEach((x) => x.setAttribute('aria-selected', String(x === tab)));
+        root.querySelectorAll<HTMLElement>('[data-jp-brick]').forEach((x) => { x.hidden = x.dataset.factory !== f; });
+        const firstOf = bricks.find((b) => b.factory === f);
+        if (firstOf) {
+          brick = firstOf;
+          if (!brick.seams.some((s) => s.id === seamId)) seamId = brick.seams[0]?.id;
+          press('[data-jp-brick]', 'data-jp-brick', brick.id);
+          renderSeams();
+          show();
+        }
+      }
+    });
+
+    // Подгрузить соседние кадры текущего кирпича заранее — переключение без пустой паузы.
+    const warm = () => brick.seams.forEach((s) => { const i = new Image(); i.src = s.src; });
+    if ('requestIdleCallback' in window) (window as any).requestIdleCallback(warm);
+    else setTimeout(warm, 1200);
+  });
+</script>
+
+<!-- is:global: кнопки шва пересобирает скрипт, а узлы, созданные скриптом, не получают
+     скоуп-атрибут Astro — скоуп-стили до них молча не доходят (тот же дефект, что 29.09
+     у карточки товара ЖКЗ). Префикс .jp уникален, наружу стили не текут. -->
+<style is:global>
+  .jp { display: grid; gap: var(--space-5); }
+  .jp__stage { position: relative; margin: 0; overflow: hidden; border-radius: var(--radius); background: var(--color-bg-alt); }
+  .jp__img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
+  .jp__cap {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: rgb(20 18 15 / 0.78);
+    color: #fff;
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+  .jp__hint { font-weight: 400; font-size: var(--fs-tiny); color: rgb(255 255 255 / 0.8); }
+
+  .jp__controls { display: grid; gap: var(--space-5); align-content: start; }
+  .jp__group { display: grid; gap: var(--space-2); }
+  .jp__label { margin: 0; font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-muted); }
+
+  .jp__tabs, .jp__chips, .jp__seams { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .jp__tab, .jp__chip, .jp__seam {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 6px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--fs-small);
+    cursor: pointer;
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .jp__chip[hidden] { display: none; }
+  .jp__tab[aria-selected='true'], .jp__chip[aria-pressed='true'], .jp__seam[aria-pressed='true'] {
+    border-color: var(--color-text);
+    background: var(--color-text);
+    color: var(--color-bg);
+  }
+  .jp__tab:hover, .jp__chip:hover, .jp__seam:hover { border-color: var(--color-text); }
+
+  .jp__dot { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25); background: #bdb6ab; }
+  /* условные оттенки точек — подсказка, не образец смеси */
+  .jp__dot[data-seam='white'] { background: #f2efe8; }
+  .jp__dot[data-seam='superwhite'] { background: #ffffff; }
+  .jp__dot[data-seam='grey'] { background: #9c9a95; }
+  .jp__dot[data-seam='darkgrey'] { background: #5d5b57; }
+  .jp__dot[data-seam='black'] { background: #232220; }
+  .jp__dot[data-seam='brown'] { background: #5a3a26; }
+  .jp__dot[data-seam='lightbrown'] { background: #a77b55; }
+  .jp__dot[data-seam='cream'] { background: #e3c6b0; }
+
+  .jp__link { font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
+  .jp__link:hover { text-decoration: underline; }
+
+  /* compact — первый экран главной на тёмном фоне */
+  .jp--compact .jp__label { color: rgb(255 255 255 / 0.72); }
+  .jp--compact .jp__seam { background: rgb(255 255 255 / 0.06); border-color: rgb(255 255 255 / 0.28); color: #fff; }
+  .jp--compact .jp__seam[aria-pressed='true'] { background: #fff; color: var(--color-dark); border-color: #fff; }
+  .jp--compact .jp__link { color: var(--color-brand-on-dark); }
+
+  @media (min-width: 960px) {
+    .jp--full { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(32px, 4vw, 56px); align-items: start; }
+  }
+</style>

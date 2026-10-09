@@ -1,0 +1,358 @@
+---
+// Лид-форма: имя, телефон, согласие, кнопка. Одна на все формы трёх сайтов —
+// разница только в наборе полей, заголовке и подписи кнопки.
+// В поле source пишем, откуда пришла заявка (страница + место), а не кодируем это в номере формы,
+// как было на mottor.
+//
+// Приём заявок — функция `api/lead.js` на Vercel (адрес приёмника в переменных окружения,
+// в коде его нет). До 29.09.2026 action не задавался вовсе, и форма не отправляла НИЧЕГО.
+// Если приёмник отключат, функция ответит 503 — и форма снова покажет телефон, а не соврёт.
+import type { FieldDef, SiteKey } from '../../lib/types';
+import { getSite, localPath, LEAD_ENDPOINT } from '../../lib/sites';
+
+interface Props {
+  id: string;
+  /** источник лида: 'oskol:index:catalog' и т.п. */
+  source: string;
+  title?: string;
+  subtitle?: string;
+  fields?: FieldDef[];
+  submitLabel?: string;
+  consentText?: string;
+  /** ссылки на правовые страницы; по умолчанию — страницы того же сайта */
+  policyHref?: string;
+  consentHref?: string;
+  /** эндпойнт приёма заявок; по умолчанию — своя функция /api/lead */
+  action?: string;
+  variant?: 'inline' | 'card' | 'compact';
+  note?: string;
+  buttonVariant?: 'primary' | 'secondary' | 'ghost';
+  /** скрытые поля, которые заполняет скрипт страницы (например, выбранная позиция) */
+  hiddenFields?: string[];
+  class?: string;
+}
+
+const {
+  id,
+  source,
+  title,
+  subtitle,
+  fields = [
+    { name: 'name', label: 'Ваше имя', placeholder: 'Как к вам обращаться', type: 'text', autocomplete: 'name' },
+    { name: 'phone', label: 'Телефон', placeholder: '+7 (999) 999-99-99', type: 'tel', required: true, autocomplete: 'tel' },
+  ],
+  submitLabel = 'Отправить заявку',
+  consentText = 'Я принимаю Положение и даю Согласие на обработку персональных данных',
+  policyHref,
+  consentHref,
+  action = LEAD_ENDPOINT,
+  variant = 'inline',
+  note,
+  buttonVariant = 'primary',
+  hiddenFields = [],
+  class: className,
+} = Astro.props;
+
+const consentId = `${id}-consent`;
+const statusId = `${id}-status`;
+
+// Правовые страницы у каждого сайта свои, а форма одна на все три и вызывается больше
+// сотни раз. Пробрасывать ссылки в каждый вызов — гарантированно где-нибудь забыть
+// (первый заход так и вышел: 101 форма осталась без ссылок), поэтому берём сайт из
+// адреса страницы: в копии маршруты начинаются с /oskol, /zhkz, /stellard.
+// сайт один, поэтому правовые страницы всегда его собственные
+const siteKey: SiteKey = 'smesi';
+const policy = policyHref ?? (siteKey ? localPath(siteKey, 'regulation') : undefined);
+const consent = consentHref ?? (siteKey ? localPath(siteKey, 'consent') : undefined);
+// Телефон для запасной формулировки — из реестра сайта, а не строкой в скрипте:
+// у RECKE здесь стоял номер другого офиса, и при смене номера он бы остался.
+const seller = getSite(siteKey);
+const byPhone = `Заявку примем по телефону: ${seller.phone.display}, ${seller.hours.replace(':', '')}. Позвоните — ответим сразу.`;
+---
+
+<form
+  class:list={['lead-form', `lead-form--${variant}`, className]}
+  id={id}
+  data-lead-form
+  data-by-phone={byPhone}
+  data-source={source}
+  action={action}
+  method="post"
+  novalidate
+>
+  {title && <h3 class="lead-form__title">{title}</h3>}
+  {subtitle && <p class="lead-form__subtitle">{subtitle}</p>}
+
+  <div class="lead-form__fields">
+    {fields.map((field) => {
+      const fieldId = `${id}-${field.name}`;
+      return (
+        <div class="field">
+          {field.label && (
+            <label class="field__label" for={fieldId}>
+              {field.label}{field.required && <span aria-hidden="true"> *</span>}
+            </label>
+          )}
+          {field.type === 'textarea' ? (
+            <textarea
+              class="field__control"
+              id={fieldId}
+              name={field.name}
+              placeholder={field.placeholder}
+              required={field.required}
+            />
+          ) : field.type === 'select' ? (
+            <select class="field__control" id={fieldId} name={field.name} required={field.required}>
+              <option value="">{field.placeholder ?? 'Выберите'}</option>
+              {(field.options ?? []).map((option) => <option value={option}>{option}</option>)}
+            </select>
+          ) : (
+            <input
+              class="field__control"
+              id={fieldId}
+              name={field.name}
+              type={field.type ?? 'text'}
+              inputmode={field.type === 'tel' ? 'tel' : undefined}
+              placeholder={field.placeholder}
+              required={field.required}
+              autocomplete={field.autocomplete}
+              data-phone-mask={field.type === 'tel' ? '' : undefined}
+            />
+          )}
+          <p class="field__error" data-error hidden></p>
+        </div>
+      );
+    })}
+  </div>
+
+  <label class="lead-form__consent" for={consentId}>
+    {/* Галочка НЕ проставлена заранее: 152-ФЗ требует активного действия человека,
+        а не согласия по умолчанию. На боевых сайтах она тоже пустая и обязательная. */}
+    <input type="checkbox" id={consentId} name="consent" required />
+    <span>
+      {policy || consent ? (
+        <Fragment>
+          Я принимаю{' '}
+          {/* в новой вкладке: из окна заявки ссылка уводила со страницы и закрывала окно
+              вместе с уже введёнными именем и телефоном */}
+          {policy ? <a href={policy} target="_blank" rel="noopener">Положение</a> : 'Положение'} и даю{' '}
+          {consent ? <a href={consent} target="_blank" rel="noopener">Согласие</a> : 'Согласие'} на обработку персональных данных
+        </Fragment>
+      ) : (
+        consentText
+      )}
+    </span>
+  </label>
+
+  <input type="hidden" name="source" value={source} />
+  {hiddenFields.map((n) => <input type="hidden" name={n} value="" data-hidden-field={n} />)}
+  {/* honeypot: боты заполняют, люди не видят */}
+  <input class="lead-form__trap" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+  <button class={`btn btn--${buttonVariant} btn--full lead-form__submit`} type="submit">{submitLabel}</button>
+
+  {note && <p class="lead-form__note">{note}</p>}
+  <p class="lead-form__status" id={statusId} data-status role="status" hidden></p>
+</form>
+
+<style>
+  .lead-form {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .lead-form--card {
+    padding: var(--space-5);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+  }
+
+  .lead-form__title { font-size: var(--fs-h3); }
+
+  .lead-form__subtitle {
+    margin-top: calc(var(--space-3) * -1 + 2px);
+    color: var(--color-text-soft);
+    font-size: var(--fs-small);
+  }
+
+  .lead-form__fields {
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  .lead-form--compact .lead-form__fields {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+
+  .lead-form__consent {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+    font-size: var(--fs-tiny);
+    color: var(--color-text-soft);
+    line-height: 1.35;
+  }
+
+  .lead-form__consent input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    flex: none;
+  }
+
+  .lead-form__trap {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .lead-form__note,
+  .lead-form__status {
+    font-size: var(--fs-tiny);
+    color: var(--color-muted);
+  }
+
+  .lead-form__status[data-state='ok'] { color: var(--color-success); }
+  .lead-form__status[data-state='error'] { color: var(--color-error); }
+</style>
+
+<script>
+  // Маска телефона, проверка полей, отправка. Без библиотек, одна привязка на страницу.
+  if (!(window as any).__ktFormInit) {
+    (window as any).__ktFormInit = true;
+
+    const formatPhone = (raw: string): string => {
+      let digits = raw.replace(/\D/g, '');
+      if (!digits) return '';
+      if (digits[0] === '8') digits = '7' + digits.slice(1);
+      if (digits[0] !== '7') digits = '7' + digits;
+      digits = digits.slice(0, 11);
+      const [, a = '', b = '', c = '', d = ''] =
+        /^7(\d{0,3})(\d{0,3})(\d{0,2})(\d{0,2})$/.exec(digits) || [];
+      let out = '+7';
+      if (a) out += ` (${a}`;
+      if (a.length === 3) out += ')';
+      if (b) out += ` ${b}`;
+      if (c) out += `-${c}`;
+      if (d) out += `-${d}`;
+      return out;
+    };
+
+    document.addEventListener('input', (event) => {
+      const input = event.target as HTMLInputElement;
+      if (!input.matches?.('[data-phone-mask]')) return;
+      input.value = formatPhone(input.value);
+      input.removeAttribute('aria-invalid');
+      const error = input.parentElement?.querySelector<HTMLElement>('[data-error]');
+      if (error) error.hidden = true;
+    });
+
+    // Красная строка «Без согласия на обработку данных отправить нельзя» показывалась
+    // при отправке и ВИСЕЛА дальше: человек ставил галочку, дозаполнял телефон — а упрёк
+    // оставался на экране, будто он всё ещё что-то не так сделал. Убираем её, как только
+    // человек исправил то, на что она указывала.
+    document.addEventListener('change', (event) => {
+      const box = event.target as HTMLInputElement;
+      if (!box.matches?.('input[type="checkbox"][name="consent"]')) return;
+      const form = box.closest<HTMLFormElement>('[data-lead-form]');
+      const status = form?.querySelector<HTMLElement>('[data-status]');
+      const error = box.closest('.lead-form__consent')?.querySelector<HTMLElement>('[data-error]');
+      if (error) error.hidden = true;
+      if (box.checked && status && status.dataset.state === 'error') status.hidden = true;
+    });
+
+    const showError = (input: HTMLInputElement, text: string) => {
+      input.setAttribute('aria-invalid', 'true');
+      const box = input.closest('.field')?.querySelector<HTMLElement>('[data-error]');
+      if (box) {
+        box.textContent = text;
+        box.hidden = false;
+      }
+    };
+
+    document.addEventListener('submit', async (event) => {
+      const form = event.target as HTMLFormElement;
+      if (!form.matches?.('[data-lead-form]')) return;
+
+      const status = form.querySelector<HTMLElement>('[data-status]');
+      const setStatus = (text: string, state: 'ok' | 'error' | 'info') => {
+        if (!status) return;
+        status.textContent = text;
+        status.dataset.state = state;
+        status.hidden = false;
+      };
+
+      // ловушка для ботов
+      const trap = form.querySelector<HTMLInputElement>('input[name="company"]');
+      if (trap && trap.value) {
+        event.preventDefault();
+        return;
+      }
+
+      let valid = true;
+      form.querySelectorAll<HTMLInputElement>('input, select, textarea').forEach((input) => {
+        if (input.type === 'hidden' || input.name === 'company') return;
+        if (input.required && !input.value.trim()) {
+          showError(input, input.type === 'checkbox' ? 'Нужно согласие' : 'Заполните поле');
+          valid = false;
+        }
+        if (input.type === 'tel' && input.value && input.value.replace(/\D/g, '').length < 11) {
+          showError(input, 'Телефон не полный');
+          valid = false;
+        }
+        if (input.type === 'checkbox' && input.required && !input.checked) {
+          setStatus('Без согласия на обработку данных отправить нельзя', 'error');
+          valid = false;
+        }
+      });
+
+      if (!valid) {
+        event.preventDefault();
+        return;
+      }
+
+      // Запасная формулировка: заявку не приняли — посетитель должен уйти с телефоном,
+      // а не с сообщением «что-то пошло не так». Без «ещё не подключено»: для человека
+      // это читается как недоделка сайта.
+      const BY_PHONE = form.dataset.byPhone || 'Заявку примем по телефону.';
+
+      const action = form.getAttribute('action');
+      if (!action) {
+        event.preventDefault();
+        setStatus(BY_PHONE, 'info');
+        return;
+      }
+
+      event.preventDefault();
+      const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      submit?.setAttribute('disabled', 'true');
+      setStatus('Отправляем…', 'info');
+
+      try {
+        const response = await fetch(action, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(Object.fromEntries(new FormData(form).entries())),
+        });
+        if (response.status === 503) {
+          // Приёмник заявок не настроен (нет переменных окружения) — врать «отправлено» нельзя.
+          setStatus(BY_PHONE, 'info');
+          return;
+        }
+        if (!response.ok) throw new Error(String(response.status));
+        form.reset();
+        // окно при повторном открытии чистит форму, но НЕ трогает ту, где стоит итог отправки
+        form.dataset.sent = 'true';
+        setStatus('Заявка отправлена. Перезвоним в рабочее время.', 'ok');
+      } catch {
+        setStatus('Не удалось отправить. ' + BY_PHONE, 'error');
+      } finally {
+        submit?.removeAttribute('disabled');
+      }
+    });
+  }
+</script>
