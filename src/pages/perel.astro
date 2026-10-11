@@ -622,7 +622,7 @@ const bgOf = (i: number) => (i % 2 === 0 ? 'base' : 'alt') as 'base' | 'alt';
   /* ── О производителе ── */
   .about { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
   @media (min-width: 700px) { .about { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (min-width: 1080px) { .about { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  /* карточек о производителе четыре (11.10 убраны факты не о цветных смесях) — сетка 2×2 */
   .about__card {
     display: flex;
     flex-direction: column;
