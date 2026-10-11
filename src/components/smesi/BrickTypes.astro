@@ -1,7 +1,7 @@
 ---
-// Три ступени выбора по водопоглощению кирпича — так делят смеси и производители, и сам дилер
-// (подразделы tk-sm.ru: «Клинкерный кирпич 0-5%», «Обычный кирпич 5-12%», «Ручная формовка 10-17%»).
-// Каждая карточка ведёт в каталог с уже выбранным типом.
+// Выбор смеси по кирпичу (редизайн 11.10): три колонки через тонкие линии, крупный диапазон
+// водопоглощения антиквой. Диапазоны — подписями самого дилера (tk-sm.ru); у серий — свои,
+// производителя (см. catalog.ts). Ссылка ведёт в каталог с выбранным типом.
 import { BRICK_TYPES, seriesFor, type BrickType } from '../../data/catalog';
 import { PAGES } from '../../data/nav';
 
@@ -11,54 +11,34 @@ const order: BrickType[] = ['obychnyj', 'ruchnoj', 'klinker'];
 ---
 
 <ol class:list={['bt', className]} data-reveal-stagger>
-  {order.map((t, i) => {
+  {order.map((t) => {
     const info = BRICK_TYPES[t];
-    const series = seriesFor(t);
     return (
-      <li class="bt__item">
-        <a class="bt__card" href={`${PAGES.katalog.href}?kirpich=${t}`}>
-          <span class="bt__num" aria-hidden="true">0{i + 1}</span>
-          <span class="bt__label">{info.label}</span>
-          <span class="bt__abs">водопоглощение <b>{info.absorption}</b></span>
-          <span class="bt__series">
-            {series.map((s) => <span class="bt__chip">{s.name}</span>)}
-          </span>
-          <span class="bt__more">Смотреть смеси <span aria-hidden="true">→</span></span>
-        </a>
+      <li class="bt__col">
+        <p class="bt__range num">{info.absorption}</p>
+        <p class="label">водопоглощение</p>
+        <h3 class="bt__label">{info.label}</h3>
+        <ul class="bt__series">
+          {seriesFor(t).map((s) => <li>{s.name}</li>)}
+        </ul>
+        <a class="arrow-link" href={`${PAGES.katalog.href}?kirpich=${t}`}>Смотреть оттенки <span aria-hidden="true">→</span></a>
       </li>
     );
   })}
 </ol>
 
 <style>
-  .bt { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-  .bt__card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    height: 100%;
-    padding: var(--space-6) var(--space-5);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    background: var(--color-surface);
-    color: var(--color-text);
-    text-decoration: none;
-    transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  .bt { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .bt__col { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-6) 0; border-bottom: 1px solid var(--hair); }
+  .bt__range { margin: 0; font-family: var(--font-head); font-size: clamp(64px, 7vw, 112px); line-height: 0.9; letter-spacing: -0.03em; }
+  .bt__label { margin: var(--space-4) 0 var(--space-2); font-size: clamp(24px, 2vw, 30px); line-height: 1.05; }
+  .bt__series { display: grid; gap: 4px; margin: 0 0 var(--space-5); padding: 0; list-style: none; color: var(--color-text-soft); }
+  .bt__series li::before { content: '— '; color: var(--color-muted); }
+  .bt .arrow-link { margin-top: auto; align-self: flex-start; }
+  @media (min-width: 900px) {
+    .bt { grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--hair); }
+    .bt__col { padding: var(--space-6) clamp(20px, 2.5vw, 40px) var(--space-7); border-bottom: 0; }
+    .bt__col + .bt__col { border-left: 1px solid var(--hair); }
+    .bt__col:first-child { padding-left: 0; }
   }
-  .bt__card:hover { border-color: var(--color-brand); translate: 0 -4px; box-shadow: var(--shadow-card); }
-  .bt__num { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-small); color: var(--color-accent-text); }
-  .bt__label { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); line-height: 1.15; }
-  .bt__abs { color: var(--color-text-soft); }
-  .bt__abs b { color: var(--color-text); }
-  .bt__series { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-  .bt__chip {
-    padding: 4px 10px;
-    border-radius: var(--radius-pill);
-    background: var(--color-bg-alt);
-    font-size: var(--fs-tiny);
-    font-weight: 600;
-  }
-  .bt__more { margin-top: auto; padding-top: var(--space-3); font-weight: 700; color: var(--color-accent-text); }
-
-  @media (min-width: 860px) { .bt { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 </style>

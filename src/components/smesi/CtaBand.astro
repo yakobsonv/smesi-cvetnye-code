@@ -1,16 +1,10 @@
 ---
-// Полоса заявки внизу страницы: заголовок, телефоны двух офисов и короткая форма.
-// Приём заявок не подключён (слово Влада) — форма покажет телефон, а не «отправлено».
+// Блок заявки (редизайн 11.10): тушь, крупная антиква и короткая форма (телефоны офисов — в подвале сразу ниже)
+// с подчёркнутыми полями. Приём заявок не подключён (слово Влада) — форма покажет телефон.
 import Container from '../layout/Container.astro';
 import LeadForm from '../forms/LeadForm.astro';
-import { OFFICES } from '../../lib/sites';
 
-interface Props {
-  id?: string;
-  title?: string;
-  text?: string;
-  source: string;
-}
+interface Props { id?: string; title?: string; text?: string; source: string }
 
 const {
   id = 'zayavka',
@@ -23,47 +17,34 @@ const {
 <section class="cta" id={id}>
   <Container>
     <div class="cta__grid">
-      <div class="cta__text">
+      <div class="cta__head">
+        <p class="cta__label">Заявка</p>
         <h2 class="cta__title" data-reveal="head">{title}</h2>
         <p class="cta__lead" data-reveal>{text}</p>
-        <ul class="cta__offices" data-reveal-stagger>
-          {OFFICES.map((o) => (
-            <li>
-              <a class="cta__phone" href={o.phone.href}>{o.phone.display}</a>
-              <span class="cta__addr">{o.address}, {o.metro}</span>
-            </li>
-          ))}
-        </ul>
       </div>
       <div class="cta__form" data-reveal>
-        <LeadForm id={`${id}-form`} source={`${source}:cta`} submitLabel="Подобрать смесь" variant="card" />
+        <LeadForm id={`${id}-form`} source={`${source}:cta`} submitLabel="Отправить" variant="compact" />
       </div>
     </div>
   </Container>
 </section>
 
 <style>
-  .cta { padding: clamp(48px, 7vw, 104px) 0; background: var(--color-dark); color: var(--color-on-dark); }
-  .cta__grid { display: grid; gap: var(--space-7); align-items: start; }
-  .cta__title {
-    margin: 0;
-    font-family: var(--font-head);
-    font-weight: var(--fw-head);
-    font-size: var(--fs-h2);
-    line-height: 1.08;
-    letter-spacing: -0.02em;
-    max-width: 18ch;
-    text-wrap: balance;
-  }
-  .cta__lead { max-width: 52ch; margin: var(--space-4) 0 0; font-size: var(--fs-lead); color: rgb(255 255 255 / 0.78); }
-  .cta__offices { display: grid; gap: var(--space-4); margin: var(--space-6) 0 0; padding: 0; list-style: none; }
-  .cta__offices li { display: flex; flex-direction: column; gap: 2px; }
-  .cta__phone { font-family: var(--font-head); font-weight: 800; font-size: clamp(20px, 2vw, 26px); color: var(--color-on-dark); text-decoration: none; }
-  .cta__phone:hover { color: var(--color-brand-on-dark); }
-  .cta__addr { font-size: var(--fs-small); color: rgb(255 255 255 / 0.72); }
-  .cta__form { color: var(--color-text); }
-
-  @media (min-width: 900px) {
-    .cta__grid { grid-template-columns: minmax(0, 1fr) minmax(320px, 440px); gap: clamp(40px, 6vw, 96px); }
+  .cta { padding: clamp(64px, 9vw, 140px) 0; background: var(--ink); color: var(--paper); }
+  .cta__grid { display: grid; gap: var(--space-7); }
+  .cta__label { margin: 0 0 var(--space-4); font-size: var(--fs-tiny); letter-spacing: 0.16em; text-transform: uppercase; color: rgb(247 244 238 / 0.6); }
+  .cta__title { margin: 0; font-size: var(--fs-h2); line-height: 0.98; letter-spacing: -0.02em; max-width: 14ch; text-wrap: balance; }
+  .cta__lead { max-width: 46ch; margin: var(--space-5) 0 0; font-size: var(--fs-lead); color: rgb(247 244 238 / 0.75); }
+  .cta__offices { display: grid; gap: var(--space-5); align-content: start; margin: 0; padding: 0; list-style: none; }
+  .cta__offices li { display: grid; gap: 4px; padding-top: var(--space-4); border-top: 1px solid rgb(247 244 238 / 0.2); }
+  .cta__phone { color: var(--paper); font-size: clamp(22px, 2vw, 28px); font-weight: 500; text-decoration: none; }
+  .cta__offices span { font-size: var(--fs-small); color: rgb(247 244 238 / 0.65); }
+  .cta__form { color: var(--paper); }
+  .cta__form :global(button[type='submit']) { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+  .cta__form :global(button[type='submit']:hover) { background: var(--sand); }
+  .cta__form :global(.field__label), .cta__form :global(.lead-form__consent) { color: rgb(247 244 238 / 0.7); }
+  .cta__form :global(.field__control) { border-bottom-color: rgb(247 244 238 / 0.35); color: var(--paper); }
+  @media (min-width: 1000px) {
+    .cta__grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(40px, 6vw, 96px); align-items: end; }
   }
 </style>

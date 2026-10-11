@@ -1,0 +1,67 @@
+---
+// «Стена пигментов» — первый экран главной (редизайн 11.10): все оттенки Perel и Основит у дилера
+// фактурными плашками раствора, по рядам производителей. Наведение раскрывает название и код,
+// клик — каталог с этим тоном. Это и есть товар: вместо кадра кирпичной стены — сам цвет шва.
+import { PEREL_COLORS, OSNOVIT_COLORS } from '../../data/catalog';
+import { swatchFor } from '../../data/swatches';
+import { PAGES } from '../../data/nav';
+
+const rows = [
+  { brand: 'Perel', series: 'perel-sl' as const, colors: PEREL_COLORS, prefix: '00' },
+  { brand: 'Основит', series: 'osnovit-mc11' as const, colors: OSNOVIT_COLORS, prefix: '' },
+];
+---
+
+<div class="pw" aria-label="Оттенки раствора Perel и Основит">
+  {rows.map((r, ri) => (
+    <div class="pw__row">
+      <p class="pw__brand label">{r.brand} · {r.colors.length}</p>
+      <ul class="pw__chips" style={`--cols:${r.colors.length / 2}`}>
+        {r.colors.map((c, i) => (
+          <li style={`--i:${i + ri * 14}`}>
+            <a class="pw__chip mortar" style={`--c:${swatchFor(r.series, c.code)}`} href={`${PAGES.katalog.href}?ton=${c.tone}`}>
+              <span class="pw__tip"><b>{c.name}</b><span class="num">{r.prefix}{c.code}</span></span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ))}
+</div>
+
+<style>
+  .pw { display: grid; gap: 22px; }
+  .pw__brand { margin: 0 0 8px; }
+  /* два ряда на производителя: Perel 14 → по 7, Основит 22 → по 11 (без одинокой плашки в конце) */
+  .pw__chips { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 5px; margin: 0; padding: 0; list-style: none; }
+  .pw__chip {
+    display: block;
+    aspect-ratio: 3 / 4;
+    color: var(--ink);
+    text-decoration: none;
+    animation: pw-in 0.9s var(--ease) both;
+    animation-delay: calc(var(--i) * 28ms + 150ms);
+    transition: translate 0.45s var(--ease);
+  }
+  .pw__chip:hover, .pw__chip:focus-visible { translate: 0 -8px; z-index: 2; outline: none; }
+  .pw__tip {
+    position: absolute;
+    left: 6px; right: 6px; bottom: 6px;
+    z-index: 1;
+    display: grid;
+    gap: 1px;
+    padding: 6px 7px;
+    background: var(--paper);
+    font-size: 11.5px;
+    line-height: 1.2;
+    opacity: 0;
+    translate: 0 6px;
+    transition: opacity 0.3s var(--ease), translate 0.3s var(--ease);
+  }
+  .pw__tip b { font-weight: 500; }
+  .pw__tip .num { color: var(--color-muted); }
+  .pw__chip:hover .pw__tip, .pw__chip:focus-visible .pw__tip { opacity: 1; translate: 0 0; }
+  @keyframes pw-in { from { opacity: 0; translate: 0 18px; } to { opacity: 1; translate: 0 0; } }
+  @media (min-width: 1000px) { .pw__chips { gap: 7px; } }
+  @media (prefers-reduced-motion: reduce) { .pw__chip { animation: none; } }
+</style>

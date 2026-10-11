@@ -1,0 +1,147 @@
+---
+// Шапка сайта (редизайн 11.10): тонкая строка на бумаге — словесный знак, короткое меню, телефон
+// и «Заказать звонок». На телефоне — меню на весь экран крупной антиквой.
+// Знак — три полосы раствора разных оттенков (без кирпича: Влад 11.10 «ещё и везде кирпич»).
+import Container from '../layout/Container.astro';
+import CallbackButton from '../forms/CallbackButton.astro';
+import { getSite } from '../../lib/sites';
+import { PAGES, type PageKey } from '../../data/nav';
+
+interface Props { current?: PageKey }
+const { current } = Astro.props;
+const site = getSite('smesi');
+
+const links: { key: PageKey; label: string; also?: PageKey[] }[] = [
+  { key: 'katalog', label: 'Каталог', also: ['belaya', 'chernaya', 'klinker'] },
+  { key: 'perel', label: 'Perel' },
+  { key: 'osnovit', label: 'Основит' },
+  { key: 'podbor', label: 'Подбор шва' },
+  { key: 'kalkulyator', label: 'Расход' },
+  { key: 'dostavka', label: 'Контакты' },
+];
+const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includes(current as PageKey);
+---
+
+<header class="hd" data-hd>
+  <Container>
+    <div class="hd__row">
+      <a class="hd__brand" href={PAGES.home.href} aria-label="Цветные кладочные смеси — на главную">
+        <span class="hd__mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="hd__words">
+          <span class="hd__name">Цветные смеси</span>
+          <span class="hd__sub">Кирпичный трест · Москва</span>
+        </span>
+      </a>
+
+      <nav class="hd__nav" aria-label="Основное меню">
+        {links.map((l) => (
+          <a href={PAGES[l.key].href} class="hd__link" aria-current={isCur(l) ? 'page' : undefined}>{l.label}</a>
+        ))}
+      </nav>
+
+      <div class="hd__side">
+        <a class="hd__phone num" href={site.phone.href}>{site.phone.display}</a>
+        <CallbackButton id="callback-header-smesi" label="Заказать звонок" source="header:smesi" size="sm" variant="ghost" />
+      </div>
+
+      <button class="hd__burger" type="button" data-hd-toggle aria-expanded="false" aria-controls="hd-menu">
+        <span class="vh">Меню</span><i aria-hidden="true"></i><i aria-hidden="true"></i>
+      </button>
+    </div>
+  </Container>
+
+  <div class="hd__menu" id="hd-menu" data-hd-menu hidden>
+    <Container>
+      <nav class="hd__mnav" aria-label="Меню">
+        {links.map((l, i) => (
+          <a href={PAGES[l.key].href} aria-current={isCur(l) ? 'page' : undefined}><span class="num">0{i + 1}</span>{l.label}</a>
+        ))}
+      </nav>
+      <div class="hd__mcontacts">
+        <a class="num" href={site.phone.href}>{site.phone.display}</a>
+        {site.phonesExtra?.map((p) => <a class="num" href={p.href}>{p.display}</a>)}
+        <p>{site.hours}</p>
+      </div>
+    </Container>
+  </div>
+</header>
+
+<script>
+  const hd = document.querySelector<HTMLElement>('[data-hd]');
+  const btn = hd?.querySelector<HTMLButtonElement>('[data-hd-toggle]');
+  const menu = hd?.querySelector<HTMLElement>('[data-hd-menu]');
+  const set = (open: boolean) => {
+    if (!btn || !menu) return;
+    btn.setAttribute('aria-expanded', String(open));
+    menu.hidden = !open;
+    document.documentElement.classList.toggle('hd-open', open);
+  };
+  btn?.addEventListener('click', () => set(btn.getAttribute('aria-expanded') !== 'true'));
+  menu?.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('a')) set(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+  // тонкая линия под шапкой появляется, когда страница прокручена
+  const onScroll = () => hd?.classList.toggle('is-scrolled', window.scrollY > 8);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+</script>
+
+<style>
+  .hd {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-header);
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: saturate(1.2) blur(8px);
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--dur) var(--ease);
+  }
+  .hd.is-scrolled { border-bottom-color: var(--hair); }
+  .hd__row { display: flex; align-items: center; gap: var(--space-6); min-height: 72px; }
+
+  .hd__brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; flex: none; }
+  .hd__mark { display: grid; gap: 3px; width: 26px; }
+  .hd__mark i { display: block; height: 5px; }
+  .hd__mark i:nth-child(1) { background: #e6dccb; box-shadow: inset 0 0 0 1px rgb(33 30 26 / 0.12); }
+  .hd__mark i:nth-child(2) { background: #8f8a82; }
+  .hd__mark i:nth-child(3) { background: #2a2826; }
+  .hd__words { display: flex; flex-direction: column; line-height: 1; }
+  .hd__name { font-family: var(--font-head); font-size: 27px; font-weight: 600; letter-spacing: -0.01em; }
+  .hd__sub { margin-top: 4px; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); }
+
+  .hd__nav { display: none; gap: clamp(14px, 1.8vw, 28px); margin-left: auto; }
+  .hd__link { position: relative; padding: 6px 0; color: var(--ink); font-size: 15px; text-decoration: none; }
+  .hd__link::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform var(--dur) var(--ease); }
+  .hd__link:hover::after, .hd__link[aria-current='page']::after { transform: scaleX(1); }
+
+  .hd__side { display: none; align-items: center; gap: var(--space-5); }
+  .hd__phone { color: var(--ink); font-weight: 500; text-decoration: none; white-space: nowrap; }
+
+  .hd__burger { margin-left: auto; display: grid; place-content: center; gap: 7px; width: 44px; height: 44px; border: 0; background: none; cursor: pointer; }
+  .hd__burger i { display: block; width: 26px; height: 1.5px; background: var(--ink); transition: transform var(--dur) var(--ease); }
+  .hd__burger[aria-expanded='true'] i:first-of-type { transform: translateY(4.25px) rotate(45deg); }
+  .hd__burger[aria-expanded='true'] i:last-of-type { transform: translateY(-4.25px) rotate(-45deg); }
+
+  .hd__menu { position: fixed; inset: 72px 0 0; overflow-y: auto; background: var(--paper); padding: var(--space-6) 0 var(--space-8); border-top: 1px solid var(--hair); }
+  .hd__mnav { display: grid; }
+  .hd__mnav a { display: flex; align-items: baseline; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--hair); color: var(--ink); font-family: var(--font-head); font-size: 34px; text-decoration: none; }
+  .hd__mnav a .num { font-family: var(--font-body); font-size: 12px; color: var(--color-muted); }
+  .hd__mnav a[aria-current='page'] { font-style: italic; }
+  .hd__mcontacts { display: grid; gap: 6px; margin-top: var(--space-6); }
+  .hd__mcontacts a { color: var(--ink); font-size: 22px; font-weight: 500; text-decoration: none; }
+  .hd__mcontacts p { margin: 6px 0 0; color: var(--color-muted); }
+
+  @media (min-width: 1100px) {
+    .hd__nav, .hd__side { display: flex; }
+    .hd__burger { display: none; }
+    .hd__side { margin-left: var(--space-5); }
+  }
+  :global(html.hd-open) { overflow: hidden; }
+  /* узкие экраны: знак с подписью и кнопка меню должны влезать в 288 px (на 320 давали прокрутку вбок) */
+  @media (max-width: 379px) {
+    .hd__row { gap: 10px; }
+    .hd__name { font-size: 24px; }
+    .hd__sub { font-size: 9.5px; letter-spacing: 0.1em; }
+    .hd__brand { gap: 9px; }
+    .hd__burger { width: 40px; }
+  }
+</style>

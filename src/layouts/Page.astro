@@ -1,8 +1,11 @@
 ---
-// Обёртка всех страниц сайта: Base + меню, шапка, подвал и окно «Узнать цену» по умолчанию.
+// Обёртка всех страниц сайта: Base + своя шапка и подвал (редизайн 11.10, не шаблонные SiteHeader/SiteFooter)
+// и окно «Узнать цену» по умолчанию.
 // Страница передаёт только своё: title, description, slug, current и содержимое.
 import Base from './Base.astro';
 import PriceModal from '../components/smesi/PriceModal.astro';
+import Header from '../components/pal/Header.astro';
+import Footer from '../components/pal/Footer.astro';
 import { mainNav, footerColumns, PAGES, type PageKey } from '../data/nav';
 
 interface Props {
@@ -40,6 +43,8 @@ const { title, description, slug = '', current, jsonLd = [], ogImage, priceModal
     ],
   }}
 >
+  <Header slot="header" current={current} />
   <slot />
+  <Footer slot="footer" />
   {priceModal && <PriceModal source={source} />}
 </Base>

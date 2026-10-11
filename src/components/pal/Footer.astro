@@ -1,0 +1,67 @@
+---
+// Подвал (редизайн 11.10): тушь, крупная антиква, два офиса, короткие колонки ссылок, реквизиты.
+import Container from '../layout/Container.astro';
+import { getSite, OFFICES, HOURS_FULL } from '../../lib/sites';
+import { PAGES } from '../../data/nav';
+
+const site = getSite('smesi');
+const year = new Date().getFullYear();
+const cols = [
+  { title: 'Смеси', links: [PAGES.katalog, PAGES.perel, PAGES.osnovit, PAGES.klinker] },
+  { title: 'Цвет шва', links: [PAGES.podbor, PAGES.belaya, PAGES.chernaya] },
+  { title: 'Покупателю', links: [PAGES.kalkulyator, PAGES.dostavka] },
+];
+---
+
+<footer class="ft">
+  <Container>
+    <div class="ft__top">
+      <p class="ft__claim">Цвет шва —<br /><em>часть фасада</em></p>
+      <div class="ft__offices">
+        {OFFICES.map((o) => (
+          <div class="ft__office">
+            <a class="ft__phone num" href={o.phone.href}>{o.phone.display}</a>
+            <p>{o.address}<br />{o.metro}</p>
+          </div>
+        ))}
+        <p class="ft__hours">{HOURS_FULL[0].days.replace(' — ', '–')}: {HOURS_FULL[0].time}</p>
+      </div>
+    </div>
+    <div class="ft__cols">
+      {cols.map((c) => (
+        <div>
+          <p class="ft__ctitle">{c.title}</p>
+          <ul>{c.links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}</ul>
+        </div>
+      ))}
+    </div>
+    <div class="ft__bottom">
+      <p>© {year} {site.legal.name}, ИНН {site.legal.inn}. Perel и Основит — товарные знаки производителей.</p>
+      <p><a href={PAGES.regulation.href}>Положение об обработке персональных данных</a> · <a href={PAGES.consent.href}>Согласие на обработку персональных данных</a></p>
+    </div>
+  </Container>
+</footer>
+
+<style>
+  .ft { background: var(--ink); color: var(--paper); padding: clamp(56px, 8vw, 112px) 0 32px; }
+  .ft a { color: inherit; }
+  .ft__top { display: grid; gap: var(--space-7); padding-bottom: clamp(40px, 5vw, 72px); border-bottom: 1px solid rgb(247 244 238 / 0.16); }
+  .ft__claim { margin: 0; font-family: var(--font-head); font-size: clamp(44px, 6.4vw, 96px); line-height: 0.95; letter-spacing: -0.02em; }
+  .ft__claim em { color: var(--sand); }
+  .ft__offices { display: grid; gap: var(--space-5); align-content: end; }
+  .ft__phone { font-size: clamp(21px, 1.8vw, 26px); font-weight: 500; text-decoration: none; white-space: nowrap; }
+  .ft__office p { margin: 6px 0 0; color: rgb(247 244 238 / 0.7); font-size: var(--fs-small); }
+  .ft__hours { margin: 0; color: rgb(247 244 238 / 0.7); font-size: var(--fs-small); }
+  .ft__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-6); padding: var(--space-7) 0; }
+  .ft__ctitle { margin: 0 0 var(--space-3); font-size: var(--fs-tiny); letter-spacing: 0.16em; text-transform: uppercase; color: rgb(247 244 238 / 0.6); }
+  .ft__cols ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .ft__cols a { text-decoration: none; border-bottom: 1px solid transparent; }
+  .ft__cols a:hover { border-color: currentColor; }
+  .ft__bottom { display: grid; gap: 6px; padding-top: var(--space-5); border-top: 1px solid rgb(247 244 238 / 0.16); font-size: 13px; color: rgb(247 244 238 / 0.6); }
+  .ft__bottom p { margin: 0; }
+  @media (min-width: 900px) {
+    .ft__top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; }
+    .ft__offices { grid-template-columns: 1fr 1fr; }
+    .ft__hours { grid-column: 1 / -1; }
+  }
+</style>
