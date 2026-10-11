@@ -1,0 +1,839 @@
+---
+// Страница бренда Основит (план, волна 1, № 4): брендовый спрос «основит брикформ мс11 …».
+// Угол страницы — Брикформ под тип кирпича (МС11 или МС11/1), зимние версии и расшивка Бриксэйв ХС30.
+//
+// ФАКТЫ — только из данных (src/data):
+//   назначение и «для какого кирпича» — ДОСЛОВНО из SERIES_FACTS (purpose / forBrick);
+//   характеристики, шаги, оговорки о цвете, зимние версии — SERIES_FACTS, у каждой строки свой адрес;
+//   расход — CONSUMPTION.osnovit (50 кг/м²) и CONSUMPTION.osnovitXc30 (5,0 кг/м²);
+//   о производителе и его инструментах — BRAND_FACTS.osnovit;
+//   ассортимент (22 цвета, фасовка) — catalog.ts.
+// ⚠️ Число цветов Основит как факт производителя НЕ пишем (у производителя 34 / 32 / 23 / 22 в разных
+//   местах) — только «у нас 22 цвета» (ассортимент дилера, OSNOVIT_COLORS).
+// ⚠️ Зимних МС11 F и МС11/1 F в ассортименте дилера нет — описаны как факт производителя,
+//   наличие — «уточняйте у менеджера»; цвета зимних версий не пишем (у производителя расходятся).
+// ⚠️ В «Подборе дизайна фасада» у производителя названо число цветов шва — не переносим: читалось бы
+//   как число цветов Основит.
+// Цен нет: действие позиции — «Узнать цену» (атрибут data-ask, окно есть на странице через Page).
+// Картинка — визуализация кладки из материалов клиента (kladka.ts); бренда у кадра нет, поэтому
+// в подписи — оттенок шва, а не позиция Основит.
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Section from '../components/layout/Section.astro';
+import SwatchGrid from '../components/smesi/SwatchGrid.astro';
+import SwatchNote from '../components/smesi/SwatchNote.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import SpecTable from '../components/content/SpecTable.astro';
+import FaqAccordion from '../components/content/FaqAccordion.astro';
+import Collapse from '../components/ui/Collapse.astro';
+import { seriesById, OSNOVIT_COLORS, POSITIONS, type SeriesId } from '../data/catalog';
+import { SERIES_FACTS, CONSUMPTION, BRAND_FACTS, type SeriesFacts } from '../data/series-facts';
+import { KLADKA } from '../data/kladka';
+import { PAGES } from '../data/nav';
+import { liveUrl } from '../lib/sites';
+import type { FaqItem, SpecRow } from '../lib/types';
+
+const MC11 = SERIES_FACTS['osnovit-mc11'];
+const MC111 = SERIES_FACTS['osnovit-mc11-1'];
+const XC30 = SERIES_FACTS['osnovit-xc30'];
+const sMc11 = seriesById('osnovit-mc11');
+const sMc111 = seriesById('osnovit-mc11-1');
+const sXc30 = seriesById('osnovit-xc30');
+const SERIES_HERE: SeriesId[] = ['osnovit-mc11', 'osnovit-mc11-1', 'osnovit-xc30'];
+
+const colorsCount = OSNOVIT_COLORS.length;
+const positionsCount = POSITIONS.filter((p) => SERIES_HERE.includes(p.series)).length;
+
+/* ── помощники ─────────────────────────────────────────────────────────────── */
+
+const spec = (f: SeriesFacts, label: string) => {
+  const x = f.specs.find((s) => s.label === label);
+  if (!x) throw new Error(`osnovit.astro: нет показателя «${label}»`);
+  return x;
+};
+const rowsOf = (f: SeriesFacts): SpecRow[] => [...f.specs, ...f.packaging].map((x) => ({ label: x.label, value: x.value }));
+
+/** Подпись источника по адресу (адреса — из данных, здесь только название ссылки). */
+const SRC_NAMES: [RegExp, string][] = [
+  [/Brikform-MC11-F\.pdf$/, 'техническая карта МС11 F'],
+  [/Brikform-MC11\.1-F\.pdf$/, 'техническая карта МС11/1 F'],
+  [/Brikform-MC11\.1\.pdf$/, 'техническая карта МС11/1'],
+  [/Brikform-MC11\.pdf$/, 'техническая карта МС11'],
+  [/Brikseyv-KHS30.*\.pdf$/, 'техническая карта ХС30'],
+  [/brikform-ms11-1\/$/, 'страница МС11/1 на osnovit.ru'],
+  [/brikform-ms11\/$/, 'страница МС11 на osnovit.ru'],
+  [/brikseyv-xc30\/$/, 'страница ХС30 на osnovit.ru'],
+  [/put-k-idealnoy-rasshivke/, 'статья производителя о расшивке'],
+  [/ROSS-RU/, 'декларация соответствия'],
+  [/o-kompanii/, 'раздел «О компании» на osnovit.ru'],
+];
+const srcName = (url: string) => SRC_NAMES.find(([re]) => re.test(url))?.[1] ?? 'osnovit.ru';
+const sources = (urls: string[]) => [...new Set(urls)].map((url) => ({ url, name: srcName(url) }));
+const factSources = (f: SeriesFacts) => sources([f.purposeSrc, f.forBrickSrc, ...f.specs.map((x) => x.src), ...f.packaging.map((x) => x.src)]);
+
+const about = (needle: string) => {
+  const x = BRAND_FACTS.osnovit.about.find((f) => f.text.includes(needle));
+  if (!x) throw new Error(`osnovit.astro: нет факта о производителе «${needle}»`);
+  return x;
+};
+const tool = (needle: string) => {
+  const x = BRAND_FACTS.osnovit.tools.find((f) => f.text.includes(needle));
+  if (!x) throw new Error(`osnovit.astro: нет инструмента «${needle}»`);
+  return x;
+};
+
+/* ── первый экран ─────────────────────────────────────────────────────────── */
+
+// Кадр кладки клиента: светлый кирпич с тёмным швом — контраст, который хорошо видно на превью.
+const frameBrick = KLADKA.find((b) => b.id === 'osmibt-slonovaya-kost') ?? KLADKA[0];
+const frame = frameBrick?.seams.find((s) => s.id === 'darkgrey') ?? frameBrick?.seams[0];
+
+const jump = [
+  { href: '#vybor', label: 'МС11 или МС11/1' },
+  { href: `#${sMc11.id}`, label: 'Брикформ МС11' },
+  { href: `#${sMc111.id}`, label: 'Брикформ МС11/1' },
+  { href: '#zima', label: 'Зимние версии' },
+  { href: `#${sXc30.id}`, label: 'Расшивка ХС30' },
+  { href: '#rashod', label: 'Расход' },
+];
+
+/* ── 1. о производителе ───────────────────────────────────────────────────── */
+
+const maker = [
+  { title: 'Производство', text: 'Смеси выпускает ООО «Седрус». В декларации соответствия адрес места деятельности — Московская область, г. Коломна, Пирочинское шоссе, 13.', src: about('Коломна').src },
+  { title: 'Разработка', text: 'Продукты Основит разрабатывает собственный научно-технический центр — более 20 лет.', src: about('научно-технический').src },
+  { title: 'География', text: 'Продукция продаётся более чем в 60 регионах России — от Калининграда до Владивостока.', src: about('регионах').src },
+  { title: 'Документы', text: 'Декларация соответствия РОСС RU Д-RU.РА01.В.32635/25 по ГОСТ Р 58272-2018 действует до 11.02.2030. В перечне — колерованные Брикформ МС11, МС11/1 и Бриксэйв ХС30.', src: about('Декларация').src },
+];
+const objectsSrc = about('Зиларт').src;
+const objects = [
+  { name: 'ЖК «Зиларт»', place: 'Москва, ул. Автозаводская, вл. 23' },
+  { name: 'ЖК «Коммунарка»', place: 'Москва' },
+  { name: 'Микрорайон «Царицыно»', place: 'Москва' },
+  { name: 'КП «Академия парк»', place: 'Москва' },
+  { name: 'КП «Шервудский Лес»', place: 'Московская область' },
+];
+
+/* ── 2. МС11 или МС11/1 ───────────────────────────────────────────────────── */
+
+type Cmp = { label: string; a: string; b: string; wide?: boolean };
+const cmpLabels = ['Прочность на сжатие', 'Морозостойкость', 'Вода затворения', 'Жизнеспособность раствора', 'Толщина шва'];
+const cmp: Cmp[] = [
+  { label: 'Для какого кирпича', a: MC11.forBrick, b: MC111.forBrick, wide: true },
+  ...cmpLabels.map((l) => ({ label: l, a: spec(MC11, l).value, b: spec(MC111, l).value })),
+  { label: 'Мешок у нас', a: `${sMc11.packKg} кг`, b: `${sMc111.packKg} кг` },
+  { label: 'Цветов у нас', a: String(sMc11.colors.length), b: String(sMc111.colors.length) },
+];
+const cmpSources = sources([
+  MC11.forBrickSrc,
+  MC111.forBrickSrc,
+  ...cmpLabels.flatMap((l) => [spec(MC11, l).src, spec(MC111, l).src]),
+]);
+
+/* ── 3–4. серии Брикформ ─────────────────────────────────────────────────── */
+
+const brikform = [
+  {
+    s: sMc11,
+    f: MC11,
+    bg: 'base' as const,
+    kicker: 'Брикформ МС11',
+    title: 'Брикформ МС11\u00a0— для кирпича до 12\u00a0% и клинкера',
+    chips: [`мешок ${sMc11.packKg} кг`, `${sMc11.colors.length} цвета у нас`, `шов ${spec(MC11, 'Толщина шва').value.replace(' (рекомендуемая)', '')}`],
+  },
+  {
+    s: sMc111,
+    f: MC111,
+    bg: 'alt' as const,
+    kicker: 'Брикформ МС11/1',
+    title: 'Брикформ МС11/1\u00a0— для кирпича более 12\u00a0% и ручной формовки',
+    chips: [`мешок ${sMc111.packKg} кг`, `${sMc111.colors.length} цвета у нас`, `шов ${spec(MC111, 'Толщина шва').value.replace(' (рекомендуемая)', '')}`],
+  },
+];
+
+/* ── 5. зимние версии ─────────────────────────────────────────────────────── */
+
+// Пересказ brikformWinter() из series-facts.ts по пунктам — числа и запреты производителя без добавлений.
+const winterRules = [
+  'Температура воздуха и основания при нанесении — от −10 до +5 °C.',
+  'Жизнеспособность раствора — 1 час.',
+  'Мешки перед работой 24 часа выдерживают в тепле, воду для затворения подогревают до +10…+30 °C.',
+  'Противоморозные и любые другие добавки вводить запрещено; количество воды особенно важно соблюдать.',
+  'После работ 3 суток не допускать похолодания ниже −10 °C; при более сильном морозе работают только в тепловом контуре.',
+];
+const winterSources = sources([MC11.winter?.src ?? '', MC111.winter?.src ?? ''].filter(Boolean));
+
+/* ── 6. ХС30 ──────────────────────────────────────────────────────────────── */
+
+const xcRate = CONSUMPTION.osnovitXc30;
+const xcRateText = xcRate.kgPerM2.toFixed(1).replace('.', ',');
+const xcSources = sources([...factSources(XC30).map((x) => x.url), xcRate.src]);
+const xcNewOrOld = XC30.notes?.find((n) => n.text.includes('нового строительства'));
+
+/* ── 7. как работать ──────────────────────────────────────────────────────── */
+
+// Шаги 2–8 у МС11 и МС11/1 совпадают слово в слово (технические карты 07.26); первый шаг — вода,
+// у двух растворов норма разная, поэтому он собран из обоих.
+const waterStep = {
+  text: `Содержимое мешка при постоянном перемешивании высыпать в ёмкость с чистой водой: для МС11\u00a0— ${spec(MC11, 'Вода затворения').value} (2,5–3,75 л на мешок 25 кг), для МС11/1\u00a0— ${spec(MC111, 'Вода затворения').value}. Воду лить строго по норме производителя.`,
+  src: MC11.steps[0]?.src ?? '',
+};
+const brikformSteps = [waterStep, ...MC11.steps.slice(1)];
+const stepsSources = sources([...brikformSteps.map((s) => s.src), MC111.steps[0]?.src ?? '', ...XC30.steps.map((s) => s.src)].filter(Boolean));
+
+// От чего зависит цвет шва: оговорки Брикформ (страница и техкарта) + совет из статьи о расшивке ХС30.
+const colorNotes = [
+  ...(MC11.notes ?? []),
+  ...(XC30.notes ?? []).filter((n) => n.text.startsWith('Цвет проверяют')),
+];
+
+/* ── 8. расход ─────────────────────────────────────────────────────────────── */
+
+const rate = CONSUMPTION.osnovit;
+const wall = rate.wall.replace('1/2', '½');
+const exampleM2 = 10;
+const exampleKg = rate.kgPerM2 * exampleM2;
+const exampleBags = Math.ceil(exampleKg / sMc11.packKg);
+const bagsPerM2 = rate.kgPerM2 / sMc11.packKg;
+
+/* ── 9. инструменты производителя ─────────────────────────────────────────── */
+
+const tools = [
+  {
+    title: 'Кирпичный калькулятор',
+    text: 'Выберите вид кирпича — калькулятор сам подберёт МС11 или МС11/1. Дальше формат кирпича, швы и количество: результат в мешках по 25\u00a0кг и общем весе. Швы по умолчанию — 10\u00a0мм вертикальный и 12\u00a0мм горизонтальный, по СП 70.13330.2012.',
+    href: tool('Кирпичный калькулятор').src,
+    cta: 'Открыть на osnovit.ru',
+  },
+  {
+    title: 'Подбор дизайна фасада',
+    text: 'Тип дома, часть здания, цвет кирпича и цвет шва кладки — вариант фасада можно распечатать.',
+    href: tool('Подбор дизайна фасада').src,
+    cta: 'Открыть на osnovit.ru',
+  },
+  {
+    title: 'Строительный калькулятор',
+    text: 'Продукт и площадь в квадратных метрах — сколько нужно килограммов и мешков.',
+    href: tool('Строительный калькулятор').src,
+    cta: 'Открыть на osnovit.ru',
+  },
+  {
+    video: true,
+    title: 'Видео о Брикформ МС11',
+    text: 'Ролик производителя «Цветной кладочный раствор ОСНОВИТ БРИКФОРМ МС11».',
+    href: tool('БРИКФОРМ МС11').src,
+    cta: 'Смотреть на YouTube',
+  },
+  {
+    video: true,
+    title: 'Видео о Бриксэйв ХС30',
+    text: 'Ролик производителя «Раствор для расшивки швов ОСНОВИТ БРИКСЭЙВ ХС 30».',
+    href: tool('БРИКСЭЙВ ХС 30').src,
+    cta: 'Смотреть на YouTube',
+  },
+];
+
+/* ── 10. вопросы ──────────────────────────────────────────────────────────── */
+
+const faq: FaqItem[] = [
+  {
+    q: 'Чем Брикформ МС11 отличается от МС11/1?',
+    a: `<p>Кирпичом, под который рассчитан раствор. МС11: ${MC11.forBrick} МС11/1: ${MC111.forBrick}</p><p>Прочность на сжатие у обоих — ${spec(MC11, 'Прочность на сжатие').value}, морозостойкость — ${spec(MC11, 'Морозостойкость').value}. Отличается норма воды: ${spec(MC11, 'Вода затворения').value} у МС11 и ${spec(MC111, 'Вода затворения').value} у МС11/1.</p>`,
+  },
+  {
+    q: 'Какой раствор Основит подходит для клинкерного кирпича?',
+    a: '<p>Брикформ МС11: клинкерный кирпич производитель называет в его назначении. МС11/1 рассчитан на кирпич с водопоглощением более 12 % и кирпич ручной формовки.</p>',
+  },
+  {
+    q: 'Сколько Брикформ нужно на 1 м² кладки?',
+    a: `<p>По норме производителя — ${rate.kgPerM2} кг на 1 м² (${rate.joint}, ${wall}), то есть ${bagsPerM2} мешка по ${sMc11.packKg} кг. Норма одна для МС11 и МС11/1. На свою площадь посчитайте в <a href="${PAGES.kalkulyator.href}">калькуляторе расхода</a>.</p>`,
+  },
+  {
+    q: 'Можно ли класть Основит зимой?',
+    a: '<p>Для холодной погоды у производителя есть зимние версии — Брикформ МС11 F и МС11/1 F: нанесение при температуре воздуха и основания от −10 до +5 °C, жизнеспособность раствора 1 час, противоморозные и любые другие добавки вводить запрещено. Наличие зимних версий уточняйте у менеджера.</p>',
+  },
+  {
+    q: 'Когда нужен Бриксэйв ХС30, а не Брикформ?',
+    a: `<p>Брикформ — цветной кладочный раствор: шов можно расшить сразу при укладке. ХС30 — для отделки швов уже готовой кладки: новой или той, где швы обновляют. Кладка должна выстояться не менее 3–4 недель, швы расчищают на глубину не менее 1,5–2 см. Расход ХС30 — ${xcRateText} кг на 1 м² (${xcRate.condition}).</p>`,
+  },
+  {
+    q: 'Почему шов может выглядеть не так, как образец?',
+    a: '<p>По словам производителя, на цвет шва влияют количество воды, способ и время расшивки, условия твердения и инструмент. Заявленный цвет появляется только после полного высыхания, а небольшие отклонения от демонстрационного образца допускаются — поэтому перед началом работ производитель советует сделать пробную кладку и согласовать оттенок.</p>',
+  },
+];
+
+/* ── микроразметка ─────────────────────────────────────────────────────────── */
+
+const pageUrl = liveUrl('smesi', 'osnovit');
+const itemList = {
+  '@type': 'ItemList',
+  name: 'Растворы Основит: Брикформ МС11, Брикформ МС11/1, Бриксэйв ХС30',
+  numberOfItems: SERIES_HERE.length,
+  itemListElement: SERIES_HERE.map((id, i) => ({ '@type': 'ListItem', position: i + 1, name: seriesById(id).name, url: `${pageUrl}#${id}` })),
+};
+---
+
+<Page
+  title="Основит Брикформ МС11 и МС11/1, расшивка Бриксэйв ХС30 — Москва"
+  description={`Цветные кладочные растворы Основит Брикформ МС11 и МС11/1 под тип кирпича и расшивка Бриксэйв ХС30: у нас ${colorsCount} цвета, характеристики, нормы расхода.`}
+  slug="osnovit"
+  current="osnovit"
+  source="osnovit"
+  ogImage={frame?.src}
+  jsonLd={[itemList]}
+>
+  <PageHead
+    kicker="Производитель Основит"
+    h1="Цветные кладочные растворы Основит Брикформ"
+    crumb="Основит"
+    trail={[{ label: 'Каталог', href: PAGES.katalog.href }]}
+    lead={`Раствор Основит подбирают по кирпичу: МС11 — для облицовочного кирпича с водопоглощением до 12\u00a0% и клинкера, МС11/1 — для кирпича более 12\u00a0% и ручной формовки. Готовые швы отделывают Бриксэйв ХС30. У нас ${colorsCount}\u00a0цвета каждого раствора — ${positionsCount}\u00a0позиций.`}
+  >
+    <nav class="os-jump" aria-label="Разделы страницы" data-reveal>
+      {jump.map((j) => <a href={j.href}>{j.label}</a>)}
+    </nav>
+    <Fragment slot="aside">
+    {frame && frameBrick && (
+      <figure class="os-frame">
+        <img
+          src={frame.src}
+          srcset={`${frame.srcSm} 320w, ${frame.src} ${frame.w}w`}
+          sizes="(min-width: 960px) 44vw, 92vw"
+          width={frame.w}
+          height={frame.h}
+          alt={`Визуализация кладки: кирпич «${frameBrick.brick}», ${frame.label} шов`}
+          fetchpriority="high"
+        />
+        <figcaption>
+          Визуализация кладки: кирпич «{frameBrick.brick}», шов {frame.label}.
+          <span>Кадр показывает оттенок шва, а не конкретный раствор.</span>
+        </figcaption>
+      </figure>
+    )}
+    </Fragment>
+  </PageHead>
+
+  <Section id="proizvoditel" kicker="Производитель" title="Основит — растворы из Коломны" bg="base">
+    <div class="os-maker">
+      <ul class="os-maker__facts" data-reveal-stagger>
+        {maker.map((m) => (
+          <li>
+            <h3 class="os-maker__title">{m.title}</h3>
+            <p>{m.text}</p>
+            <a class="os-src-link" href={m.src} rel="nofollow noopener" target="_blank">{srcName(m.src)}</a>
+          </li>
+        ))}
+      </ul>
+      <aside class="os-objects" data-reveal>
+        <p class="os-label">Объекты на Брикформ МС11</p>
+        <ul class="os-objects__list">
+          {objects.map((o) => (
+            <li><b>{o.name}</b><span>{o.place}</span></li>
+          ))}
+        </ul>
+        <p class="os-objects__src">
+          Список объектов — <a href={objectsSrc} rel="nofollow noopener" target="_blank">{srcName(objectsSrc)}</a>
+        </p>
+      </aside>
+    </div>
+  </Section>
+
+  <Section
+    id="vybor"
+    kicker="Выбор раствора"
+    title="МС11 или МС11/1: решает кирпич"
+    subtitle="Прочность, морозостойкость и толщина шва у двух растворов одинаковые. Главное различие — кирпич, под который рассчитан раствор; норма воды у каждого своя."
+    bg="alt"
+  >
+    <div class="os-cmp" data-reveal>
+      <table class="os-cmp__table">
+        <thead>
+          <tr>
+            <th scope="col"><span class="os-visually-hidden">Показатель</span></th>
+            <th scope="col"><a href={`#${sMc11.id}`}>Брикформ МС11</a><span>{spec(MC11, 'Водопоглощение кирпича').value}</span></th>
+            <th scope="col"><a href={`#${sMc111.id}`}>Брикформ МС11/1</a><span>{spec(MC111, 'Водопоглощение кирпича').value}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {cmp.map((r) =>
+            r.a === r.b ? (
+              <tr class="os-cmp__row os-cmp__row--same">
+                <th scope="row">{r.label}</th>
+                <td colspan="2">{r.a} <span class="os-cmp__same">одинаково</span></td>
+              </tr>
+            ) : (
+              <tr class:list={['os-cmp__row', r.wide && 'os-cmp__row--wide']}>
+                <th scope="row">{r.label}</th>
+                <td data-col="МС11">{r.a}</td>
+                <td data-col="МС11/1">{r.b}</td>
+              </tr>
+            ),
+          )}
+        </tbody>
+      </table>
+    </div>
+    <p class="os-src">
+      По данным производителя:
+      {cmpSources.map((s, i) => (
+        <Fragment>{i > 0 && ' · '}<a href={s.url} rel="nofollow noopener" target="_blank">{s.name}</a></Fragment>
+      ))}
+    </p>
+    <ul class="os-hints" data-reveal-stagger>
+      <li>
+        <b>Клинкер — к МС11.</b>
+        Клинкерный кирпич производитель называет в назначении МС11; у МС11/1 его в назначении нет.
+      </li>
+      <li>
+        <b>Ручная формовка — к&nbsp;МС11/1.</b>
+        Для кирпича ручной формовки производитель рекомендует МС11/1.
+      </li>
+      <li>
+        <b>Расшивка — сразу при кладке.</b>
+        У МС11 и у МС11/1 производитель указывает возможность расшивки швов в момент укладки.
+      </li>
+    </ul>
+  </Section>
+
+  {brikform.map(({ s, f, bg, kicker, title, chips }) => (
+    <Section id={s.id} kicker={kicker} title={title} bg={bg}>
+      <div class="os-ser">
+        <div class="os-ser__about" data-reveal>
+          <p class="os-label">Назначение — слова производителя</p>
+          <blockquote class="os-quote" cite={f.purposeSrc}>{f.purpose}</blockquote>
+          <p class="os-label">Для какого кирпича</p>
+          <p class="os-ser__brick">{f.forBrick}</p>
+          <ul class="os-chips">
+            {chips.map((c) => <li>{c}</li>)}
+          </ul>
+          <div class="os-ser__actions">
+            <button class="btn btn--primary" type="button" data-ask={`${s.name} — цвет подберём`}>Узнать цену</button>
+            <a class="btn btn--ghost" href={`#${s.id}-cveta`}>Смотреть цвета</a>
+          </div>
+        </div>
+        <div class="os-ser__specs" data-reveal>
+          <Collapse max={560} fade={bg} label="Все характеристики">
+            <SpecTable rows={rowsOf(f)} caption={`Характеристики ${s.name}`} />
+          </Collapse>
+          <p class="os-src">
+            По данным производителя:
+            {factSources(f).map((x, i) => (
+              <Fragment>{i > 0 && ' · '}<a href={x.url} rel="nofollow noopener" target="_blank">{x.name}</a></Fragment>
+            ))}
+          </p>
+        </div>
+      </div>
+      <h3 class="os-sub" id={`${s.id}-cveta`}>Цвета {s.name.replace('Основит ', '')} у нас — {s.colors.length}</h3>
+      <SwatchGrid series={s.id} />
+      <SwatchNote />
+    </Section>
+  ))}
+
+  <Section id="zima" kicker="Зимняя кладка" title="Зимние версии: МС11 F и МС11/1 F" bg="base">
+    <div class="os-winter">
+      <div data-reveal>
+        <p class="os-winter__lead">
+          У производителя есть зимние версии растворов Брикформ&nbsp;— МС11&nbsp;F и МС11/1&nbsp;F.
+          Условия работы с ними по техническим картам производителя:
+        </p>
+        <ol class="os-winter__list">
+          {winterRules.map((r) => <li>{r}</li>)}
+        </ol>
+        <p class="os-src">
+          По данным производителя:
+          {winterSources.map((x, i) => (
+            <Fragment>{i > 0 && ' · '}<a href={x.url} rel="nofollow noopener" target="_blank">{x.name}</a></Fragment>
+          ))}
+        </p>
+      </div>
+      <aside class="os-winter__card" data-reveal>
+        <p class="os-winter__big">−10…+5 °C</p>
+        <p>температура воздуха и основания при нанесении зимней версии</p>
+        <p class="os-winter__stock">Наличие зимних версий уточняйте у менеджера.</p>
+        <div class="os-winter__actions">
+          <button class="btn btn--primary btn--sm" type="button" data-ask="Основит Брикформ МС11 F, зимняя версия — наличие">Спросить о МС11 F</button>
+          <button class="btn btn--ghost btn--sm" type="button" data-ask="Основит Брикформ МС11/1 F, зимняя версия — наличие">Спросить о МС11/1 F</button>
+        </div>
+      </aside>
+    </div>
+  </Section>
+
+  <Section id={sXc30.id} kicker="Расшивка швов" title={'Бриксэйв ХС30\u00a0— раствор для расшивки'} bg="alt">
+    <div class="os-ser">
+      <div class="os-ser__about" data-reveal>
+        <p class="os-label">Назначение — слова производителя</p>
+        <blockquote class="os-quote" cite={XC30.purposeSrc}>{XC30.purpose}</blockquote>
+        <p class="os-label">Для каких материалов</p>
+        <p class="os-ser__brick">{XC30.forBrick}</p>
+        {xcNewOrOld && <p class="os-ser__brick">{xcNewOrOld.text}</p>}
+        <div class="os-rate">
+          <p class="os-rate__num"><b>{xcRateText}</b> кг/м²</p>
+          <p class="os-rate__text">расход на 1 м² кладки: {xcRate.condition}</p>
+        </div>
+        <ul class="os-chips">
+          <li>мешок {sXc30.packKg} кг</li>
+          <li>{sXc30.colors.length} цвета у нас</li>
+          <li>шов {spec(XC30, 'Ширина шва').value.replace(' (рекомендуемая)', '')}</li>
+        </ul>
+        <div class="os-ser__actions">
+          <button class="btn btn--primary" type="button" data-ask={`${sXc30.name} — цвет подберём`}>Узнать цену</button>
+          <a class="btn btn--ghost" href={`#${sXc30.id}-cveta`}>Смотреть цвета</a>
+        </div>
+      </div>
+      <div class="os-ser__specs" data-reveal>
+        <Collapse max={560} fade="alt" label="Все характеристики">
+          <SpecTable rows={rowsOf(XC30)} caption={`Характеристики ${sXc30.name}`} />
+        </Collapse>
+        <p class="os-src">
+          По данным производителя:
+          {xcSources.map((x, i) => (
+            <Fragment>{i > 0 && ' · '}<a href={x.url} rel="nofollow noopener" target="_blank">{x.name}</a></Fragment>
+          ))}
+        </p>
+      </div>
+    </div>
+    <h3 class="os-sub" id={`${sXc30.id}-cveta`}>Цвета Бриксэйв ХС30 у нас — {sXc30.colors.length}</h3>
+    <p class="os-xc-note">
+      Коды цветов у ХС30 те же, что у Брикформ, но плашки сняты с фотографии образцов ХС30, а не с палитры
+      Брикформ, — поэтому одинаковые коды на экране выглядят по-разному.
+    </p>
+    <SwatchGrid series={sXc30.id} />
+    <SwatchNote />
+  </Section>
+
+  <Section id="kak-rabotat" kicker="Как работать" title="Кладка и расшивка по шагам" bg="base" clamp={1150} clampLabel="Все шаги">
+    <div class="os-steps">
+      <div class="os-steps__col" data-reveal>
+        <h3 class="os-steps__title">Кладка на Брикформ МС11 и МС11/1</h3>
+        <ol class="os-steps__list">
+          {brikformSteps.map((s) => <li>{s.text}</li>)}
+        </ol>
+      </div>
+      <div class="os-steps__col" data-reveal>
+        <h3 class="os-steps__title">Расшивка Бриксэйв ХС30</h3>
+        <ol class="os-steps__list">
+          {XC30.steps.map((s) => <li>{s.text}</li>)}
+        </ol>
+      </div>
+    </div>
+    <div class="os-color" data-reveal>
+      <h3 class="os-color__title">От чего зависит цвет шва</h3>
+      <ul class="os-color__list">
+        {colorNotes.map((n) => <li>{n.text}</li>)}
+      </ul>
+    </div>
+    <p class="os-src">
+      По данным производителя:
+      {sources([...stepsSources.map((x) => x.url), ...colorNotes.map((n) => n.src)]).map((x, i) => (
+        <Fragment>{i > 0 && ' · '}<a href={x.url} rel="nofollow noopener" target="_blank">{x.name}</a></Fragment>
+      ))}
+    </p>
+  </Section>
+
+  <Section id="rashod" kicker="Расход" title={`Брикформ: ${rate.kgPerM2}\u00a0кг на\u00a01\u00a0м² кладки`} bg="alt">
+    <div class="os-calc">
+      <div class="os-calc__norm" data-reveal>
+        <p class="os-calc__big"><b>{rate.kgPerM2}</b> кг/м²</p>
+        <p>{rate.joint}, {wall} — норма одна для МС11 и МС11/1</p>
+        <p class="os-src">
+          По данным производителя: <a href={rate.src} rel="nofollow noopener" target="_blank">{srcName(rate.src)}</a>
+        </p>
+      </div>
+      <div class="os-calc__example" data-reveal>
+        <p class="os-label">Пример по этой норме</p>
+        <p class="os-calc__line">
+          {exampleM2} м² кладки × {rate.kgPerM2} кг = <b>{exampleKg} кг</b> — это <b>{exampleBags} мешков</b> по {sMc11.packKg} кг.
+        </p>
+        <p class="os-calc__hint">
+          Норма дана для шва 10 мм и кладки в ½ кирпича. Для своей площади откройте калькулятор — Брикформ он считает по этой же норме.
+        </p>
+        <a class="btn btn--primary" href={PAGES.kalkulyator.href}>Открыть калькулятор расхода</a>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="instrumenty" kicker="Инструменты производителя" title="Калькуляторы и видео Основит" bg="base" clamp={900} clampLabel="Все инструменты">
+    <ul class="os-tools" data-reveal-stagger>
+      {tools.map((t) => (
+        <li class:list={['os-tool', t.video && 'os-tool--video']}>
+          <h3 class="os-tool__title">{t.title}</h3>
+          <p>{t.text}</p>
+          <a class="os-tool__link" href={t.href} rel="nofollow noopener" target="_blank">{t.cta} <span aria-hidden="true">↗</span></a>
+        </li>
+      ))}
+    </ul>
+  </Section>
+
+  <Section id="voprosy" kicker="Вопросы" title="Частые вопросы об Основит" bg="alt">
+    <FaqAccordion items={faq} site="smesi" slug="osnovit" />
+  </Section>
+
+  <CtaBand
+    source="osnovit"
+    title="Подберём Основит под ваш кирпич"
+    text="Назовите кирпич и площадь кладки — подскажем, МС11 или МС11/1, поможем с цветом шва и посчитаем мешки."
+  />
+</Page>
+
+<style>
+  .os-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* первый экран */
+  .os-jump { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-6); }
+  .os-jump a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 6px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--fs-small);
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .os-jump a:hover { border-color: var(--color-brand); background: var(--color-brand-soft); }
+
+  .os-frame { position: relative; margin: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--color-bg); }
+  .os-frame img { display: block; width: 100%; height: auto; aspect-ratio: 5 / 4; object-fit: cover; }
+  .os-frame figcaption {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-dark) 82%, transparent);
+    color: var(--color-on-dark);
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+  .os-frame figcaption span { font-weight: 400; font-size: var(--fs-tiny); opacity: 0.85; }
+
+  /* общее */
+  .os-label {
+    margin: 0 0 var(--space-2);
+    font-size: var(--fs-tiny);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .os-src { margin: var(--space-4) 0 0; font-size: var(--fs-tiny); color: var(--color-muted); }
+  .os-src a, .os-src-link { color: var(--color-accent-text); }
+  .os-sub {
+    margin: clamp(40px, 5vw, 64px) 0 var(--space-5);
+    font-family: var(--font-head);
+    font-weight: 800;
+    font-size: var(--fs-h3);
+  }
+
+  /* 1. производитель */
+  .os-maker { display: grid; gap: var(--space-6); }
+  .os-maker__facts { display: grid; gap: var(--space-5); margin: 0; padding: 0; list-style: none; }
+  .os-maker__facts li { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-4); border-top: 2px solid var(--color-brand); }
+  .os-maker__facts p { margin: 0; color: var(--color-text-soft); }
+  .os-maker__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .os-src-link { font-size: var(--fs-tiny); }
+  .os-objects { padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-dark); color: var(--color-on-dark); }
+  .os-objects .os-label { color: var(--color-brand-on-dark); }
+  .os-objects__list { display: grid; gap: var(--space-4); margin: var(--space-4) 0 0; padding: 0; list-style: none; }
+  .os-objects__list li { display: flex; flex-direction: column; gap: 2px; padding-bottom: var(--space-3); border-bottom: 1px solid color-mix(in srgb, var(--color-on-dark) 16%, transparent); }
+  .os-objects__list b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .os-objects__list span { font-size: var(--fs-small); color: color-mix(in srgb, var(--color-on-dark) 74%, transparent); }
+  .os-objects__src { margin: var(--space-4) 0 0; font-size: var(--fs-tiny); color: color-mix(in srgb, var(--color-on-dark) 74%, transparent); }
+  .os-objects__src a { color: var(--color-brand-on-dark); }
+  @media (min-width: 760px) { .os-maker__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-6); } }
+  @media (min-width: 1080px) { .os-maker { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: clamp(40px, 5vw, 72px); align-items: start; } }
+
+  /* 2. сравнение */
+  .os-cmp { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); }
+  .os-cmp__table { width: 100%; border-collapse: collapse; }
+  .os-cmp__table th, .os-cmp__table td { padding: var(--space-4) var(--space-5); text-align: left; vertical-align: top; }
+  .os-cmp__table thead th { border-bottom: 2px solid var(--color-text); }
+  .os-cmp__table thead a {
+    display: block;
+    font-family: var(--font-head);
+    font-weight: 800;
+    font-size: var(--fs-h4);
+    color: var(--color-text);
+    text-decoration: none;
+  }
+  .os-cmp__table thead a:hover { color: var(--color-accent-text); }
+  .os-cmp__table thead span:not(.os-visually-hidden) { display: block; margin-top: 2px; font-size: var(--fs-small); font-weight: 500; color: var(--color-accent-text); }
+  .os-cmp__row { border-bottom: 1px solid var(--color-border-soft); }
+  .os-cmp__row:last-child { border-bottom: 0; }
+  .os-cmp__row th { width: 24%; font-weight: 500; color: var(--color-text-soft); }
+  .os-cmp__row td { font-weight: 600; }
+  .os-cmp__row--wide td { font-weight: 500; }
+  .os-cmp__row--same td { color: var(--color-text-soft); }
+  .os-cmp__same {
+    display: inline-block;
+    margin-left: var(--space-2);
+    padding: 2px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-alt);
+    font-size: var(--fs-tiny);
+    font-weight: 600;
+    color: var(--color-muted);
+    vertical-align: 1px;
+  }
+
+  /* на телефоне таблица — блоки: показатель сверху, значения двух растворов рядом */
+  @media (max-width: 699px) {
+    .os-cmp__table thead tr { display: grid; grid-template-columns: 1fr 1fr; }
+    .os-cmp__table thead th:first-child { display: none; }
+    .os-cmp__table thead th { padding: var(--space-4); }
+    .os-cmp__table tbody tr { display: grid; grid-template-columns: 1fr 1fr; padding: var(--space-3) var(--space-4); }
+    .os-cmp__table tbody th { grid-column: 1 / -1; width: auto; padding: 0 0 var(--space-1); font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-muted); }
+    .os-cmp__table tbody td { padding: var(--space-1) var(--space-3) 0 0; font-size: var(--fs-small); }
+    .os-cmp__table tbody td[colspan] { grid-column: 1 / -1; }
+    .os-cmp__row--wide td { grid-column: 1 / -1; padding-bottom: var(--space-2); }
+    .os-cmp__table tbody td[data-col]::before {
+      content: attr(data-col);
+      display: block;
+      font-size: var(--fs-tiny);
+      font-weight: 700;
+      color: var(--color-accent-text);
+    }
+  }
+
+  .os-hints { display: grid; gap: var(--space-4); margin: var(--space-6) 0 0; padding: 0; list-style: none; }
+  .os-hints li { padding: var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-soft); }
+  .os-hints b { display: block; margin-bottom: var(--space-2); font-family: var(--font-head); font-weight: 800; color: var(--color-text); }
+  @media (min-width: 860px) { .os-hints { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+  /* 3–4, 6. серии */
+  .os-ser { display: grid; gap: var(--space-6); }
+  .os-ser__about { display: flex; flex-direction: column; align-items: flex-start; }
+  .os-quote {
+    margin: 0 0 var(--space-5);
+    padding-left: var(--space-4);
+    border-left: 3px solid var(--color-brand);
+    font-size: var(--fs-lead);
+    line-height: 1.45;
+  }
+  .os-ser__brick { margin: 0 0 var(--space-4); color: var(--color-text-soft); }
+  .os-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+  .os-chips li { padding: 4px 12px; border-radius: var(--radius-pill); background: var(--color-brand-soft); font-size: var(--fs-small); font-weight: 600; }
+  .os-ser__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
+  @media (min-width: 960px) {
+    .os-ser { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: clamp(32px, 4vw, 64px); align-items: start; }
+    /* характеристики длиннее описания — описание с кнопкой едет рядом с таблицей */
+    .os-ser__about { position: sticky; top: 96px; }
+  }
+
+  .os-rate { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); margin: var(--space-2) 0 var(--space-3); padding: var(--space-4) var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); }
+  .os-rate__num { margin: 0; font-size: var(--fs-h4); }
+  .os-rate__num b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-stat); color: var(--color-accent-text); }
+  .os-rate__text { margin: 0; font-size: var(--fs-small); color: var(--color-text-soft); }
+  .os-xc-note { max-width: 68ch; margin: 0 0 var(--space-5); color: var(--color-text-soft); }
+
+  /* 5. зима */
+  .os-winter { display: grid; gap: var(--space-6); }
+  .os-winter__lead { max-width: 60ch; margin: 0 0 var(--space-5); font-size: var(--fs-lead); color: var(--color-text-soft); }
+  .os-winter__list { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+  .os-winter__list li { position: relative; padding-left: 28px; }
+  .os-winter__list li::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 0.55em;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--color-brand);
+  }
+  .os-winter__card { padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-dark); color: var(--color-on-dark); }
+  .os-winter__card p { margin: 0; }
+  .os-winter__big { font-family: var(--font-head); font-weight: 800; font-size: clamp(34px, 4.4vw, 52px); line-height: 1; color: var(--color-brand-on-dark); }
+  .os-winter__big + p { margin-top: var(--space-3); color: color-mix(in srgb, var(--color-on-dark) 80%, transparent); }
+  .os-winter__card .os-winter__stock { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid color-mix(in srgb, var(--color-on-dark) 18%, transparent); font-weight: 600; }
+  .os-winter__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
+  .os-winter__actions .btn--ghost { color: var(--color-on-dark); border-color: color-mix(in srgb, var(--color-on-dark) 60%, transparent); }
+  .os-winter__actions .btn--ghost:hover { background: color-mix(in srgb, var(--color-on-dark) 12%, transparent); }
+  @media (min-width: 960px) { .os-winter { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: clamp(40px, 5vw, 72px); align-items: start; } }
+
+  /* 7. шаги */
+  .os-steps { display: grid; gap: var(--space-7); }
+  .os-steps__title { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
+  .os-steps__list { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; counter-reset: os-step; }
+  .os-steps__list li {
+    position: relative;
+    padding: 0 0 var(--space-3) 44px;
+    border-bottom: 1px solid var(--color-border-soft);
+    color: var(--color-text-soft);
+    counter-increment: os-step;
+  }
+  .os-steps__list li::before {
+    content: counter(os-step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--color-brand-soft);
+    font-family: var(--font-head);
+    font-weight: 800;
+    font-size: var(--fs-small);
+    color: var(--color-accent-text);
+  }
+  @media (min-width: 960px) { .os-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 4vw, 64px); } }
+
+  .os-color { margin-top: var(--space-7); padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-bg-alt); }
+  .os-color__title { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .os-color__list { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; color: var(--color-text-soft); }
+  .os-color__list li { position: relative; padding-left: 22px; }
+  .os-color__list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 10px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-brand);
+  }
+  @media (min-width: 860px) { .os-color__list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-7); } }
+
+  /* 8. расход */
+  .os-calc { display: grid; gap: var(--space-5); }
+  .os-calc__norm, .os-calc__example { padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); }
+  .os-calc__norm p, .os-calc__example p { margin: 0; }
+  .os-calc__big { font-size: var(--fs-h3); }
+  .os-calc__big b { font-family: var(--font-head); font-weight: 800; font-size: clamp(56px, 7vw, 96px); line-height: 1; color: var(--color-accent-text); }
+  .os-calc__big + p { margin-top: var(--space-3); color: var(--color-text-soft); }
+  .os-calc__norm .os-src { margin-top: var(--space-4); }
+  .os-calc__line { font-size: var(--fs-lead); }
+  .os-calc__example .os-calc__hint { margin: var(--space-3) 0 var(--space-5); color: var(--color-text-soft); }
+  @media (min-width: 860px) { .os-calc { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); } }
+
+  /* 9. инструменты */
+  .os-tools { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  .os-tool { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-6) var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); }
+  .os-tool p { margin: 0; color: var(--color-text-soft); }
+  .os-tool__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .os-tool__link { margin-top: auto; padding-top: var(--space-2); font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
+  .os-tool__link:hover { text-decoration: underline; }
+  @media (min-width: 700px) { .os-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1080px) {
+    .os-tools { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .os-tool { grid-column: span 2; }
+    .os-tool--video { grid-column: span 3; }
+  }
+
+</style>

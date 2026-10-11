@@ -1,0 +1,886 @@
+---
+// Perel — страница бренда (план, волна 1). Угол: выбор серии Perel по кирпичу и полная справка
+// по каждой серии: SL, VL, NL (кладочные) и затирка RL. Каталог ведёт сюда якорями
+// #perel-sl, #perel-vl, #perel-nl, #perel-rl («Характеристики →») — id секций менять нельзя.
+//
+// ФАКТЫ — только из данных: src/data/series-facts.ts (назначение и «для какого кирпича» дословно,
+// характеристики, шаги, зимняя модификация, расход, о производителе, инструменты — у каждого
+// значения URL источника), src/data/catalog.ts (что держит дилер: цвета, мешок).
+// Цен нет намеренно (см. catalog.ts): действие позиции — «Узнать цену».
+// Пересчёт «мешков на 1000 кирпичей» — арифметика нормы производителя на мешок дилера, подписан как пересчёт.
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Section from '../components/layout/Section.astro';
+import SwatchGrid from '../components/smesi/SwatchGrid.astro';
+import SwatchNote from '../components/smesi/SwatchNote.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import SpecTable from '../components/content/SpecTable.astro';
+import FaqAccordion from '../components/content/FaqAccordion.astro';
+import Collapse from '../components/ui/Collapse.astro';
+import { SERIES, POSITIONS, PEREL_COLORS, seriesById, type SeriesId, type SeriesRef } from '../data/catalog';
+import { SERIES_FACTS, CONSUMPTION, BRAND_FACTS, type Fact } from '../data/series-facts';
+import { swatchFor } from '../data/swatches';
+import { PAGES } from '../data/nav';
+import { liveUrl } from '../lib/sites';
+import { plural } from '../lib/format';
+import type { FaqItem, SpecRow } from '../lib/types';
+
+/* ── Данные страницы ──────────────────────────────────────────────────────────── */
+
+const MORTAR_IDS: SeriesId[] = ['perel-sl', 'perel-vl', 'perel-nl'];
+const mortar = MORTAR_IDS.map((id) => seriesById(id));
+const rl = seriesById('perel-rl');
+const perelSeries = SERIES.filter((s) => s.brand === 'perel');
+const perelPositions = POSITIONS.filter((p) => seriesById(p.series).brand === 'perel').length;
+
+/** «Perel SL» → «SL» */
+const code = (s: SeriesRef) => s.name.replace(/^Perel\s+/, '');
+/** значение характеристики по подписи */
+const spec = (id: SeriesId, label: string): Fact | undefined => SERIES_FACTS[id].specs.find((f) => f.label === label);
+const val = (id: SeriesId, label: string) => spec(id, label)?.value ?? '';
+const num = (n: number) => String(n).replace('.', ',');
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+/** Один знак после запятой, как в таблице производителя: 1 → «1,0». */
+const kg1 = (n: number) => n.toFixed(1).replace('.', ',');
+/** Типографика наших подписей (не дословных цитат): число не отрывается от «%», «мм»…,
+ *  диапазон «5–12» не рвётся на тире. Дословные тексты производителя этим НЕ обрабатываем. */
+const nb = (t: string) =>
+  t.replace(/(\d) (%|°C|мм|кг|л|МПа|ч|см|суток|циклов)(?=$|[\s.,;:)])/g, '$1\u00a0$2').replace(/(\d)–(\d)/g, '$1\u2060–\u2060$2');
+/** Адрес сайта производителя без переноса по дефису. */
+const DOMAIN = 'td-\u2060perel.ru';
+
+/** Подпись ссылки на источник — по адресу. */
+function srcLabel(url: string): string {
+  const u = new URL(url);
+  if (u.hostname.includes('youtube')) return 'видео Perel на YouTube';
+  if (u.pathname.endsWith('.pdf')) {
+    if (u.pathname.includes('sertifikat')) return 'сертификат, PDF';
+    const page = u.hash.match(/page=(\d+)/)?.[1];
+    return `каталог Perel, PDF${page ? `, стр. ${page}` : ''}`;
+  }
+  const parts = u.pathname.split('/').filter(Boolean);
+  if (parts[0] === 'catalog' && parts.length >= 3) return `карточка смеси на ${DOMAIN}`;
+  if (parts[0] === 'catalog' && parts[1] === 'tsvetnaya-kladochnaya-smes') return `раздел «Цветная кладочная смесь» на ${DOMAIN}`;
+  if (parts[0] === 'catalog') return `страница серии на ${DOMAIN}`;
+  return DOMAIN;
+}
+
+/** Список источников без повторов: [{ href, label }]. */
+function sources(urls: string[]) {
+  const seen = new Set<string>();
+  return urls.filter((u) => (seen.has(u) ? false : (seen.add(u), true))).map((href) => ({ href, label: srcLabel(href) }));
+}
+
+/** Характеристики серии для таблицы: характеристики + упаковка и хранение.
+ *  Строку «Мешок» производителя не выводим — фасовку дилера показываем отдельно. */
+function specRows(id: SeriesId): SpecRow[] {
+  const f = SERIES_FACTS[id];
+  return [...f.specs, ...f.packaging.filter((p) => p.label !== 'Мешок')].map((x) => ({ label: x.label, value: x.value }));
+}
+function specSources(id: SeriesId) {
+  const f = SERIES_FACTS[id];
+  return sources([...f.specs, ...f.packaging.filter((p) => p.label !== 'Мешок')].map((x) => x.src));
+}
+
+/* О производителе: подпись карточки — по содержанию факта. */
+const aboutLabel = (t: string) =>
+  t.includes('Щёлково') ? 'Производство'
+  : t.includes('линии') ? 'Завод'
+  : t.includes('Bayferrox') ? 'Пигменты'
+  : t.includes('дилер') ? 'Как продают'
+  : t.includes('ертификат') ? 'Сертификат'
+  : t.includes('Текато') ? 'Группа компаний'
+  : 'О производителе';
+
+/* Общие для SL, VL, NL шаги и оговорки (текст одинаков на карточках трёх серий). */
+const sl = SERIES_FACTS['perel-sl'];
+const steps = sl.steps;
+const stepSources = MORTAR_IDS.map((id) => ({ s: seriesById(id), href: SERIES_FACTS[id].steps[0]?.src ?? '' }));
+const winter = sl.winter;
+const winterHowTo = sl.notes?.find((n) => n.text.startsWith('Для модификации «зима»'));
+const colorTip = sl.notes?.find((n) => n.text.startsWith('Восприятие цвета шва'));
+const overlap = sl.notes?.find((n) => n.text.includes('перекрываются'));
+const choiceRule = sl.notes?.find((n) => n.text.startsWith('Главное условие подбора'));
+
+/* Затирка RL. */
+const rlF = SERIES_FACTS['perel-rl'];
+const rlWidth = val('perel-rl', 'Ширина шва');
+const rlGroutVsMortar = rlF.notes?.find((n) => n.text.includes('нельзя заменять'));
+const rlAbout = rlF.notes?.find((n) => n.text.startsWith('Затирки Perel'));
+const rlCons = CONSUMPTION.perelRl;
+
+/* Расход на кирпич. */
+const cons = CONSUMPTION.perel;
+const PACK = mortar[0].packKg; // у дилера SL, VL и NL — один мешок
+const bags = (kg: number) => Math.round((kg * 1000) / PACK);
+const nf1 = cons.perBrick[0];
+
+/* Инструменты производителя: заголовок — до первого двоеточия. */
+const tools = BRAND_FACTS.perel.tools.map((t) => {
+  const i = t.text.indexOf(': ');
+  const host = new URL(t.src).hostname;
+  const kind = host.includes('youtube') ? 'Видео' : t.src.includes('.pdf') ? 'PDF' : 'На сайте Perel';
+  const cta = host.includes('youtube') ? 'Смотреть на YouTube' : t.src.includes('.pdf') ? 'Открыть каталог' : `Открыть на ${DOMAIN}`;
+  return i > 0
+    ? { kind, title: nb(t.text.slice(0, i)), body: nb(cap(t.text.slice(i + 2))), href: t.src, cta }
+    : { kind, title: nb(t.text.replace(/\.$/, '')), body: '', href: t.src, cta };
+});
+
+/* Вопросы — ответы только из данных. */
+const ext = (href: string, text: string) => `<a href="${href}" rel="nofollow noopener" target="_blank">${text}</a>`;
+const storage = sl.packaging.find((p) => p.label === 'Срок хранения');
+const water = spec('perel-sl', 'Вода затворения');
+const rlWater = spec('perel-rl', 'Вода затворения');
+/** «0,14–0,17 л на 1 кг …» → литров на мешок дилера */
+const waterPerKg = water?.value.match(/^(\d+,\d+)–(\d+,\d+) л на 1 кг/);
+const rlWaterPerKg = rlWater?.value.match(/^(\d+,\d+)–(\d+,\d+) л на 1 кг/);
+const litres = (x: string, kg = PACK) => num(+(parseFloat(x.replace(',', '.')) * kg).toFixed(2));
+/** «Модификация «зима»: артикул …» → «Артикул …» — подпись блока уже называет модификацию. */
+const winterBody = (t: string) => cap(t.replace(/^Модификация «зима»:\s*/, ''));
+const noAdditives = steps.find((s) => s.text.startsWith('Никаких посторонних'));
+const revive = steps.find((s) => s.text.startsWith('Раствор, потерявший'));
+
+const faq: FaqItem[] = [
+  {
+    q: 'Чем отличаются серии Perel SL, VL и NL?',
+    a: `Главное — водопоглощение кирпича, под который рассчитана смесь: SL — ${val('perel-sl', 'Водопоглощение кирпича')}, VL — ${val('perel-vl', 'Водопоглощение кирпича')}, NL — ${val('perel-nl', 'Водопоглощение кирпича')}. Производитель относит SL к керамическому кирпичу, VL — к кирпичу ручной формовки, NL — к клинкерному. Прочность на сжатие у SL — ${val('perel-sl', 'Прочность на сжатие')}, у VL и NL — ${val('perel-vl', 'Прочность на сжатие')}.`,
+  },
+  ...(rlGroutVsMortar
+    ? [{
+        q: 'Можно ли заполнить швы кладочной смесью вместо затирки RL?',
+        a: `Нет: по словам производителя, цветную декоративную затирку нельзя заменять цветным кладочным раствором — об этом у Perel есть ${ext(rlGroutVsMortar.src, 'отдельное видео')} на YouTube. Затирка RL рассчитана на швы шириной ${rlWidth}.`,
+      }]
+    : []),
+  {
+    q: 'Сколько смеси Perel уходит на один кирпич?',
+    a: `По таблице производителя на кирпич формата ${nf1.format} (${nf1.size} мм) — ${kg1(nf1.kgMin)}–${kg1(nf1.kgMax)} кг сухой смеси, на ${cons.perBrick[1].format} — ${kg1(cons.perBrick[1].kgMin)}–${kg1(cons.perBrick[1].kgMax)} кг. Норма одна для SL, VL и NL; толщина шва в таблице не указана. Остальные форматы — <a href="#rashod">в таблице расхода</a> на этой странице.`,
+  },
+  ...(winter
+    ? [{
+        q: 'Можно ли класть смесью Perel зимой?',
+        a: `Для работы в холод у производителя есть модификация «зима»: ${winter.text.replace(/^Модификация «зима»:\s*/, '')} Есть ли зимняя смесь в наличии — уточняйте у менеджера.`,
+      }]
+    : []),
+  ...(water && waterPerKg
+    ? [{
+        q: 'Сколько воды нужно на мешок?',
+        a: `Для SL, VL и NL норма производителя — ${water.value}; на наш мешок ${PACK} кг это ${litres(waterPerKg[1])}–${litres(waterPerKg[2])} л.${rlWater && rlWaterPerKg ? ` Для затирки RL — ${rlWater.value.replace(/\s*\(.*\)$/, '')}, на мешок ${rl.packKg} кг — ${litres(rlWaterPerKg[1], rl.packKg)}–${litres(rlWaterPerKg[2], rl.packKg)} л.` : ''}${noAdditives ? ` ${noAdditives.text}` : ''}${revive ? ` ${revive.text}` : ''}`,
+      }]
+    : []),
+  ...(storage
+    ? [{ q: 'Сколько хранится смесь Perel?', a: `${cap(storage.value)}.` }]
+    : []),
+];
+
+const itemList = {
+  '@type': 'ItemList',
+  name: 'Цветные смеси Perel',
+  numberOfItems: perelSeries.length,
+  itemListElement: perelSeries.map((s, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: s.name,
+    url: `${liveUrl('smesi', 'perel')}#${s.id}`,
+  })),
+};
+
+const bgOf = (i: number) => (i % 2 === 0 ? 'base' : 'alt') as 'base' | 'alt';
+---
+
+<Page
+  title="Цветные кладочные смеси Perel SL, VL, NL и затирка RL в Москве"
+  description="Perel SL, VL и NL — цветные кладочные смеси для керамического, клинкерного кирпича и кирпича ручной формовки; затирка RL. Характеристики, цвета, расход."
+  slug="perel"
+  current="perel"
+  source="perel"
+  jsonLd={[itemList]}
+>
+  <PageHead
+    kicker="Производитель Perel"
+    h1="Цветные кладочные смеси Perel"
+    crumb="Perel"
+    trail={[{ label: 'Каталог', href: PAGES.katalog.href }]}
+    lead={`Серию Perel выбирают по водопоглощению кирпича: SL — для керамического кирпича, VL — для кирпича ручной формовки, NL — для клинкерного. Каждая серия у нас в ${PEREL_COLORS.length} цветах шва, мешок ${PACK} кг; для расшивки готовых швов — затирка RL в ${rl.colors.length} цветах.`}
+  >
+    <div class="head-actions" data-reveal>
+      <a class="btn btn--primary" href="#vybor-serii">Выбрать серию</a>
+      <a class="btn btn--ghost" href={`${PAGES.katalog.href}?brend=perel`}>Все {perelPositions} {plural(perelPositions, 'позиция', 'позиции', 'позиций')} в каталоге</a>
+    </div>
+
+    <div class="pick" slot="aside">
+      <div class="pick__strip" aria-hidden="true">
+        {PEREL_COLORS.map((c) => <span style={`--c:${swatchFor('perel-sl', c.code)}`}></span>)}
+      </div>
+      <div class="pick__body">
+        <p class="pick__title">Серии Perel</p>
+        <ul class="pick__list">
+          {mortar.map((s) => (
+            <li>
+              <a class="pick__row" href={`#${s.id}`}>
+                <b class="pick__code">{code(s)}</b>
+                <span class="pick__what">{s.short}<small>водопоглощение {nb(val(s.id, 'Водопоглощение кирпича'))}</small></span>
+                <span class="pick__arrow" aria-hidden="true">→</span>
+              </a>
+            </li>
+          ))}
+          <li>
+            <a class="pick__row" href={`#${rl.id}`}>
+              <b class="pick__code">{code(rl)}</b>
+              <span class="pick__what">{rl.short}<small>швы шириной {nb(rlWidth)}</small></span>
+              <span class="pick__arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+        </ul>
+        <p class="pick__note">Полоса — {PEREL_COLORS.length} цветов шва SL, VL и NL; цвет на экране приблизительный.</p>
+      </div>
+    </div>
+  </PageHead>
+
+  <Section id="proizvoditel" kicker="Производитель" title="Кто делает смеси Perel" bg="base">
+    <ul class="about" data-reveal-stagger>
+      {BRAND_FACTS.perel.about.map((f) => (
+        <li>
+          <div class="about__card">
+            <p class="about__label">{aboutLabel(f.text)}</p>
+            <p class="about__text">{f.text}</p>
+            <a class="about__src" href={f.src} rel="nofollow noopener" target="_blank">{srcLabel(f.src)} <span aria-hidden="true">↗</span></a>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </Section>
+
+  <Section
+    id="vybor-serii"
+    kicker="Выбор серии"
+    title="Какую серию Perel выбрать"
+    subtitle={choiceRule ? nb(`${choiceRule.text} В таблице — ещё прочность и морозостойкость.`) : undefined}
+    bg="alt"
+  >
+    <div class="cmp-wrap" data-reveal>
+      <table class="cmp">
+        <thead>
+          <tr>
+            <th scope="col">Серия</th>
+            <th scope="col">Для какого кирпича</th>
+            <th scope="col">Прочность на сжатие</th>
+            <th scope="col">Морозостойкость</th>
+            <th scope="col">Мешок у нас</th>
+          </tr>
+        </thead>
+        <tbody>
+          {mortar.map((s) => (
+            <tr>
+              <th scope="row" class="cmp__series">
+                <a href={`#${s.id}`}>{s.name}</a>
+                <span class="cmp__colors">{s.colors.length} цветов</span>
+              </th>
+              <td data-label="Для какого кирпича">{SERIES_FACTS[s.id].forBrick}</td>
+              <td data-label="Прочность на сжатие">{nb(val(s.id, 'Прочность на сжатие'))}</td>
+              <td data-label="Морозостойкость">{nb(val(s.id, 'Морозостойкость'))}</td>
+              <td data-label="Мешок у нас" class="cmp__pack">{s.packKg} кг</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    {overlap && <p class="hint" data-reveal>{nb(overlap.text)}</p>}
+    <p class="src">
+      По данным производителя:
+      <a href={SERIES_FACTS['perel-sl'].forBrickSrc} rel="nofollow noopener" target="_blank">{srcLabel(SERIES_FACTS['perel-sl'].forBrickSrc)}</a>;
+      характеристики — карточки{' '}
+      {mortar.map((s, i) => (
+        <Fragment>
+          <a href={spec(s.id, 'Прочность на сжатие')?.src} rel="nofollow noopener" target="_blank">{code(s)}</a>{i < mortar.length - 1 ? ', ' : ''}
+        </Fragment>
+      ))}{' '}
+      на {DOMAIN}.
+    </p>
+  </Section>
+
+  {mortar.map((s, i) => {
+    const f = SERIES_FACTS[s.id];
+    const srcs = specSources(s.id);
+    return (
+      <Section id={s.id} kicker={`Серия ${code(s)}`} title={`${s.name} — ${s.short}`} bg={bgOf(i)}>
+        <div class="ser">
+          <div class="ser__main">
+            <figure class="purpose" data-reveal>
+              <blockquote class="purpose__text">{f.purpose}</blockquote>
+              <figcaption class="purpose__cap">
+                Назначение — по данным производителя,{' '}
+                <a href={f.purposeSrc} rel="nofollow noopener" target="_blank">{srcLabel(f.purposeSrc)}</a>
+              </figcaption>
+            </figure>
+            <ul class="facts" data-reveal-stagger>
+              <li><span>Водопоглощение кирпича</span><b>{nb(val(s.id, 'Водопоглощение кирпича'))}</b></li>
+              <li><span>Цветов у нас</span><b>{s.colors.length}</b></li>
+              <li><span>Мешок у нас</span><b>{s.packKg} кг</b></li>
+            </ul>
+            <h3 class="sub">Характеристики</h3>
+            <div data-reveal>
+              <Collapse max={440} fade={bgOf(i)} label="Все характеристики">
+                <SpecTable rows={specRows(s.id)} />
+              </Collapse>
+            </div>
+            <p class="src">
+              По данным производителя:{' '}
+              {srcs.map((x, j) => (
+                <Fragment>
+                  <a href={x.href} rel="nofollow noopener" target="_blank">{x.label}</a>{j < srcs.length - 1 ? ', ' : '.'}
+                </Fragment>
+              ))}
+            </p>
+          </div>
+          <div class="ser__colors">
+            <h3 class="sub">Цвета шва — {s.colors.length}</h3>
+            <p class="ser__hint">Нажмите на цвет — назовём цену и наличие.</p>
+            <SwatchGrid series={s.id} size="sm" />
+            <SwatchNote />
+            <div class="ser__actions">
+              <button class="btn btn--primary" type="button" data-ask={`${s.name} — цвет подберём`}>Узнать цену</button>
+              <a class="btn btn--ghost" href={PAGES.podbor.href}>Подобрать цвет шва</a>
+            </div>
+          </div>
+        </div>
+      </Section>
+    );
+  })}
+
+  <Section
+    id="primenenie"
+    kicker="Применение"
+    title="Как работать со смесью SL, VL и NL"
+    subtitle="Порядок у трёх серий один — так его описывает производитель."
+    bg="alt"
+  >
+    <div class="howto">
+      <div>
+        <ol class="steps" data-reveal-stagger>
+          {steps.map((st) => <li>{st.text}</li>)}
+        </ol>
+        <p class="src">
+          По данным производителя: описание на карточках{' '}
+          {stepSources.map((x, i) => (
+            <Fragment>
+              <a href={x.href} rel="nofollow noopener" target="_blank">{code(x.s)}</a>{i < stepSources.length - 1 ? ', ' : ''}
+            </Fragment>
+          ))}{' '}
+          на {DOMAIN}.
+        </p>
+      </div>
+      <aside class="howto__side">
+        {winter && (
+          <div class="winter" data-reveal>
+            <p class="winter__label">Модификация «зима»</p>
+            <p>{winterBody(winter.text)}</p>
+            {winterHowTo && <p>{winterHowTo.text}</p>}
+            <p class="winter__stock">Есть ли зимняя смесь в наличии — уточняйте у менеджера.</p>
+            <p class="winter__src">
+              По данным производителя:{' '}
+              <a href={winter.src} rel="nofollow noopener" target="_blank">{srcLabel(winter.src)}</a>{winterHowTo && (
+                <Fragment>, <a href={winterHowTo.src} rel="nofollow noopener" target="_blank">{srcLabel(winterHowTo.src)}</a></Fragment>
+              )}
+            </p>
+          </div>
+        )}
+        {colorTip && (
+          <p class="tip" data-reveal>
+            {colorTip.text.replace(/\s*—\s*этому у производителя есть отдельное видео\.?$/, '.')}{' '}
+            <a href={colorTip.src} rel="nofollow noopener" target="_blank">Видео производителя о расшивке ↗</a>
+          </p>
+        )}
+      </aside>
+    </div>
+  </Section>
+
+  <Section id={rl.id} kicker="Расшивка швов" title={`${rl.name} — ${rl.short}`} bg="base">
+    <div class="rl-top">
+      <div>
+        <figure class="purpose" data-reveal>
+          <blockquote class="purpose__text">{rlF.purpose}</blockquote>
+          <figcaption class="purpose__cap">
+            Назначение — по данным производителя,{' '}
+            <a href={rlF.purposeSrc} rel="nofollow noopener" target="_blank">{srcLabel(rlF.purposeSrc)}</a>
+          </figcaption>
+        </figure>
+        <div class="rl-for" data-reveal>
+          <p class="rl-for__label">Для каких швов</p>
+          <p class="rl-for__text">{rlF.forBrick}</p>
+          <a class="rl-for__src" href={rlF.forBrickSrc} rel="nofollow noopener" target="_blank">{srcLabel(rlF.forBrickSrc)} <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="cons-tile" data-reveal>
+        <p class="cons-tile__label">Расход на 1 м²</p>
+        <p class="cons-tile__num">{num(rlCons.kgPerM2Min)}–{num(rlCons.kgPerM2Max)}<span> кг/м²</span></p>
+        <p class="cons-tile__text">{cap(rlCons.basis.replace(/^Расход смеси [\d,–\s]+кг\/м²\s*/, ''))}</p>
+        <ul class="cons-tile__facts">
+          <li><span>Цветов у нас</span><b>{rl.colors.length}</b></li>
+          <li><span>Мешок у нас</span><b>{rl.packKg} кг</b></li>
+        </ul>
+        <a class="cons-tile__src" href={rlCons.src} rel="nofollow noopener" target="_blank">По данным производителя: {srcLabel(rlCons.src)} <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+
+    <div class="ser ser--rl">
+      <div class="ser__main">
+        <h3 class="sub">Характеристики</h3>
+        <div data-reveal>
+          <Collapse max={440} fade="base" label="Все характеристики">
+            <SpecTable rows={specRows(rl.id)} />
+          </Collapse>
+        </div>
+        <p class="src">
+          По данным производителя:{' '}
+          {specSources(rl.id).map((x, j, arr) => (
+            <Fragment>
+              <a href={x.href} rel="nofollow noopener" target="_blank">{x.label}</a>{j < arr.length - 1 ? ', ' : '.'}
+            </Fragment>
+          ))}
+        </p>
+      </div>
+      <div class="ser__colors">
+        <h3 class="sub">Цвета затирки — {rl.colors.length}</h3>
+        <p class="ser__hint">Нажмите на цвет — назовём цену и наличие.</p>
+        <SwatchGrid series={rl.id} size="sm" />
+        <SwatchNote />
+        <div class="ser__actions">
+          <button class="btn btn--primary" type="button" data-ask={`${rl.name} — цвет подберём`}>Узнать цену</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rl-how">
+      <div>
+        <h3 class="sub">Как работать с затиркой</h3>
+        <ol class="steps steps--compact" data-reveal-stagger>
+          {rlF.steps.map((st) => <li>{st.text}</li>)}
+        </ol>
+        <p class="src">
+          По данным производителя:{' '}
+          {sources(rlF.steps.map((x) => x.src)).map((x, j, arr) => (
+            <Fragment>
+              <a href={x.href} rel="nofollow noopener" target="_blank">{x.label}</a>{j < arr.length - 1 ? ', ' : '.'}
+            </Fragment>
+          ))}
+        </p>
+      </div>
+      <aside class="howto__side">
+        {rlF.winter && (
+          <div class="winter" data-reveal>
+            <p class="winter__label">Модификация «зима» у RL</p>
+            <p>{winterBody(rlF.winter.text)}</p>
+            <p class="winter__stock">Есть ли зимняя затирка в наличии — уточняйте у менеджера.</p>
+            <p class="winter__src">
+              По данным производителя:{' '}
+              <a href={rlF.winter.src} rel="nofollow noopener" target="_blank">{srcLabel(rlF.winter.src)}</a>
+            </p>
+          </div>
+        )}
+        {rlGroutVsMortar && (
+          <p class="tip" data-reveal>
+            {rlGroutVsMortar.text.replace(/\s*—\s*этому у производителя есть отдельное видео\.?$/, '.')}{' '}
+            <a href={rlGroutVsMortar.src} rel="nofollow noopener" target="_blank">Видео производителя ↗</a>
+          </p>
+        )}
+        {rlAbout && (
+          <p class="tip" data-reveal>
+            {rlAbout.text}{' '}
+            <a href={rlAbout.src} rel="nofollow noopener" target="_blank">{DOMAIN} ↗</a>
+          </p>
+        )}
+      </aside>
+    </div>
+  </Section>
+
+  <Section
+    id="rashod"
+    kicker="Расход"
+    title="Сколько смеси уходит на кирпич"
+    subtitle="Норма производителя — на один кирпич, по формату. Она одна для SL, VL и NL."
+    bg="alt"
+  >
+    <div class="cons">
+      <div class="cons__table" data-reveal>
+        <div class="ctab-wrap">
+        <table class="ctab">
+          <thead>
+            <tr>
+              <th scope="col">Формат</th>
+              <th scope="col">Размер, мм</th>
+              <th scope="col">Смеси на 1 кирпич, кг</th>
+              <th scope="col">Мешков по {PACK} кг на 1000 шт.<span class="ctab__note">пересчёт нормы</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {cons.perBrick.map((r) => (
+              <tr>
+                <th scope="row">{r.format}</th>
+                <td>{r.size}</td>
+                <td>{kg1(r.kgMin)}–{kg1(r.kgMax)}</td>
+                <td>{bags(r.kgMin)}–{bags(r.kgMax)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+        <p class="src">
+          По данным производителя:{' '}
+          <a href={cons.src} rel="nofollow noopener" target="_blank">{srcLabel(cons.src)}</a>. Толщина шва в таблице не указана.
+        </p>
+      </div>
+      <div class="cons__calc" data-reveal>
+        <p class="cons__calc-title">Сколько мешков на вашу кладку?</p>
+        <p>Посчитайте на калькуляторе расхода или назовите менеджеру формат и количество кирпича.</p>
+        <a class="btn btn--primary" href={PAGES.kalkulyator.href}>Открыть калькулятор</a>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="instrumenty" kicker="Полезное у производителя" title="Инструменты Perel" bg="base">
+    <ul class="tools" data-reveal-stagger>
+      {tools.map((t) => (
+        <li>
+          <a class="tool" href={t.href} rel="nofollow noopener" target="_blank">
+            <span class="tool__kind">{t.kind}</span>
+            <span class="tool__title">{t.title}</span>
+            {t.body && <span class="tool__body">{t.body}</span>}
+            <span class="tool__cta">{t.cta} <span aria-hidden="true">↗</span></span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </Section>
+
+  <Section id="voprosy" kicker="Вопросы" title="Частые вопросы о Perel" bg="alt">
+    <div data-reveal>
+      <FaqAccordion items={faq} site="smesi" slug="perel" />
+    </div>
+  </Section>
+
+  <CtaBand
+    source="perel"
+    title="Подберём серию Perel под ваш кирпич"
+    text="Назовите кирпич и цвет шва — подскажем серию SL, VL или NL, проверим наличие и посчитаем количество мешков."
+  />
+</Page>
+
+<style>
+  /* ── Первый экран ── */
+  .head-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
+
+  .pick {
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+  .pick__strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: 64px; }
+  .pick__strip span { background: var(--c); }
+  .pick__body { padding: var(--space-5); }
+  .pick__title {
+    margin: 0 0 var(--space-3);
+    font-size: var(--fs-tiny);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .pick__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--color-border-soft); }
+  .pick__list li { border-bottom: 1px solid var(--color-border-soft); }
+  .pick__row {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+    color: var(--color-text);
+    text-decoration: none;
+  }
+  .pick__row:hover { opacity: 1; }
+  .pick__row:hover .pick__arrow { translate: 4px 0; color: var(--color-accent-text); }
+  .pick__code { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); color: var(--color-accent-text); }
+  .pick__what { display: flex; flex-direction: column; font-weight: 600; line-height: 1.3; }
+  .pick__what small { font-weight: 400; font-size: var(--fs-small); color: var(--color-muted); }
+  .pick__arrow { font-weight: 700; transition: translate var(--dur) var(--ease); }
+  .pick__note { margin: var(--space-4) 0 0; font-size: var(--fs-tiny); color: var(--color-muted); }
+
+  /* ── Источники и подсказки ── */
+  .src { max-width: 72ch; margin: var(--space-4) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
+  .src a { color: var(--color-text-soft); }
+  .hint {
+    max-width: 72ch;
+    margin: var(--space-5) 0 0;
+    padding: var(--space-4) var(--space-5);
+    border-left: 3px solid var(--color-brand);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text-soft);
+  }
+
+  /* ── О производителе ── */
+  .about { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 700px) { .about { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1080px) { .about { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .about__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    height: 100%;
+    padding: var(--space-5);
+    border-radius: var(--radius);
+    background: var(--color-bg-alt);
+  }
+  .about__label { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .about__text { margin: 0; color: var(--color-text-soft); }
+  .about__src { margin-top: auto; padding-top: var(--space-2); font-size: var(--fs-small); color: var(--color-muted); }
+  @media (max-width: 559px) {
+    .about { gap: var(--space-3); }
+    .about__card { padding: var(--space-4); }
+  }
+
+  /* ── Сравнение серий ── */
+  .cmp-wrap { border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); overflow: hidden; }
+  .cmp { width: 100%; border-collapse: collapse; }
+  .cmp th, .cmp td { padding: var(--space-4); text-align: left; vertical-align: top; border-bottom: 1px solid var(--color-border-soft); }
+  .cmp tbody tr:last-child > * { border-bottom: 0; }
+  .cmp thead th {
+    font-size: var(--fs-tiny);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    background: var(--color-surface-alt);
+  }
+  .cmp__series a { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); color: var(--color-text); text-decoration: none; white-space: nowrap; }
+  .cmp__series a:hover { color: var(--color-accent-text); }
+  .cmp__colors { display: block; margin-top: var(--space-1); font-size: var(--fs-small); font-weight: 400; color: var(--color-muted); }
+  .cmp td { color: var(--color-text-soft); }
+  .cmp__pack { font-weight: 700; color: var(--color-text); white-space: nowrap; }
+  .cmp thead th:last-child { white-space: nowrap; }
+
+  @media (min-width: 860px) {
+    .cmp td:nth-child(2) { width: 34%; }
+    .cmp td:nth-child(4) { width: 24%; }
+  }
+
+  @media (max-width: 859px) {
+    .cmp-wrap { border: 0; background: none; overflow: visible; }
+    .cmp thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .cmp, .cmp tbody, .cmp tr, .cmp th, .cmp td { display: block; }
+    .cmp tr {
+      margin-bottom: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      background: var(--color-surface);
+    }
+    .cmp th, .cmp td { padding: var(--space-2) 0; border-bottom: 0; }
+    .cmp td::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: 2px;
+      font-size: var(--fs-tiny);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+    }
+  }
+
+  /* ── Серия ── */
+  .ser { display: grid; gap: var(--space-7); }
+  @media (min-width: 960px) {
+    .ser { grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); gap: clamp(40px, 5vw, 72px); align-items: start; }
+  }
+  .ser--rl { margin-top: var(--space-7); }
+
+  .purpose { margin: 0; }
+  .purpose__text {
+    margin: 0;
+    padding-left: var(--space-5);
+    border-left: 3px solid var(--color-brand);
+    font-size: var(--fs-lead);
+    line-height: 1.45;
+    color: var(--color-text);
+  }
+  .purpose__cap { margin-top: var(--space-3); padding-left: var(--space-5); font-size: var(--fs-small); color: var(--color-muted); }
+  .purpose__cap a { color: var(--color-text-soft); }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+    margin: var(--space-6) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .facts li { display: flex; flex-direction: column; gap: 2px; padding: var(--space-4); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border-soft); }
+  .facts span { font-size: var(--fs-tiny); color: var(--color-muted); line-height: 1.3; }
+  .facts b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  @media (max-width: 479px) {
+    .facts { grid-template-columns: minmax(0, 1fr); gap: 0; border: 1px solid var(--color-border-soft); border-radius: var(--radius); background: var(--color-surface); }
+    .facts li { flex-direction: row; justify-content: space-between; align-items: baseline; gap: var(--space-4); padding: var(--space-3) var(--space-4); border: 0; border-radius: 0; background: none; }
+    .facts li + li { border-top: 1px solid var(--color-border-soft); }
+    .facts span { font-size: var(--fs-small); }
+  }
+
+  .sub { margin: var(--space-7) 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .ser__colors .sub, .ser--rl .ser__main .sub, .rl-how .sub { margin-top: 0; }
+  @media (max-width: 959px) {
+    .ser__colors .sub { margin-top: 0; }
+  }
+
+  .ser__hint { margin: calc(-1 * var(--space-2)) 0 var(--space-4); font-size: var(--fs-small); color: var(--color-muted); }
+  .ser__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
+
+  /* ── Применение ── */
+  .howto, .rl-how { display: grid; gap: var(--space-7); }
+  .rl-how { margin-top: var(--space-8); }
+  @media (min-width: 960px) {
+    .howto, .rl-how { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: clamp(40px, 5vw, 72px); align-items: start; }
+  }
+  .steps { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; counter-reset: st; }
+  .steps li {
+    position: relative;
+    padding: var(--space-4) var(--space-5) var(--space-4) calc(var(--space-5) + 40px);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-soft);
+    color: var(--color-text-soft);
+    counter-increment: st;
+  }
+  .steps li::before {
+    content: counter(st);
+    position: absolute;
+    top: var(--space-4);
+    left: var(--space-5);
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--color-brand-soft);
+    font-family: var(--font-head);
+    font-weight: 800;
+    font-size: var(--fs-small);
+    color: var(--color-accent-text);
+  }
+  @media (max-width: 559px) {
+    .steps li { padding: var(--space-3) var(--space-4) var(--space-3) 52px; }
+    .steps li::before { top: var(--space-3); left: var(--space-4); }
+  }
+  .steps--compact { gap: 0; border-top: 1px solid var(--color-border-soft); }
+  .steps--compact li {
+    padding: var(--space-3) 0 var(--space-3) 44px;
+    border: 0;
+    border-bottom: 1px solid var(--color-border-soft);
+    border-radius: 0;
+    background: none;
+  }
+  .steps--compact li::before { top: var(--space-3); left: 0; }
+
+  .howto__side { display: grid; gap: var(--space-4); }
+  .winter {
+    padding: var(--space-5);
+    border-radius: var(--radius);
+    background: var(--color-dark);
+    color: var(--color-on-dark);
+  }
+  .winter p { margin: 0 0 var(--space-3); }
+  .winter__label { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .winter__stock { font-weight: 700; color: var(--color-brand-on-dark); }
+  .winter p:last-child { margin-bottom: 0; }
+  .winter__src { font-size: var(--fs-small); color: var(--color-on-dark); opacity: 0.8; }
+  .winter__src a { color: var(--color-on-dark); }
+  .tip {
+    margin: 0;
+    padding: var(--space-4) var(--space-5);
+    border-radius: var(--radius);
+    background: var(--color-brand-soft);
+    color: var(--color-text-soft);
+  }
+  .tip a { font-weight: 600; color: var(--color-accent-text); }
+
+  /* ── Затирка RL ── */
+  .rl-top { display: grid; gap: var(--space-6); }
+  @media (min-width: 960px) {
+    .rl-top { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: clamp(40px, 5vw, 72px); align-items: start; }
+  }
+  .rl-for { margin-top: var(--space-6); padding: var(--space-5); border-radius: var(--radius); background: var(--color-bg-alt); }
+  .rl-for__label { margin: 0 0 var(--space-2); font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-muted); }
+  .rl-for__text { margin: 0; font-weight: 600; }
+  .rl-for__src { display: inline-block; margin-top: var(--space-3); font-size: var(--fs-small); color: var(--color-muted); }
+
+  .cons-tile {
+    padding: var(--space-6) var(--space-5);
+    border-radius: var(--radius);
+    background: var(--color-dark);
+    color: var(--color-on-dark);
+  }
+  .cons-tile__label { margin: 0; font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-brand-on-dark); }
+  .cons-tile__num { margin: var(--space-2) 0 var(--space-3); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-stat); line-height: 1; }
+  .cons-tile__num span { font-size: var(--fs-h4); font-weight: 700; }
+  .cons-tile__text { margin: 0; color: var(--color-on-dark); opacity: 0.85; }
+  .cons-tile__facts { display: grid; gap: var(--space-2); margin: var(--space-5) 0 0; padding: var(--space-4) 0 0; list-style: none; border-top: 1px solid color-mix(in srgb, var(--color-on-dark) 16%, transparent); }
+  .cons-tile__facts li { display: flex; justify-content: space-between; gap: var(--space-4); }
+  .cons-tile__facts span { opacity: 0.8; }
+  .cons-tile__src { display: inline-block; margin-top: var(--space-4); font-size: var(--fs-small); color: var(--color-on-dark); opacity: 0.8; }
+
+  /* ── Расход ── */
+  .cons { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+  @media (min-width: 960px) {
+    .cons { grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr); gap: clamp(32px, 4vw, 56px); align-items: start; }
+  }
+  .ctab-wrap { overflow-x: auto; border-radius: var(--radius); background: var(--color-surface); }
+  .ctab { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .ctab th, .ctab td { padding: var(--space-3) var(--space-4); text-align: left; border-bottom: 1px solid var(--color-border-soft); }
+  .ctab thead th { font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-muted); vertical-align: bottom; background: var(--color-surface-alt); }
+  .ctab tbody th { font-family: var(--font-head); font-weight: 800; white-space: nowrap; }
+  .ctab tbody td:nth-child(3) { font-weight: 700; }
+  .ctab tbody tr:last-child > * { border-bottom: 0; }
+  .ctab__note { display: block; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  @media (max-width: 559px) {
+    .ctab th, .ctab td { padding: var(--space-3) var(--space-2); font-size: var(--fs-small); }
+    .ctab thead th { font-size: 11px; letter-spacing: 0; }
+  }
+  @media (max-width: 379px) {
+    .ctab th, .ctab td { padding: var(--space-2) 6px; font-size: var(--fs-tiny); }
+    .ctab thead th { font-size: 10px; }
+  }
+  .cons__calc { padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); }
+  .cons__calc p { margin: 0 0 var(--space-4); color: var(--color-text-soft); }
+  .cons__calc .cons__calc-title { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); color: var(--color-text); }
+
+  /* ── Инструменты ── */
+  .tools { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 700px) { .tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1080px) { .tools { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .tool {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    height: 100%;
+    padding: var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color var(--dur) var(--ease), translate var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  .tool:hover { opacity: 1; border-color: var(--color-brand); translate: 0 -3px; box-shadow: var(--shadow-card); }
+  .tool__kind {
+    align-self: flex-start;
+    padding: 2px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-alt);
+    font-size: var(--fs-tiny);
+    font-weight: 700;
+    color: var(--color-text-soft);
+  }
+  .tool__title { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); line-height: 1.25; }
+  .tool__body { color: var(--color-text-soft); font-size: var(--fs-small); }
+  .tool__cta { margin-top: auto; padding-top: var(--space-3); font-weight: 700; color: var(--color-accent-text); }
+</style>

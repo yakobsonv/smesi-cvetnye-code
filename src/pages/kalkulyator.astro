@@ -1,0 +1,292 @@
+---
+// Калькулятор расхода (план страниц, волна 1). Угол — «сколько мешков нужно»: честный расчёт
+// по нормам производителей, без смешения методик и без своих коэффициентов.
+// Все числа — из src/data/series-facts.ts → CONSUMPTION (у каждой нормы URL источника)
+// и фасовки дилера src/data/catalog.ts → packKg. «Запаса на бой» в данных нет — его нет и здесь.
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Section from '../components/layout/Section.astro';
+import Calculator from '../components/smesi/Calculator.astro';
+import FaqAccordion from '../components/content/FaqAccordion.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import { CONSUMPTION, SERIES_FACTS } from '../data/series-facts';
+import { seriesById } from '../data/catalog';
+import { PAGES } from '../data/nav';
+import { liveUrl } from '../lib/sites';
+import { plural } from '../lib/format';
+import type { FaqItem } from '../lib/types';
+
+const H1 = 'Калькулятор расхода цветной кладочной смеси';
+const TITLE = 'Калькулятор расхода цветной кладочной смеси — сколько мешков нужно';
+const DESCRIPTION =
+  'Сколько мешков смеси нужно на кладку: Perel SL, VL, NL — по числу и формату кирпича, Основит Брикформ — по площади, затирка Perel RL и расшивка ХС30.';
+
+/** Неразрывный пробел между числом и единицей: «1 м²» и «50 кг» не рвутся по строкам. */
+const nb = (t: string) => t.replace(/(\d|½) (?=кг|м²|мм|кирпич|мешк|шт)/g, '$1\u00a0');
+const num = (n: number, digits = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: digits });
+const range = (a: number, b: number) => (a === b ? num(a) : `${num(a)}–${num(b)}`);
+/** Для текста на экране: диапазон и «1-НФ» не рвутся по дефису/тире (U+2060 — невидимый запрет переноса). В FAQ не применяем — уходит в микроразметку. */
+const keep = (t: string) => t.replace(/([\d\p{L}])([-–])(?=[\d\p{L}])/gu, '$1$2\u2060');
+const one = (n: number) => n.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+/** Нормы на кирпич — с одной десятой, как в таблице каталога Perel: «0,8–1,0», а не «0,8–1». */
+const range1 = (a: number, b: number) => (a === b ? one(a) : `${one(a)}–${one(b)}`);
+const bags = (kg: number, pack: number) => Math.ceil(Math.round(kg * 100) / Math.round(pack * 100));
+
+const P = CONSUMPTION.perel;
+const O = CONSUMPTION.osnovit;
+const R = CONSUMPTION.perelRl;
+const X = CONSUMPTION.osnovitXc30;
+
+const perelPack = seriesById('perel-sl').packKg;
+const osPack = seriesById('osnovit-mc11').packKg;
+const rlPack = seriesById('perel-rl').packKg;
+const xcPack = seriesById('osnovit-xc30').packKg;
+const osWall = O.wall.replace('1/2', '½');
+
+const rlCond = R.basis.match(/в зависимости[^.]*/)?.[0] ?? '';
+if (!rlCond) throw new Error('Калькулятор: в норме Perel RL нет условия «в зависимости…»');
+const rlJoint = SERIES_FACTS['perel-rl'].specs.find((f) => f.label === 'Ширина шва');
+
+// Пример под таблицей Perel — тот же расчёт, что в калькуляторе: 1 000 кирпичей первого формата.
+const ex = P.perBrick[0];
+const EX_N = 1000;
+const exKgMin = Math.round(EX_N * ex.kgMin * 100) / 100;
+const exKgMax = Math.round(EX_N * ex.kgMax * 100) / 100;
+const exBagsMax = bags(exKgMax, perelPack);
+const exBags = `${bags(exKgMin, perelPack)}–${exBagsMax}\u00a0${plural(exBagsMax, 'мешок', 'мешка', 'мешков')}`;
+const bigFmt = P.perBrick.reduce((a, b) => (b.kgMax > a.kgMax ? b : a));
+const perelMin = Math.min(...P.perBrick.map((f) => f.kgMin));
+const perelMax = Math.max(...P.perBrick.map((f) => f.kgMax));
+
+const osBagsPerM2 = O.kgPerM2 / osPack;
+// Пример под нормой Основит — 10 м² кладки, тот же расчёт, что в калькуляторе.
+const OS_EX = 10;
+const osExKg = Math.round(OS_EX * O.kgPerM2 * 100) / 100;
+const osExBags = bags(osExKg, osPack);
+const osBagsWord = plural(Math.ceil(osBagsPerM2), 'мешок', 'мешка', 'мешков');
+const xcM2PerBag = xcPack / X.kgPerM2;
+
+const faqRaw: FaqItem[] = [
+  {
+    q: 'Сколько смеси Perel SL, VL, NL уходит на один кирпич?',
+    a: `По каталогу Perel — от ${one(perelMin)} до ${one(perelMax)} кг сухой смеси на кирпич, в зависимости от формата: для ${ex.format} (${ex.size} мм) — ${range1(ex.kgMin, ex.kgMax)} кг, для ${bigFmt.format} (${bigFmt.size} мм) — ${range1(bigFmt.kgMin, bigFmt.kgMax)} кг. Норма одна для серий SL, VL и NL; толщину шва производитель в таблице не указывает.`,
+  },
+  {
+    q: 'Сколько мешков Брикформ МС11 нужно на 1 м² кладки?',
+    a: `Основит даёт норму ${num(O.kgPerM2)} кг смеси на 1 м² кладки при условии: ${O.joint}, ${osWall}. Это ${num(osBagsPerM2)} ${osBagsWord} по ${osPack} кг на квадратный метр. Норма одна для МС11 и МС11/1.`,
+  },
+  {
+    q: 'Почему Perel считается по кирпичам, а Основит — по площади?',
+    a: `Так производители дают нормы: Perel — расход на 1 кирпич по формату, Основит — расход на 1 м² кладки при условии: ${O.joint}, ${osWall}. Калькулятор считает каждую смесь по норме её производителя и не переводит одну норму в другую.`,
+  },
+  {
+    q: 'Сколько затирки Perel RL нужно на 1 м²?',
+    a: `${range(R.kgPerM2Min, R.kgPerM2Max)} кг на 1 м² — ${rlCond}.${rlJoint ? ` Затирка рассчитана на швы шириной ${rlJoint.value}.` : ''} Мешок — ${rlPack} кг.`,
+  },
+  {
+    q: 'Сколько раствора Бриксэйв ХС30 нужно для расшивки швов?',
+    a: `${one(X.kgPerM2)} кг на 1 м² кладки при условии: ${X.condition}. Мешок — ${xcPack} кг: при этих условиях его хватает примерно на ${num(xcM2PerBag)} м².`,
+  },
+];
+
+const faq = faqRaw.map((f) => ({ q: nb(f.q), a: nb(f.a) }));
+
+const pageLd = {
+  '@type': 'WebPage',
+  name: H1,
+  description: DESCRIPTION,
+  url: liveUrl('smesi', 'kalkulyator'),
+  inLanguage: 'ru-RU',
+};
+
+const src = { rel: 'nofollow noopener', target: '_blank' } as const;
+---
+
+<Page title={TITLE} description={DESCRIPTION} slug="kalkulyator" current="kalkulyator" source="kalkulyator" jsonLd={[pageLd]}>
+  <PageHead
+    kicker="Расчёт мешков"
+    h1={H1}
+    crumb="Калькулятор расхода"
+    lead="Сколько мешков смеси нужно на вашу кладку — по нормам Perel и Основит. Каждую смесь считаем по методике её производителя: кладочные Perel — на кирпич по формату, Основит Брикформ — на квадратный метр кладки, затирку и расшивку швов — на квадратный метр."
+  />
+
+  <Section id="raschet" bg="base" aria-label="Расчёт">
+    <Calculator id="calc" />
+  </Section>
+
+  <Section
+    id="normy"
+    kicker="Нормы"
+    title="Как считают производители"
+    subtitle="Нормы — из документов Perel и Основит, у каждой ссылка на источник."
+    bg="alt"
+  >
+    <div class="methods" data-reveal-stagger>
+      <article class="method">
+        <p class="method__tag">Perel SL, VL, NL&nbsp;·&nbsp;кладка</p>
+        <h3 class="method__title">На кирпич — по формату</h3>
+        <p class="method__text">
+          Расход сухой смеси на один кирпич. Норма одна для трёх серий; толщину шва производитель в таблице
+          не указывает.
+        </p>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <caption class="vh">Расход сухой смеси Perel на 1 кирпич по формату</caption>
+            <thead>
+              <tr><th scope="col">Формат</th><th scope="col">Размер, мм</th><th scope="col">Смеси на 1 кирпич, кг</th></tr>
+            </thead>
+            <tbody>
+              {P.perBrick.map((f) => (
+                <tr><th scope="row">{f.format}</th><td>{f.size}</td><td class="tbl__num">{keep(range1(f.kgMin, f.kgMax))}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p class="method__example">
+          Пример: {num(EX_N)}&nbsp;кирпичей {keep(ex.format)} — {keep(range(exKgMin, exKgMax))}&nbsp;кг, это {keep(exBags)} по {perelPack}&nbsp;кг.
+        </p>
+        <p class="srcline">По данным производителя: <a href={P.src} {...src}>каталог Perel, стр. 7</a></p>
+        <p class="method__links">
+          Цвета в каталоге:
+          <a href={`${PAGES.katalog.href}#perel-sl`}>SL</a>,
+          <a href={`${PAGES.katalog.href}#perel-vl`}>VL</a>,
+          <a href={`${PAGES.katalog.href}#perel-nl`}>NL</a>
+        </p>
+      </article>
+
+      <div class="methods__col">
+        <article class="method">
+          <p class="method__tag">Основит Брикформ МС11, МС11/1&nbsp;·&nbsp;кладка</p>
+          <h3 class="method__title">На квадратный метр кладки</h3>
+          <p class="method__big"><b>{num(O.kgPerM2)}</b> кг смеси на 1&nbsp;м²</p>
+          <ul class="method__cond" aria-label="Условия нормы">
+            <li>{nb(O.joint)}</li>
+            <li>{nb(osWall)}</li>
+          </ul>
+          <p class="method__text">
+            Норма одна для МС11 и МС11/1. Мешок — {osPack}&nbsp;кг, то есть {num(osBagsPerM2)}&nbsp;{osBagsWord} на квадратный
+            метр при этих условиях.
+          </p>
+          <p class="method__example">
+            Пример: {OS_EX}&nbsp;м² кладки — {num(osExKg)}&nbsp;кг, это {osExBags}&nbsp;{plural(osExBags, 'мешок', 'мешка', 'мешков')} по {osPack}&nbsp;кг.
+          </p>
+          <p class="srcline">По данным производителя: <a href={O.src} {...src}>страница Брикформ МС11, osnovit.ru</a></p>
+          <p class="method__links">
+            Цвета в каталоге:
+            <a href={`${PAGES.katalog.href}#osnovit-mc11`}>МС11</a>,
+            <a href={`${PAGES.katalog.href}#osnovit-mc11-1`}>МС11/1</a>
+          </p>
+        </article>
+        <aside class="why">
+          <h3 class="why__title">Почему без общей формулы</h3>
+          <p>
+            В норме Perel нет толщины шва, в норме Основит — формата кирпича. Чтобы перевести одну в другую,
+            пришлось бы досчитывать то, чего производитель не указал. Поэтому калькулятор считает каждую смесь
+            только по норме её производителя — без своих коэффициентов и надбавок, а мешки округляет вверх
+            до целого.
+          </p>
+        </aside>
+      </div>
+    </div>
+
+    <h3 class="sub" data-reveal>Затирка и расшивка швов — на 1&nbsp;м²</h3>
+    <div class="tbl-wrap" data-reveal>
+      <table class="tbl tbl--joints">
+        <caption class="vh">Расход растворов для затирки и расшивки швов на 1 м²</caption>
+        <thead>
+          <tr><th scope="col">Смесь</th><th scope="col">Расход на 1 м²</th><th scope="col">Условие нормы</th><th scope="col">Мешок</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row"><a href={`${PAGES.katalog.href}#perel-rl`}>Perel RL</a> <span class="tbl__use">затирка</span></th>
+            <td data-label="Расход на 1 м²" class="tbl__num">{range(R.kgPerM2Min, R.kgPerM2Max)} кг</td>
+            <td data-label="Условие нормы">{nb(rlCond)}</td>
+            <td data-label="Мешок" class="tbl__num">{rlPack} кг</td>
+          </tr>
+          <tr>
+            <th scope="row"><a href={`${PAGES.katalog.href}#osnovit-xc30`}>Основит Бриксэйв ХС30</a> <span class="tbl__use">расшивка</span></th>
+            <td data-label="Расход на 1 м²" class="tbl__num">{one(X.kgPerM2)} кг</td>
+            <td data-label="Условие нормы">{nb(X.condition)}</td>
+            <td data-label="Мешок" class="tbl__num">{xcPack} кг</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="srcline">
+      По данным производителей: <a href={R.src} {...src}>карточка Perel RL, td-perel.ru</a> ·
+      <a href={X.src} {...src}>страница Бриксэйв ХС30, osnovit.ru</a>
+    </p>
+
+  </Section>
+
+  <Section id="voprosy" kicker="Вопросы" title="Частые вопросы о расходе" bg="base">
+    <FaqAccordion items={faq} site="smesi" slug="kalkulyator" />
+  </Section>
+
+  <CtaBand
+    source="kalkulyator"
+    title="Посчитаем мешки под ваш проект"
+    text="Назовите кирпич, его количество или площадь кладки — подскажем серию и цвет шва, назовём цену и наличие."
+  />
+</Page>
+
+<style>
+  .methods { display: grid; gap: var(--space-4); }
+  @media (min-width: 960px) { .methods { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); align-items: start; } }
+  .methods__col { display: grid; gap: var(--space-4); }
+
+  .method {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-6) var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+  .method__tag { margin: 0; font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent-text); }
+  .method__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
+  .method__text { margin: 0; color: var(--color-text-soft); }
+  .method__big { margin: var(--space-2) 0 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
+  .method__big b { margin-right: var(--space-1); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h1); line-height: 1; color: var(--color-text); }
+  .method__cond { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+  .method__cond li { padding: 6px 14px; border-radius: var(--radius-pill); background: var(--color-brand-soft); font-size: var(--fs-small); font-weight: 600; }
+  .method__example { margin: 0; font-weight: 600; }
+  .method__links { margin: auto 0 0; padding-top: var(--space-2); font-size: var(--fs-small); color: var(--color-text-soft); }
+  .method__links a, .srcline a, .tbl a { color: var(--color-accent-text); font-weight: 600; }
+
+  .srcline { margin: var(--space-3) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
+  .method .srcline { margin: 0; }
+
+  .tbl-wrap { max-width: 100%; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+  .tbl th, .tbl td { padding: var(--space-3) var(--space-3) var(--space-3) 0; border-bottom: 1px solid var(--color-border-soft); text-align: left; vertical-align: top; }
+  .tbl thead th { font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-muted); border-bottom-color: var(--color-border); }
+  .tbl tbody th { font-weight: 700; }
+  .tbl__num { white-space: nowrap; font-weight: 700; }
+  .tbl__use { display: block; font-weight: 400; color: var(--color-muted); font-size: var(--fs-tiny); }
+
+  .sub { margin: var(--space-8) 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
+
+  .tbl--joints { background: var(--color-surface); border-radius: var(--radius); }
+  .tbl--joints th, .tbl--joints td { padding-inline: var(--space-4); }
+
+  /* Таблица растворов на телефоне — строка становится карточкой с подписями */
+  @media (max-width: 639px) {
+    .tbl--joints thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .tbl--joints, .tbl--joints tbody, .tbl--joints tr, .tbl--joints th, .tbl--joints td { display: block; }
+    .tbl--joints tr { padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border); }
+    .tbl--joints th, .tbl--joints td { padding: var(--space-1) var(--space-4); border: 0; }
+    .tbl--joints td::before { content: attr(data-label) ': '; color: var(--color-muted); font-weight: 400; }
+    .tbl--joints .tbl__num { white-space: normal; }
+  }
+
+  .why {
+    padding: var(--space-6) var(--space-5);
+    border-left: 4px solid var(--color-brand);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    background: var(--color-surface);
+  }
+  .why__title { margin: 0 0 var(--space-3); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .why p { margin: 0; max-width: 68ch; color: var(--color-text-soft); }
+</style>

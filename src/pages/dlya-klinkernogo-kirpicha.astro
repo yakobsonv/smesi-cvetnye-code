@@ -1,0 +1,592 @@
+---
+// Кладочная смесь для клинкерного кирпича (план, волна 1). Угол страницы: у клинкера низкое
+// водопоглощение — поэтому смесь под него своя; что подходит у Perel и у Основит.
+//
+// ФАКТЫ — только из данных:
+//   - назначение и «для какого кирпича» — дословно SERIES_FACTS[…].purpose / .forBrick
+//     (Perel NL: td-perel.ru; Основит Брикформ МС11 — блок «Рекомендуемые материалы» на osnovit.ru);
+//   - диапазоны водопоглощения на шкале — строки «Водопоглощение кирпича» из SERIES_FACTS[…].specs,
+//     зона клинкера — BRICK_TYPES.klinker (подраздел дилера «Клинкерный кирпич 0–5 %»);
+//   - какие серии подходят к клинкеру — seriesFor('klinker') (Perel NL + Основит МС11 через ALSO_FOR);
+//   - МС11/1 к клинкеру НЕ относим (DISCREPANCIES в series-facts.ts);
+//   - расшивка готовой кладки — Основит Бриксэйв ХС30: в его forBrick (блок «Рекомендуемые основания»
+//     на osnovit.ru, сверено 11.10) назван клинкерный кирпич; в purpose ХС30 клинкерного кирпича НЕТ;
+//   - цвета и фасовка — ассортимент дилера (catalog.ts), расход — CONSUMPTION.
+// Кадров кладки здесь нет: визуализаций клинкера в материалах клиента нет. Цен нет (catalog.ts).
+// Зимние модификации не показываем: возит ли их дилер — неизвестно (series-facts.ts).
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Section from '../components/layout/Section.astro';
+import SwatchGrid from '../components/smesi/SwatchGrid.astro';
+import SwatchNote from '../components/smesi/SwatchNote.astro';
+import SeriesCard from '../components/smesi/SeriesCard.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import SpecTable from '../components/content/SpecTable.astro';
+import FaqAccordion from '../components/content/FaqAccordion.astro';
+import { BRICK_TYPES, POSITIONS, seriesById, seriesFor, type SeriesId } from '../data/catalog';
+import { SERIES_FACTS, CONSUMPTION, type Fact } from '../data/series-facts';
+import { swatchFor } from '../data/swatches';
+import { PAGES } from '../data/nav';
+import { localPath } from '../lib/sites';
+import { plural } from '../lib/format';
+import type { FaqItem, SpecRow } from '../lib/types';
+
+const SLUG = 'dlya-klinkernogo-kirpicha';
+const KL = BRICK_TYPES.klinker;
+
+const nl = seriesById('perel-nl');
+const mc11 = seriesById('osnovit-mc11');
+const mc111 = seriesById('osnovit-mc11-1');
+const sl = seriesById('perel-sl');
+const vl = seriesById('perel-vl');
+const xc30 = seriesById('osnovit-xc30');
+const F = SERIES_FACTS;
+
+const klinkerIds = seriesFor('klinker').map((s) => s.id);
+const klinkerPositions = POSITIONS.filter((p) => klinkerIds.includes(p.series));
+const colorsWord = (n: number) => `${n} ${plural(n, 'цвет', 'цвета', 'цветов')}`;
+const kg = (n: number) => n.toFixed(1).replace('.', ',');
+
+const LABEL_ABS = 'Водопоглощение кирпича';
+const absOf = (id: SeriesId): Fact => {
+  const f = F[id].specs.find((x) => x.label === LABEL_ABS);
+  if (!f) throw new Error(`Нет строки «${LABEL_ABS}» у ${id}`);
+  return f;
+};
+
+/** «0–5 %» → 0…5; «до 12 %…» → 0…12; «более 12 %…» → 12…открыто. */
+function parseRange(v: string): { from: number; to: number | null } {
+  const range = v.match(/(\d+)\s*[–-]\s*(\d+)/);
+  if (range) return { from: Number(range[1]), to: Number(range[2]) };
+  const upTo = v.match(/^до\s*(\d+)/);
+  if (upTo) return { from: 0, to: Number(upTo[1]) };
+  const above = v.match(/^более\s*(\d+)/);
+  if (above) return { from: Number(above[1]), to: null };
+  throw new Error(`Не разобрать диапазон «${v}»`);
+}
+
+// ── Шкала водопоглощения: на какой кирпич рассчитана каждая кладочная серия ──────────
+const scaleIds: SeriesId[] = ['perel-nl', 'perel-sl', 'perel-vl', 'osnovit-mc11', 'osnovit-mc11-1'];
+const parsed = scaleIds.map((id) => ({ id, value: absOf(id).value, ...parseRange(absOf(id).value) }));
+const scaleMax = Math.max(...parsed.map((r) => r.to ?? 0));
+const pct = (n: number) => `${((n / scaleMax) * 100).toFixed(2)}%`;
+const zone = parseRange(KL.absorption);
+const scaleRows = parsed.map((r) => ({
+  ...r,
+  name: seriesById(r.id).name,
+  open: r.to === null,
+  klinker: klinkerIds.includes(r.id),
+  style: `--from:${pct(r.from)};--to:${pct(r.to ?? scaleMax)}`,
+}));
+const ticks = [...new Set(parsed.flatMap((r) => [r.from, r.to]).filter((n): n is number => n !== null))].sort((a, b) => a - b);
+const zoneStyle = `--from:${pct(zone.from)};--to:${pct(zone.to ?? scaleMax)}`;
+
+// Источники шкалы: у Perel все три диапазона названы на странице подбора по водопоглощению,
+// у Основит — на страницах МС11 и МС11/1.
+const scaleSrc = [
+  { href: F['perel-nl'].forBrickSrc, label: 'серии Perel на td-perel.ru' },
+  { href: absOf('osnovit-mc11').src, label: 'Брикформ МС11 на osnovit.ru' },
+  { href: absOf('osnovit-mc11-1').src, label: 'Брикформ МС11/1 на osnovit.ru' },
+];
+
+// ── Характеристики: ключевые строки производителя ─────────────────────────────────
+function pick(id: SeriesId, labels: string[]): { rows: SpecRow[]; srcs: string[] } {
+  const facts = labels
+    .map((l) => F[id].specs.find((f) => f.label === l))
+    .filter((f): f is Fact => Boolean(f));
+  return { rows: facts.map((f) => ({ label: f.label, value: f.value })), srcs: [...new Set(facts.map((f) => f.src))] };
+}
+
+const nlSpecs = pick('perel-nl', [
+  LABEL_ABS,
+  'Прочность на сжатие',
+  'Адгезия (сцепление с основанием)',
+  'Морозостойкость',
+  'Жизнеспособность раствора',
+  'Вода затворения',
+  'Температура применения',
+]);
+const mc11Specs = pick('osnovit-mc11', [
+  LABEL_ABS,
+  'Прочность на сжатие',
+  'Сцепление с основанием',
+  'Морозостойкость',
+  'Жизнеспособность раствора',
+  'Вода затворения',
+  'Толщина шва',
+  'Температура применения',
+]);
+
+// «до 12 %, а также клинкерный кирпич» → ['до 12 %', 'а также клинкерный кирпич'] — для плашки
+const mc11Abs = (() => {
+  const v = absOf('osnovit-mc11').value;
+  const i = v.indexOf(',');
+  return i > 0 ? [v.slice(0, i).trim(), v.slice(i + 1).trim()] : [v, 'водопоглощение кирпича'];
+})();
+
+const srcName = (href: string) => {
+  const host = new URL(href).hostname;
+  if (href.toLowerCase().includes('.pdf')) return `техническая карта, ${host}`;
+  return host;
+};
+
+// ── Расшивка готовой кладки: Бриксэйв ХС30 ───────────────────────────────────────
+const xcFacts = F['osnovit-xc30'];
+const xcCons = CONSUMPTION.osnovitXc30;
+const xcPoints = [
+  { text: 'Кладка должна выстояться не менее 3–4 недель — за это время кладочный раствор набирает марочную прочность. Швы расчищают на одинаковую глубину, не менее 1,5–2 см.', src: xcFacts.steps[0].src },
+  { text: `Расход — ${kg(xcCons.kgPerM2)} кг на 1 м² кладки (${xcCons.condition}).`, src: xcCons.src },
+  { text: xcFacts.notes?.[0]?.text ?? '', src: xcFacts.notes?.[0]?.src ?? '' },
+].filter((p) => p.text);
+const xcSrcs = [...new Set(xcPoints.map((p) => p.src))];
+const xcHref = `${localPath('smesi', xc30.page)}#${xc30.id}`;
+
+// ── Вопросы и ответы: только факты из данных ─────────────────────────────────────
+const perelBrick = CONSUMPTION.perel.perBrick
+  .map((r) => `${r.format} (${r.size}) — ${kg(r.kgMin)}–${kg(r.kgMax)} кг`)
+  .join('; ');
+const brikformTiming = F['osnovit-mc11'].steps.find((s) => s.text.startsWith('Расшивку начинать'));
+const brikformTrial = F['osnovit-mc11'].steps.find((s) => s.text.startsWith('Перед расшивкой'));
+
+const faq: FaqItem[] = [
+  {
+    q: 'Подойдёт ли для клинкера смесь для обычного облицовочного кирпича?',
+    a: `Зависит от производителя. У Perel для клинкера отдельная серия — NL, она рассчитана на кирпич с водопоглощением ${absOf('perel-nl').value}; ${sl.name} — на ${absOf('perel-sl').value}, ${vl.name} — на ${absOf('perel-vl').value}. У Основит клинкерный кирпич назван в назначении Брикформ МС11 — того же раствора, что и для керамического и силикатного облицовочного кирпича с водопоглощением до 12 %. Брикформ МС11/1 производитель рекомендует для кирпича с водопоглощением более 12 % и кирпича ручной формовки.`,
+  },
+  {
+    q: 'Чем отличаются Perel NL и Основит Брикформ МС11?',
+    a: `Perel NL производитель разработал специально для облицовки кирпичом с низким водопоглощением, от 0 до 5 %. Брикформ МС11 — раствор для керамического, силикатного и клинкерного облицовочного кирпича с возможностью расшивки швов в момент укладки. У нас ${nl.name} — ${colorsWord(nl.colors.length)} в мешках по ${nl.packKg} кг, ${mc11.name} — ${colorsWord(mc11.colors.length)} в мешках по ${mc11.packKg} кг.`,
+  },
+  {
+    q: 'Сколько смеси нужно на клинкерную кладку?',
+    a: `Производители считают по-разному. Perel даёт расход сухой смеси на один кирпич по формату, норма одна для SL, VL и NL (толщина шва в таблице не указана): ${perelBrick}. Основит — ${CONSUMPTION.osnovit.kgPerM2} кг на 1 м² кладки (${CONSUMPTION.osnovit.joint}, ${CONSUMPTION.osnovit.wall}). Сколько это мешков, посчитает <a href="${PAGES.kalkulyator.href}">калькулятор расхода</a>.`,
+  },
+  ...(brikformTiming && brikformTrial
+    ? [{
+        q: 'Когда расшивать шов при кладке на Брикформ МС11?',
+        a: 'По технической карте Основит расшивку начинают после начала схватывания раствора — время зависит от температуры, влажности и впитывающей способности кирпича. Шов не переувлажняют и расшивают быстрыми движениями, без долгого «перетирания». Перед работой производитель советует пробную расшивку на небольшом участке — убедиться, что инструмент не меняет цвет шва.',
+      }]
+    : []),
+  {
+    q: 'Можно ли сделать цветной шов на уже готовой клинкерной кладке?',
+    a: `Да, раствором для расшивки: среди рекомендуемых оснований для Основит Бриксэйв ХС30 производитель называет клинкерный облицовочный кирпич. Расшивают не раньше чем через 3–4 недели после кладки, когда кладочный раствор наберёт марочную прочность, — швы перед этим расчищают не меньше чем на 1,5–2 см. Расход — ${kg(xcCons.kgPerM2)} кг на 1 м² кладки. У нас ${colorsWord(xc30.colors.length)} в мешках по ${xc30.packKg} кг.`,
+  },
+];
+
+const itemList = {
+  '@type': 'ItemList',
+  name: 'Кладочные смеси для клинкерного кирпича',
+  numberOfItems: klinkerPositions.length,
+  itemListElement: klinkerPositions.map((p, i) => ({ '@type': 'ListItem', position: i + 1, name: p.title })),
+};
+
+const picks = [nl, mc11].map((s) => ({
+  s,
+  href: `#${s.id}`,
+  abs: absOf(s.id).value,
+  strip: s.colors.map((c) => swatchFor(s.id, c.code)),
+}));
+
+---
+
+<Page
+  title="Кладочная смесь для клинкерного кирпича — Perel NL и Основит МС11"
+  description={`Цветные кладочные смеси для клинкера с водопоглощением ${KL.absorption}: Perel NL — ${colorsWord(nl.colors.length)}, Основит Брикформ МС11 — ${colorsWord(mc11.colors.length)}. Расшивка готовой кладки, Москва и МО.`}
+  slug={SLUG}
+  current="klinker"
+  source="klinker"
+  jsonLd={[itemList]}
+>
+  <PageHead
+    kicker="Клинкерный кирпич"
+    h1="Кладочная смесь для клинкерного кирпича"
+    crumb="Для клинкерного кирпича"
+    trail={[{ label: 'Каталог', href: PAGES.katalog.href }]}
+    lead={`У клинкерного кирпича низкое водопоглощение — ${KL.absorption}. Для него у Perel есть отдельная серия NL, а у Основит клинкер назван в назначении Брикформ МС11. У нас ${colorsWord(nl.colors.length)} NL и ${colorsWord(mc11.colors.length)} МС11 — нажмите на образец, чтобы узнать цену и наличие.`}
+  >
+    <div class="picks" slot="aside" data-reveal-stagger>
+      {picks.map((p) => (
+        <a class="pick" href={p.href}>
+          <span class="pick__strip" aria-hidden="true">{p.strip.map((c) => <span style={`--c:${c}`}></span>)}</span>
+          <span class="pick__body">
+            <span class="pick__name">{p.s.name}</span>
+            <span class="pick__abs">водопоглощение кирпича: {p.abs}</span>
+            <span class="pick__meta">{colorsWord(p.s.colors.length)} · мешок {p.s.packKg} кг</span>
+          </span>
+          <span class="pick__go" aria-hidden="true">↓</span>
+        </a>
+      ))}
+      <a class="pick-more" href="#rasshivka">Кладка уже готова — расшивка {xc30.name} <span aria-hidden="true">↓</span></a>
+    </div>
+  </PageHead>
+
+  <Section id="pochemu" kicker="Водопоглощение" title="Почему клинкеру нужна своя смесь" bg="base">
+    <div class="why">
+      <div class="why__text">
+        <p class="lead" data-reveal>
+          Главное условие подбора кладочной смеси у Perel — водопоглощение кирпича, то есть сколько воды он
+          впитывает. У клинкера оно низкое, от 0 до 5 %, и оба производителя из нашего каталога называют
+          такой кирпич отдельно.
+        </p>
+        <div class="quotes" data-reveal-stagger>
+          <blockquote class="quote">
+            <p>{F['perel-nl'].forBrick}</p>
+            <footer>Perel, подбор серии по водопоглощению кирпича — <a href={F['perel-nl'].forBrickSrc} rel="nofollow noopener" target="_blank">td-perel.ru</a></footer>
+          </blockquote>
+          <blockquote class="quote">
+            <p>{F['osnovit-mc11'].forBrick}</p>
+            <footer>Основит, рекомендуемые материалы для Брикформ МС11 — <a href={F['osnovit-mc11'].forBrickSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
+          </blockquote>
+        </div>
+        <p class="why__p" data-reveal>
+          Диапазоны остальных кладочных серий начинаются выше: у {sl.name} и {vl.name} — от 5 %,
+          у Брикформ МС11/1 — более 12 %.
+        </p>
+      </div>
+
+      <figure class="scale" data-reveal>
+        <figcaption class="scale__cap">На какое водопоглощение кирпича рассчитана смесь</figcaption>
+        <ul class="scale__rows">
+          {scaleRows.map((r) => (
+            <li class:list={['scale__row', r.klinker && 'is-klinker']}>
+              <span class="scale__name">{r.name}<small>{r.value}</small></span>
+              <span class="scale__track" aria-hidden="true">
+                <span class="scale__zone" style={zoneStyle}></span>
+                <span class:list={['scale__bar', r.open && 'is-open']} style={r.style}></span>
+              </span>
+            </li>
+          ))}
+          <li class="scale__row scale__row--axis" aria-hidden="true">
+            <span class="scale__name"></span>
+            <span class="scale__ticks">
+              {ticks.map((t, i) => (
+                <span class:list={['scale__tick', i === 0 && 'is-first', i === ticks.length - 1 && 'is-last']} style={`--x:${pct(t)}`}>{t} %</span>
+              ))}
+            </span>
+          </li>
+        </ul>
+        <p class="scale__legend">
+          <span class="scale__item"><span class="scale__key" aria-hidden="true"></span>зона клинкера, {KL.absorption}</span>
+          <span class="scale__item"><span class="scale__key scale__key--bar" aria-hidden="true"></span>смеси, которые производитель называет для клинкера</span>
+        </p>
+        <p class="src">
+          По данным производителей:{' '}
+          {scaleSrc.map((s, i) => (
+            <Fragment>{i > 0 && ', '}<a href={s.href} rel="nofollow noopener" target="_blank">{s.label}</a></Fragment>
+          ))}
+        </p>
+      </figure>
+    </div>
+
+    <aside class="passport" data-reveal>
+      <h3 class="passport__title">Как узнать водопоглощение своего кирпича</h3>
+      <p>
+        Найдите цифру в паспорте кирпича и сравните со шкалой выше — станет видно, какая серия смеси на него
+        рассчитана. Паспорта под рукой нет — назовите завод и марку кирпича, подскажем.
+        <a href="#zayavka">Оставить заявку</a>
+      </p>
+    </aside>
+  </Section>
+
+  <Section id={nl.id} kicker="Perel" title="Perel NL — серия под клинкер" bg="alt">
+    <div class="ser">
+      <div class="ser__intro" data-reveal>
+        <blockquote class="quote quote--plain">
+          <p>{F['perel-nl'].purpose}</p>
+          <footer>Назначение серии — <a href={F['perel-nl'].purposeSrc} rel="nofollow noopener" target="_blank">td-perel.ru</a></footer>
+        </blockquote>
+        <ul class="facts">
+          <li><b>{nl.colors.length}</b><span>{plural(nl.colors.length, 'цвет', 'цвета', 'цветов')} у нас</span></li>
+          <li><b>{nl.packKg} кг</b><span>мешок</span></li>
+          <li><b>{absOf('perel-nl').value}</b><span>водопоглощение кирпича</span></li>
+        </ul>
+        <button class="btn btn--primary" type="button" data-ask={`${nl.name} — цвет подберём`}>Узнать цену</button>
+      </div>
+      <div class="ser__specs" data-reveal>
+        <SpecTable rows={nlSpecs.rows} />
+        <p class="src">
+          По данным производителя:{' '}
+          {nlSpecs.srcs.map((h, i) => (
+            <Fragment>{i > 0 && ', '}<a href={h} rel="nofollow noopener" target="_blank">карточка смеси на {srcName(h)}</a></Fragment>
+          ))}
+        </p>
+      </div>
+    </div>
+
+    <h3 class="sub" data-reveal>{nl.colors.length} {plural(nl.colors.length, 'цвет', 'цвета', 'цветов')} {nl.name}</h3>
+    <SwatchGrid series="perel-nl" />
+    <SwatchNote />
+  </Section>
+
+  <Section id={mc11.id} kicker="Основит" title="Брикформ МС11 — и для клинкера, и для кирпича до 12 %" bg="base">
+    <div class="ser">
+      <div class="ser__intro" data-reveal>
+        <blockquote class="quote quote--plain">
+          <p>{F['osnovit-mc11'].purpose}</p>
+          <footer>Назначение раствора — <a href={F['osnovit-mc11'].purposeSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
+        </blockquote>
+        <ul class="facts">
+          <li><b>{mc11.colors.length}</b><span>{plural(mc11.colors.length, 'цвет', 'цвета', 'цветов')} у нас</span></li>
+          <li><b>{mc11.packKg} кг</b><span>мешок</span></li>
+          <li><b>{mc11Abs[0]}</b><span>водопоглощение кирпича, а также клинкер</span></li>
+        </ul>
+        <p class="aside-note">
+          Не перепутайте с {mc111.name}: рекомендуемые основания у него другие —
+          «{F['osnovit-mc11-1'].forBrick}» (<a href={F['osnovit-mc11-1'].forBrickSrc} rel="nofollow noopener" target="_blank">техническая карта, osnovit.ru</a>).
+        </p>
+        <button class="btn btn--primary" type="button" data-ask={`${mc11.name} — цвет подберём`}>Узнать цену</button>
+      </div>
+      <div class="ser__specs" data-reveal>
+        <SpecTable rows={mc11Specs.rows} />
+        <p class="src">
+          По данным производителя:{' '}
+          {mc11Specs.srcs.map((h, i) => (
+            <Fragment>{i > 0 && ', '}<a href={h} rel="nofollow noopener" target="_blank">страница раствора на {srcName(h)}</a></Fragment>
+          ))}
+        </p>
+      </div>
+    </div>
+
+    <h3 class="sub" data-reveal>{mc11.colors.length} {plural(mc11.colors.length, 'цвет', 'цвета', 'цветов')} Брикформ МС11</h3>
+    <SwatchGrid series="osnovit-mc11" />
+    <SwatchNote />
+  </Section>
+
+  <Section id="rasshivka" kicker="Расшивка" title="Цветной шов на готовой клинкерной кладке" bg="alt">
+    <div class="rs">
+      <div class="rs__text">
+        <p class="lead" data-reveal>
+          Если кладка уже готова, цвет шву можно дать раствором для расшивки. Среди рекомендуемых оснований
+          для {xc30.name} производитель называет клинкерный облицовочный кирпич:
+        </p>
+        <blockquote class="quote" data-reveal>
+          <p>{xcFacts.forBrick}</p>
+          <footer>Основит, рекомендуемые основания для Бриксэйв ХС30 — <a href={xcFacts.forBrickSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
+        </blockquote>
+        <ul class="points" data-reveal-stagger>
+          {xcPoints.map((p) => <li>{p.text}</li>)}
+        </ul>
+        <p class="src" data-reveal>
+          По данным производителя:{' '}
+          {xcSrcs.map((h, i) => (
+            <Fragment>{i > 0 && ', '}<a href={h} rel="nofollow noopener" target="_blank">{h.toLowerCase().includes('.pdf') ? 'техническая карта ХС30' : `страница ХС30 на ${srcName(h)}`}</a></Fragment>
+          ))}
+        </p>
+        <a class="more" href={xcHref} data-reveal>Все цвета и характеристики ХС30 <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="rs__card" data-reveal>
+        <SeriesCard id="osnovit-xc30" href={xcHref} />
+      </div>
+    </div>
+  </Section>
+
+  <Section kicker="Вопросы и ответы" title="Коротко о смеси для клинкера" bg="base">
+    <FaqAccordion items={faq} site="smesi" slug={SLUG} />
+  </Section>
+
+  <CtaBand
+    source="klinker"
+    title="Подберём смесь под ваш клинкер"
+    text="Назовите клинкерный кирпич и объём кладки — подскажем серию и цвет шва, посчитаем количество мешков."
+  />
+</Page>
+
+<style>
+  /* ── первый экран: две смеси для клинкера ── */
+  .picks { display: grid; gap: var(--space-3); }
+  .pick {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: translate var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .pick:hover { opacity: 1; translate: 0 -3px; box-shadow: var(--shadow-card); border-color: var(--color-brand); }
+  .pick__strip { grid-column: 1 / -1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: 40px; }
+  .pick__strip span { background: var(--c); }
+  .pick__body { display: grid; gap: 2px; padding: var(--space-4) var(--space-5); min-width: 0; }
+  .pick__name { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); line-height: 1.2; }
+  .pick__abs { font-size: var(--fs-small); color: var(--color-text-soft); }
+  .pick__meta { font-size: var(--fs-small); font-weight: 600; }
+  .pick__go { align-self: center; padding-right: var(--space-5); font-weight: 800; color: var(--color-accent-text); }
+  .pick-more {
+    padding: var(--space-2) var(--space-1);
+    font-size: var(--fs-small);
+    font-weight: 700;
+    color: var(--color-accent-text);
+    text-decoration: none;
+  }
+  .pick-more:hover { text-decoration: underline; }
+
+  /* ── общие мелочи ── */
+  .lead { max-width: 62ch; margin: 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
+  .src { margin: var(--space-3) 0 0; font-size: var(--fs-tiny); color: var(--color-muted); }
+  .src a { color: inherit; white-space: nowrap; }
+
+  .quote {
+    margin: 0;
+    padding: var(--space-4) var(--space-5);
+    border-left: 3px solid var(--color-brand);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--color-bg-alt);
+  }
+  .quote p { margin: 0; font-weight: 600; line-height: 1.45; }
+  .quote footer { margin-top: var(--space-2); font-size: var(--fs-tiny); color: var(--color-muted); }
+  .quote footer a { color: inherit; white-space: nowrap; }
+  .quote--plain { background: var(--color-surface); }
+
+  /* ── почему своя смесь ── */
+  .why { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-7); align-items: start; }
+  .why__text { display: grid; gap: var(--space-5); }
+  .quotes { display: grid; gap: var(--space-3); }
+  .why__p { margin: 0; max-width: 62ch; color: var(--color-text-soft); }
+
+  .scale {
+    margin: 0;
+    padding: var(--space-5);
+    border-radius: var(--radius);
+    background: var(--color-bg-alt);
+  }
+  .scale__cap { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); line-height: 1.25; }
+  .scale__rows { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  .scale__row { display: grid; gap: var(--space-2); align-items: center; }
+  .scale__name { display: grid; gap: 1px; font-weight: 700; font-size: var(--fs-small); line-height: 1.3; }
+  .scale__name small { font-weight: 400; font-size: var(--fs-tiny); color: var(--color-muted); }
+  .scale__track {
+    position: relative;
+    height: 14px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+  }
+  .scale__zone,
+  .scale__bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--from);
+    width: calc(var(--to) - var(--from));
+  }
+  .scale__zone { background: color-mix(in srgb, var(--color-brand) 16%, transparent); border-radius: var(--radius-pill) 0 0 var(--radius-pill); }
+  .scale__bar { top: 3px; bottom: 3px; border-radius: var(--radius-pill); background: var(--color-muted); opacity: 0.55; }
+  .is-klinker .scale__bar { background: var(--color-brand); opacity: 1; }
+  .scale__bar.is-open { -webkit-mask-image: linear-gradient(90deg, var(--color-text) 60%, transparent); mask-image: linear-gradient(90deg, var(--color-text) 60%, transparent); }
+  .is-klinker .scale__name { color: var(--color-text); }
+  .scale__row:not(.is-klinker) .scale__name { color: var(--color-text-soft); }
+
+  .scale__row--axis { margin-top: calc(-1 * var(--space-2)); }
+  .scale__row--axis .scale__name { display: none; }
+  .scale__ticks { position: relative; height: 18px; }
+  .scale__tick {
+    position: absolute;
+    left: var(--x);
+    translate: -50% 0;
+    font-size: var(--fs-tiny);
+    color: var(--color-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .scale__tick.is-first { translate: 0 0; }
+  .scale__tick.is-last { translate: -100% 0; }
+
+  .scale__legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-5);
+    margin: var(--space-4) 0 0;
+    font-size: var(--fs-tiny);
+    color: var(--color-text-soft);
+  }
+  .scale__item { display: inline-flex; align-items: center; gap: var(--space-2); }
+  .scale__key { display: inline-block; flex: none; width: 22px; height: 12px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-brand) 16%, transparent); box-shadow: inset 0 0 0 1px var(--color-border); }
+  .scale__key--bar { height: 8px; border-radius: var(--radius-pill); background: var(--color-brand); box-shadow: none; }
+
+  .passport {
+    display: grid;
+    gap: var(--space-2);
+    max-width: 880px;
+    margin-top: var(--space-7);
+    padding: var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+  }
+  .passport__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .passport p { margin: 0; color: var(--color-text-soft); }
+  .passport a { font-weight: 700; color: var(--color-accent-text); white-space: nowrap; }
+
+  @media (min-width: 640px) {
+    .scale__row { grid-template-columns: 168px minmax(0, 1fr); gap: var(--space-4); }
+    .scale__row--axis .scale__name { display: block; }
+  }
+  @media (min-width: 1000px) {
+    .why { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 4vw, 64px); }
+    .scale { padding: var(--space-6); }
+  }
+
+  /* ── серии ── */
+  .ser { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-items: start; }
+  .ser__intro { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); justify-items: start; }
+  .ser__intro .facts { max-width: 560px; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3); width: 100%; margin: 0; padding: 0; list-style: none; }
+  .facts li {
+    display: grid;
+    align-content: start;
+    gap: 2px;
+    min-width: 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+  }
+  .facts b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); line-height: 1.2; }
+  .facts span { font-size: var(--fs-tiny); color: var(--color-muted); }
+  /* узкий экран: две плашки в ряд, третья — во всю ширину (а не одна с пустым местом справа) */
+  @media (max-width: 479px) {
+    .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .facts li:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  }
+  .aside-note { margin: 0; max-width: 60ch; font-size: var(--fs-small); color: var(--color-text-soft); }
+  .aside-note a { color: inherit; }
+  .ser__specs {
+    padding: var(--space-4) var(--space-5) var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+  .sub { margin: var(--space-8) 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
+
+  @media (min-width: 1000px) {
+    .ser { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: clamp(32px, 4vw, 64px); }
+    /* таблица выше вводной колонки — вводная с кнопкой едет рядом при прокрутке */
+    .ser__intro { position: sticky; top: var(--space-9); }
+  }
+
+  /* ── расшивка ── */
+  .rs { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-items: start; }
+  .rs__text { display: grid; gap: var(--space-5); }
+  .rs__text .quote { background: var(--color-surface); }
+  .points { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+  .points li { position: relative; padding-left: var(--space-5); color: var(--color-text-soft); max-width: 62ch; }
+  .points li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.62em;
+    width: 10px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-brand);
+  }
+  .rs__text .src { margin-top: 0; }
+  .more { justify-self: start; font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
+  .more:hover { text-decoration: underline; }
+
+  @media (min-width: 1000px) {
+    .rs { grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr); gap: clamp(32px, 4vw, 64px); }
+  }
+</style>

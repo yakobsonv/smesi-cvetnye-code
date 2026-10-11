@@ -70,6 +70,7 @@ const PEREL = {
    *  https://td-perel.ru/catalog/perel-nl/krasnaya-kladochnaya-smes-perel-nl-25-kg/
    *  https://td-perel.ru/catalog/perel-nl/chernaya-kladochnaya-smes-perel-nl-25-kg/ */
   nlBlackCard: 'https://td-perel.ru/catalog/perel-nl/chernaya-kladochnaya-smes-perel-nl-25-kg/',
+  vlBlackCard: 'https://td-perel.ru/catalog/perel-vl/chernaya-kladochnaya-smes-perel-vl-25-kg/',
   rl: 'https://td-perel.ru/catalog/tsvetnaya-zatirochnaya-smes-perel-rl/',
   /** карточка RL «кирпичная, 25 кг» — характеристики, описание и расход (на 12 карточках RL одинаковы) */
   rlCard: 'https://td-perel.ru/catalog/tsvetnaya-zatirochnaya-smes-perel-rl/kirpichnaya-zatirochnaya-smes-perel-rl-25-kg/',
@@ -591,3 +592,11 @@ export const DISCREPANCIES: string[] = [
   // в их технических картах 07.26 — «шов 10 мм, кладка в 1/2 кирпича», как у летних
   'Основит, расход 50 кг/м²: у МС11 и МС11/1 (страницы и технические карты) и в технических картах зимних — «шов 10 мм, кладка в 1/2 кирпича»; на страницах зимних МС11 F и МС11/1 F и в «Описании» МС11/1 2020 г. — «ложковая кладка». Для калькулятора берём формулировку страниц МС11 и МС11/1.',
 ];
+
+/** Источник морозостойкости ЧЁРНОГО цвета Perel VL и NL (не менее 50 циклов): карточки чёрной смеси.
+ *  У прочих цветов серии источник — карточка «серая» (75 циклов). Нужен странице чёрной смеси:
+ *  ссылка «по данным производителя» должна вести на карточку с тем же числом (проверка 11.10). */
+export const PEREL_BLACK_FROST_SRC: Partial<Record<SeriesId, string>> = {
+  'perel-vl': PEREL.vlBlackCard,
+  'perel-nl': PEREL.nlBlackCard,
+};

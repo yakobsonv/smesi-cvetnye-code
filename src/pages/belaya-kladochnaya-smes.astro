@@ -1,0 +1,632 @@
+---
+// Белая кладочная смесь (план, волна 1): самый частый запрос по цвету — белый и супер-белый шов.
+// Угол страницы: какая белая смесь под какой кирпич, белый шов на готовой кладке (расшивка),
+// как белый шов выглядит на разном кирпиче и почему светлый шов пачкается.
+//
+// ФАКТЫ — только из src/data:
+//   • позиции, коды и артикулы белых цветов — catalog.ts (ассортимент дилера);
+//   • «для какого кирпича» и назначение — ДОСЛОВНО из series-facts.ts (forBrick / purpose) со ссылкой на источник;
+//   • белый шов и загрязнение — LIGHT_JOINT_FACTS; советы при работе — шаги и оговорки серий (series-facts.ts);
+//     в тексте страницы они пересказаны короче, источник каждого — ссылкой рядом;
+//   • расход — CONSUMPTION;
+//   • кадры — визуализации кладки из материалов клиента (kladka.ts). Шов на кадре — видимый цвет,
+//     а не конкретная смесь: поэтому подпись «кирпич · шов», без бренда и артикула.
+// Чем супер-белый отличается от белого по составу — у производителей фактов нет, на странице не пишем.
+// Цен нет намеренно (см. catalog.ts): действие позиции — окно «Узнать цену».
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Section from '../components/layout/Section.astro';
+import SwatchGrid from '../components/smesi/SwatchGrid.astro';
+import SwatchNote from '../components/smesi/SwatchNote.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import FaqAccordion from '../components/content/FaqAccordion.astro';
+import SpecTable from '../components/content/SpecTable.astro';
+import { KLADKA } from '../data/kladka';
+import { BRICK_TYPES, POSITIONS, SERIES, BRANDS, seriesById, seriesFor, type BrickType, type SeriesId } from '../data/catalog';
+import { SERIES_FACTS, LIGHT_JOINT_FACTS, CONSUMPTION } from '../data/series-facts';
+import { PAGES } from '../data/nav';
+import { localPath } from '../lib/sites';
+import { plural } from '../lib/format';
+import type { FaqItem, SpecRow } from '../lib/types';
+
+/* ── Позиции ─────────────────────────────────────────────────────────────── */
+
+const isWhite = (id: string) => POSITIONS.filter((p) => p.series === id && p.color.tone === 'white');
+const kladkaSeries = SERIES.filter((s) => s.purpose === 'kladka');
+const rasshivkaSeries = SERIES.filter((s) => s.purpose === 'rasshivka');
+const whiteKladka = kladkaSeries.flatMap((s) => isWhite(s.id));
+const whiteRasshivka = rasshivkaSeries.flatMap((s) => isWhite(s.id));
+
+// Лид обещает «белый и супер-белый в каждой кладочной серии» — проверяем на данных при сборке.
+for (const s of kladkaSeries) {
+  if (isWhite(s.id).length < 2) throw new Error(`belaya: у ${s.name} меньше двух белых цветов — поправьте лид страницы`);
+}
+
+/* ── Помощники ───────────────────────────────────────────────────────────── */
+
+/** Какие серии ссылаются на адрес источника — чтобы подпись ссылки называла товар, а не только домен. */
+const URL_SERIES = new Map<string, Set<SeriesId>>();
+for (const [id, f] of Object.entries(SERIES_FACTS) as [SeriesId, (typeof SERIES_FACTS)[SeriesId]][]) {
+  const urls = [f.purposeSrc, f.forBrickSrc, ...f.specs.map((x) => x.src), ...f.packaging.map((x) => x.src), ...f.steps.map((x) => x.src), ...(f.notes ?? []).map((x) => x.src), f.winter?.src];
+  for (const u of urls) {
+    if (!u) continue;
+    if (!URL_SERIES.has(u)) URL_SERIES.set(u, new Set());
+    URL_SERIES.get(u)!.add(id);
+  }
+}
+
+/** Подпись ссылки на источник: домен и что это за страница. */
+function srcLabel(url: string): string {
+  const u = new URL(url);
+  const host = u.hostname.replace(/^www\./, '');
+  const path = u.pathname.toLowerCase();
+  if (host.includes('youtube')) return 'видео производителя';
+  if (host === 'tekato.ru') return 'каталог Perel, PDF';
+  if (path.includes('/articles/')) return `${host}, статья`;
+  // разделы td-perel.ru, на которые ссылаются сразу три серии: без пометки подпись была голым доменом
+  if (path.endsWith('/belaya-kladochnaya-smes/')) return `${host}, белая кладочная смесь`;
+  if (path.endsWith('/catalog/tsvetnaya-kladochnaya-smes/')) return `${host}, цветные кладочные смеси`;
+  const ids = [...(URL_SERIES.get(url) ?? [])];
+  const name = ids.length === 1 ? seriesById(ids[0]).name.replace(/^Основит /, '') : '';
+  if (path.endsWith('.pdf')) return name ? `${host}, техкарта ${name}` : `${host}, PDF`;
+  if (name && /-kg\/?$/.test(path)) return `${host}, карточка ${name}`;
+  if (name) return `${host}, ${name}`;
+  return host;
+}
+const uniq = (list: string[]) => [...new Set(list)];
+
+function pick<T extends { text: string }>(list: T[] | undefined, needle: string, where: string): T {
+  const f = list?.find((x) => x.text.includes(needle));
+  if (!f) throw new Error(`belaya: в ${where} нет факта «${needle}»`);
+  return f;
+}
+const ljf = (needle: string) => pick(LIGHT_JOINT_FACTS, needle, 'LIGHT_JOINT_FACTS');
+const step = (id: SeriesId, needle: string) => pick(SERIES_FACTS[id].steps, needle, `${id}.steps`);
+const note = (id: SeriesId, needle: string) => pick(SERIES_FACTS[id].notes, needle, `${id}.notes`);
+const num = (n: number | string) => String(n).replace('.', ',');
+/** диапазон «3–4» не рвём на строки: по краям тире — невидимая «склейка» (U+2060);
+ *  число не отрываем от единицы: «1,5–2 см» на телефоне переносил «см» на новую строку */
+const nb = (t: string) =>
+  t.replace(/(\d)–(\d)/g, '$1\u2060–\u2060$2').replace(/(\d) (?=(см|мм|кг|дн|недел|сут|минут|%))/g, '$1\u00a0');
+const andList = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} и ${xs[xs.length - 1]}` : xs.join(''));
+const brandHref = (id: SeriesId) => `${localPath('smesi', seriesById(id).page)}#${id}`;
+
+/* ── 1. Галерея: белый шов на разном кирпиче ─────────────────────────────── */
+
+// Шесть разных кирпичей: тёмные и тёплые, на которых белый шов читается чётко, и три светлых для сравнения.
+// Красный кирпич — на первом экране; в галерее его нет, чтобы не показывать одну и ту же стену дважды подряд
+// (белый и супербелый на одном кирпиче на кадре почти не различаются).
+// Из пар с одинаковым рендером у двух заводов (KLADKA_SAME_RENDER) берём только одну сторону.
+const GALLERY: [brick: string, seam: 'white' | 'superwhite'][] = [
+  ['osmibt-terrakot', 'white'],
+  ['osmibt-korichnevyj', 'white'],
+  ['zhkz-kraft', 'superwhite'],
+  ['osmibt-soloma', 'white'],
+  ['osmibt-seryj-bezh', 'white'],
+  ['osmibt-slonovaya-kost', 'white'],
+];
+// названия-существительные пишем в кавычках: «кирпич „терракот“», а не «терракот кирпич»
+const NOUN_BRICKS = new Set(['терракот', 'крафт', 'серый беж', 'слоновая кость']);
+const brickName = (b: string) => (NOUN_BRICKS.has(b) ? `кирпич «${b}»` : `${b} кирпич`);
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function frame(brickId: string, seamId: string) {
+  const b = KLADKA.find((x) => x.id === brickId);
+  const s = b?.seams.find((x) => x.id === seamId);
+  if (!b || !s) throw new Error(`belaya: нет кадра ${brickId} / ${seamId}`);
+  const factory = b.factoryName.match(/\(([^)]+)\)/)?.[1] ?? b.factoryName;
+  return { ...s, caption: `${cap(brickName(b.brick))} · шов ${s.label}`, factory, alt: `Визуализация кладки: ${brickName(b.brick)}, ${s.label} шов` };
+}
+const gallery = GALLERY.map(([brickId, seamId]) => frame(brickId, seamId));
+// первый экран: самый частый запрос — красный кирпич с белым швом
+const heroFrame = frame('osmibt-krasnyj', 'white');
+
+/* ── 2. Белые смеси под кирпич ───────────────────────────────────────────── */
+
+const typeOrder: BrickType[] = ['obychnyj', 'ruchnoj', 'klinker'];
+const byBrick = typeOrder.map((t) => ({
+  t,
+  info: BRICK_TYPES[t],
+  series: seriesFor(t).map((s) => ({ s, f: SERIES_FACTS[s.id] })),
+}));
+const pickRule = ljf('подбирают так же');
+
+/* ── 3. Расшивка ─────────────────────────────────────────────────────────── */
+
+function rasshivkaRows(id: SeriesId): { rows: SpecRow[]; srcs: string[] } {
+  const f = SERIES_FACTS[id];
+  const width = f.specs.find((x) => x.label === 'Ширина шва');
+  const bag = f.packaging.find((x) => x.label === 'Мешок');
+  const rows: SpecRow[] = [];
+  const srcs: string[] = [];
+  if (width) { rows.push({ label: 'Ширина шва', value: width.value }); srcs.push(width.src); }
+  if (bag) { rows.push({ label: 'Мешок', value: bag.value }); srcs.push(bag.src); }
+  if (id === 'perel-rl') {
+    const c = CONSUMPTION.perelRl;
+    rows.push({ label: 'Расход', value: `${num(c.kgPerM2Min)}–${num(c.kgPerM2Max)} кг/м²`, note: 'в зависимости от ширины швов и формата облицовочного материала' });
+    srcs.push(c.src);
+  }
+  if (id === 'osnovit-xc30') {
+    const c = CONSUMPTION.osnovitXc30;
+    rows.push({ label: 'Расход', value: `${num(c.kgPerM2.toFixed(1))} кг/м²`, note: c.condition });
+    srcs.push(c.src);
+  }
+  return { rows, srcs: uniq([f.purposeSrc, ...srcs]) };
+}
+const rasshivka = rasshivkaSeries.map((s) => ({ s, f: SERIES_FACTS[s.id], ...rasshivkaRows(s.id) }));
+
+// Как делают белый шов на готовой кладке — пересказ технической карты Бриксэйв ХС30 и карточки Perel RL.
+const xc = {
+  wait: step('osnovit-xc30', 'выстояться'),
+  fill: step('osnovit-xc30', 'вдавить раствор'),
+  cure: step('osnovit-xc30', 'увлажнить швы пульверизатором'),
+  renew: note('osnovit-xc30', 'обновления швов'),
+};
+const rlShape = step('perel-rl', 'мокрого песка');
+// порядок — по технической карте Бриксэйв ХС30 (все шаги из одного источника)
+const howTo = [
+  'Расшивать начинают, когда кладка простоит не меньше 3–4 недель и раствор в ней наберёт марочную прочность.',
+  'Швы расчищают на одну глубину по всей стене — не меньше 1,5–2 см, чистят щёткой с жёстким ворсом и увлажняют; во время расшивки воды в швах быть не должно.',
+  'Раствор вдавливают в шов с избытком, лишнее снимают кельмой вровень с кладкой и придают шву форму.',
+  'Сразу после работ швы увлажняют пульверизатором и держат влажными, пока раствор твердеет; не меньше 5–7 дней свежие швы закрывают плёнкой от прямого солнца, сильного ветра и дождя.',
+];
+const howToSrc = uniq([xc.wait.src, xc.fill.src, xc.cure.src]);
+
+/* ── 4. Почему светлый шов пачкается ─────────────────────────────────────── */
+
+const why = [
+  { title: 'Пыль и органика из воздуха', text: 'Со временем они дают фасаду грязные оттенки, и больше всего этому подвержены материалы светлых тонов.', srcs: [ljf('Пыль').src] },
+  {
+    title: 'Инструмент из чёрных металлов',
+    text: 'Он может изменить цвет шва, поэтому Основит не рекомендует им работать, а ржавым инструментом расшивать запрещает.',
+    srcs: uniq([step('osnovit-xc30', 'чёрных металлов').src, step('osnovit-mc11', 'ржавым').src]),
+  },
+];
+const choose = [
+  { text: 'Для белого шва Perel называет оптимальным вариантом готовую белую кладочную смесь.', src: ljf('оптимальный вариант').src },
+  { text: 'В белой смеси Perel — европейские пигменты и компоненты: по словам производителя, они дают шву высокую стабильность цвета и невосприимчивость к осадкам и солнцу.', src: ljf('Белый раствор применяется').src },
+  { text: 'Perel пишет о годичных испытаниях в своей лаборатории: диоксид титана в кладочных растворах и расшивках помогает светлым оттенкам несколько лет оставаться чистыми и яркими.', src: ljf('диоксид титана').src },
+];
+const work = [
+  { text: 'Сначала расшить на пробу небольшой участок — так видно, не меняет ли инструмент цвет шва.', src: step('osnovit-mc11', 'пробную расшивку').src },
+  { text: 'Раствор с кирпича снимать сразу — ветошью или поролоновой губкой, не заливая кладку водой.', src: step('osnovit-mc11', 'ветошью').src },
+  { text: 'Первые 5–7 суток закрывать свежую кладку от прямого солнца и осадков — иначе на цветном растворе может проступить разница в цвете.', src: step('osnovit-mc11', '5–7 суток').src },
+  { text: 'Замешивать всё время на одном количестве воды: если оно изменится по ходу работ, может измениться и оттенок шва.', src: note('osnovit-xc30', 'количеством воды').src },
+];
+
+/* ── 5. Вопросы ──────────────────────────────────────────────────────────── */
+
+const perelKladka = kladkaSeries.filter((s) => s.brand === 'perel');
+const articlesOf = (series: typeof SERIES, colorName: string) =>
+  series.flatMap((s) => isWhite(s.id).filter((p) => p.color.name === colorName).map((p) => p.article));
+const rlWhite = isWhite('perel-rl');
+const osnovitWhite = isWhite('osnovit-mc11');
+const perel1nf = CONSUMPTION.perel.perBrick.find((x) => x.format === '1-НФ');
+const fNl = SERIES_FACTS['perel-nl'];
+const fMc11 = SERIES_FACTS['osnovit-mc11'];
+const groutNote = note('perel-rl', 'нельзя заменять');
+const colorNote = note('osnovit-mc11', 'полного высыхания');
+const trialNote = note('osnovit-mc11', 'пробную кладку');
+/** ссылка на источник внутри ответа (в FAQPage уходит только текст) */
+const aSrc = (url: string, label = srcLabel(url)) => `<a href="${url}" rel="nofollow noopener" target="_blank">${label}</a>`;
+
+const faq: FaqItem[] = [
+  {
+    q: 'Какие белые цвета есть у Perel и Основит?',
+    a: `<p>У Perel в кладочных сериях ${andList(perelKladka.map((s) => s.name.replace('Perel ', '')))} — супер-белый (артикулы ${articlesOf(perelKladka, 'супер-белый').join(', ')}) и белый (${articlesOf(perelKladka, 'белый').join(', ')}). У затирки Perel RL супер-белого нет, белый — ${rlWhite.map((p) => p.article).join(', ')}.</p><p>У Основит в Брикформ МС11, МС11/1 и в растворе для расшивки Бриксэйв ХС30 — ${osnovitWhite.map((p) => `${p.color.name} (цвет ${p.article})`).join(' и ')}.</p>`,
+  },
+  {
+    q: 'Какая белая смесь нужна для клинкерного кирпича?',
+    a: `<p>Perel NL — производитель относит эту серию к клинкерному кирпичу с низким водопоглощением, 0–5 % (${aSrc(fNl.forBrickSrc)}). Подходит и Основит Брикформ МС11: в его назначении клинкерный кирпич назван отдельно (${aSrc(fMc11.forBrickSrc)}). В обеих сериях есть белый и супер-белый.</p>`,
+  },
+  {
+    q: 'Можно ли вместо затирки взять белый кладочный раствор?',
+    a: `<p>Perel против такой замены: цветную декоративную затирку цветным кладочным раствором не заменяют — производитель посвятил этому ${aSrc(groutNote.src, 'отдельное видео')}. Для белого шва на готовой кладке есть затирка Perel RL и раствор для расшивки Основит Бриксэйв ХС30.</p>`,
+  },
+  {
+    q: 'Сколько нужно белой смеси?',
+    a: `<p>Perel считает расход на кирпич${perel1nf ? `: для формата 1-НФ (${perel1nf.size} мм) — ${num(perel1nf.kgMin)}–${num(perel1nf.kgMax)} кг сухой смеси на штуку` : ''}; у SL, VL и NL норма общая (${aSrc(CONSUMPTION.perel.src)}). У Основит Брикформ — ${CONSUMPTION.osnovit.kgPerM2} кг на 1 м² кладки, ${CONSUMPTION.osnovit.joint}, ${CONSUMPTION.osnovit.wall} (${aSrc(CONSUMPTION.osnovit.src)}). Для расшивки: Perel RL — ${num(CONSUMPTION.perelRl.kgPerM2Min)}–${num(CONSUMPTION.perelRl.kgPerM2Max)} кг/м², Основит ХС30 — ${num(CONSUMPTION.osnovitXc30.kgPerM2.toFixed(1))} кг/м² (${CONSUMPTION.osnovitXc30.condition}).</p><p>Точное число мешков для вашей стены — в <a href="${PAGES.kalkulyator.href}">калькуляторе расхода</a>.</p>`,
+  },
+  {
+    q: 'Почему шов на стене выглядит не так, как образец?',
+    a: `<p>Оттенок шва зависит не только от смеси. Основит называет количество воды затворения, способ и время расшивки, условия, в которых твердеет раствор, и инструмент; свой цвет раствор набирает, лишь когда полностью высохнет, а восприятие меняют свет и время суток (${aSrc(colorNote.src)}). Поэтому производитель советует начать с пробной кладки и согласовать по ней оттенок (${aSrc(trialNote.src)}).</p>`,
+  },
+];
+
+
+/* ── Микроразметка ───────────────────────────────────────────────────────── */
+
+const whites = [...whiteKladka, ...whiteRasshivka];
+const itemList = {
+  '@type': 'ItemList',
+  name: 'Белые кладочные смеси и растворы для расшивки швов',
+  numberOfItems: whites.length,
+  itemListElement: whites.map((p, i) => ({ '@type': 'ListItem', position: i + 1, name: p.title })),
+};
+---
+
+<Page
+  title="Белая кладочная смесь для облицовочного кирпича — Perel и Основит"
+  description={`Белая и супер-белая кладочная смесь Perel и Основит: ${whiteKladka.length} позиций для обычного кирпича, ручной формовки и клинкера, белые растворы для расшивки швов.`}
+  slug="belaya-kladochnaya-smes"
+  current="belaya"
+  source="belaya"
+  jsonLd={[itemList]}
+>
+  <PageHead
+    kicker="Белый шов"
+    h1="Белая кладочная смесь для облицовочного кирпича"
+    crumb="Белая кладочная смесь"
+    trail={[{ label: PAGES.katalog.label, href: PAGES.katalog.href }]}
+    lead="Белый и супер-белый цвет есть в каждой кладочной серии Perel и Основит — под обычный облицовочный кирпич, ручную формовку и клинкер. Для уже уложенной кладки — белые растворы для расшивки швов."
+  >
+    <ul class="bh__stats" data-reveal-stagger>
+      <li><b>{whiteKladka.length}</b><span>{plural(whiteKladka.length, 'позиция', 'позиции', 'позиций')} для кладки</span></li>
+      <li><b>{whiteRasshivka.length}</b><span>{plural(whiteRasshivka.length, 'позиция', 'позиции', 'позиций')} для расшивки</span></li>
+      <li><b>{kladkaSeries.length}</b><span>{plural(kladkaSeries.length, 'кладочная серия', 'кладочные серии', 'кладочных серий')} с белым</span></li>
+    </ul>
+    <div class="bh__actions" data-reveal>
+      <a class="btn btn--primary" href="#pod-kirpich">Выбрать под свой кирпич</a>
+      <button class="btn btn--ghost" type="button" data-ask="Белая кладочная смесь — серию подберём под кирпич">Узнать цену</button>
+    </div>
+    <figure class="bh__frame" slot="aside">
+      <img
+        src={heroFrame.src}
+        srcset={`${heroFrame.srcSm} 320w, ${heroFrame.src} ${heroFrame.w}w`}
+        sizes="(min-width: 960px) 46vw, 92vw"
+        width={heroFrame.w}
+        height={heroFrame.h}
+        fetchpriority="high"
+        alt={heroFrame.alt}
+      />
+      <figcaption><b>{heroFrame.caption}</b><span>визуализация кладки</span></figcaption>
+    </figure>
+  </PageHead>
+
+  <Section
+    id="galereya"
+    kicker="Как это выглядит"
+    title="Белый шов на разном кирпиче"
+    subtitle="Белый и супербелый шов на шести цветах кирпича, в дополнение к красному выше: на тёмном и тёплом кирпиче шов чётко прорисовывает кладку, на светлом выглядит мягче."
+    bg="base"
+  >
+    <ul class="gal" data-reveal-stagger>
+      {gallery.map((g) => (
+        <li>
+          <figure class="gal__item">
+            <img
+              src={g.src}
+              srcset={`${g.srcSm} 320w, ${g.src} ${g.w}w`}
+              sizes="(min-width: 1080px) 360px, (min-width: 640px) 46vw, 92vw"
+              width={g.w}
+              height={g.h}
+              loading="lazy"
+              decoding="async"
+              alt={g.alt}
+            />
+            <figcaption>
+              <span class="gal__cap">{g.caption}</span>
+              <span class="gal__meta">визуализация · кирпич {g.factory}</span>
+            </figcaption>
+          </figure>
+        </li>
+      ))}
+    </ul>
+    <p class="gal__note" data-reveal>
+      Кадры — визуализации из материалов дилера, не снимки реальных домов. Они показывают оттенок шва,
+      а не конкретную смесь, и цвет на экране передают приблизительно.
+      <a href={PAGES.podbor.href}>Все сочетания кирпича и шва{'\u00a0'}<span aria-hidden="true">→</span></a>
+    </p>
+  </Section>
+
+  <Section
+    id="pod-kirpich"
+    kicker="Под ваш кирпич"
+    title="Белые смеси под ваш кирпич"
+    subtitle="Белый и супер-белый есть в каждой кладочной серии, поэтому выбирают не цвет, а серию — под водопоглощение кирпича. Чтобы узнать цену и наличие, нажмите на нужный образец."
+    bg="alt"
+  >
+    <p class="rule" data-reveal>
+      {nb('Белую смесь подбирают так же, как цветную: у Perel водопоглощению 5–12 % соответствует серия SL, 0–5 % — NL, 5–17 % — VL.')}
+      <a class="src-link" href={pickRule.src} rel="nofollow noopener" target="_blank">{srcLabel(pickRule.src)}</a>
+    </p>
+
+    <div class="bw-list">
+      {byBrick.map((row, i) => (
+        <article class="bw" id={`belaya-${row.t}`} data-reveal>
+          <header class="bw__head">
+            <span class="bw__num" aria-hidden="true">0{i + 1}</span>
+            <h3 class="bw__title">{row.info.label}</h3>
+            <p class="bw__abs">{cap(row.info.note)}: <b>{nb(row.info.absorption)}</b></p>
+            <a class="bw__more" href={`${PAGES.katalog.href}?kirpich=${row.t}`}>Все цвета для этого кирпича{'\u00a0'}<span aria-hidden="true">→</span></a>
+            {row.t === 'klinker' && (
+              <a class="bw__more" href={PAGES.klinker.href}>Смеси для клинкера подробно{'\u00a0'}<span aria-hidden="true">→</span></a>
+            )}
+          </header>
+          <div class="bw__series">
+            {row.series.map(({ s, f }) => (
+              <div class="bw__ser">
+                <SwatchGrid series={s.id} tones={['white']} showSeries />
+                <blockquote class="bw__quote">
+                  <p>{f.forBrick}</p>
+                </blockquote>
+                <p class="bw__foot">
+                  <span>Мешок {s.packKg} кг</span>
+                  <span class="src">По данным производителя: <a href={f.forBrickSrc} rel="nofollow noopener" target="_blank">{srcLabel(f.forBrickSrc)}</a></span>
+                  <a class="bw__spec" href={brandHref(s.id)}>Характеристики {s.name}{'\u00a0'}<span aria-hidden="true">→</span></a>
+                </p>
+              </div>
+            ))}
+          </div>
+        </article>
+      ))}
+    </div>
+    <SwatchNote />
+  </Section>
+
+  <Section
+    id="rasshivka"
+    kicker="Готовая кладка"
+    title="Белый шов расшивкой"
+    subtitle="Если кирпич уже уложен или старые швы пора обновить, белый шов делают раствором для расшивки: швы расчищают и заполняют заново."
+    bg="base"
+  >
+    <div class="rs" data-reveal-stagger>
+      {rasshivka.map(({ s, f, rows, srcs }) => (
+        <article class="rs__card">
+          <p class="rs__kind">Для расшивки швов · {BRANDS[s.brand].name}</p>
+          <h3 class="rs__title"><a href={brandHref(s.id)}>{s.name}</a></h3>
+          <blockquote class="rs__quote"><p>{f.purpose}</p></blockquote>
+          <SwatchGrid series={s.id} tones={['white']} showSeries />
+          <SpecTable rows={rows} class="rs__specs" />
+          <p class="src">
+            По данным производителя:{' '}
+            {srcs.map((u, k) => (
+              <Fragment>{k > 0 && ' · '}<a href={u} rel="nofollow noopener" target="_blank">{srcLabel(u)}</a></Fragment>
+            ))}
+          </p>
+        </article>
+      ))}
+    </div>
+    <SwatchNote />
+
+    <div class="how" data-reveal>
+      <h3 class="how__title">Как делают белый шов на готовой кладке</h3>
+      <p class="how__lead">
+        Порядок — по технической карте Основит Бриксэйв ХС30. Производитель пишет, что этот раствор подходит
+        и для нового строительства, и для обновления швов кладки.
+      </p>
+      <ol class="how__list">
+        {howTo.map((t) => <li>{nb(t)}</li>)}
+      </ol>
+      <p class="how__note">
+        {nb('У затирки Perel RL свой порядок: её подают в шов пистолетом или из пакета, а рельеф шва формируют через 30–60 минут, когда затирка станет похожа на мокрый песок.')}
+      </p>
+      <p class="src">
+        По данным производителей:{' '}
+        {uniq([...howToSrc, xc.renew.src, rlShape.src]).map((u, k) => (
+          <Fragment>{k > 0 && ' · '}<a href={u} rel="nofollow noopener" target="_blank">{srcLabel(u)}</a></Fragment>
+        ))}
+      </p>
+    </div>
+  </Section>
+
+  <Section
+    id="chistyj-shov"
+    kicker="Чистый белый шов"
+    title="Почему светлый шов пачкается и что с этим делать"
+    subtitle="Что пишут производители: откуда берётся грязь на светлом шве и как сохранить его белым."
+    bg="alt"
+  >
+    <div class="cl">
+      <div class="cl__col">
+        <h3 class="cl__h">Что портит цвет шва</h3>
+        <ul class="cl__why" data-reveal-stagger>
+          {why.map((w) => (
+            <li class="cl__card">
+              <b>{w.title}</b>
+              <p>{nb(w.text)}</p>
+              <p class="src">
+                Источник:{' '}
+                {w.srcs.map((u, k) => (
+                  <Fragment>{k > 0 && ' · '}<a href={u} rel="nofollow noopener" target="_blank">{srcLabel(u)}</a></Fragment>
+                ))}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div class="cl__col">
+        <h3 class="cl__h">Какую смесь выбрать</h3>
+        <ul class="cl__list" data-reveal-stagger>
+          {choose.map((c) => (
+            <li>
+              {nb(c.text)}{' '}
+              <a class="src-link" href={c.src} rel="nofollow noopener" target="_blank">{srcLabel(c.src)}</a>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div class="cl__col">
+        <h3 class="cl__h">Как работать</h3>
+        <ul class="cl__list" data-reveal-stagger>
+          {work.map((c) => (
+            <li>
+              {nb(c.text)}{' '}
+              <a class="src-link" href={c.src} rel="nofollow noopener" target="_blank">{srcLabel(c.src)}</a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="voprosy" kicker="Вопросы" title="Коротко о белой смеси" bg="base">
+    <FaqAccordion items={faq} site="smesi" slug="belaya-kladochnaya-smes" />
+  </Section>
+
+  <CtaBand
+    source="belaya"
+    title="Подберём белую смесь под ваш кирпич"
+    text="Назовите свой кирпич и метраж стены — подберём серию, белый или супер-белый тон и посчитаем мешки."
+  />
+</Page>
+
+<style>
+  /* ── шапка: цифры и действия ── */
+  .bh__stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, max-content));
+    gap: var(--space-4);
+    margin: var(--space-6) 0 0;
+    padding: var(--space-5) 0 0;
+    list-style: none;
+    border-top: 1px solid var(--color-border);
+  }
+  .bh__stats li { display: flex; flex-direction: column; }
+  .bh__stats b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-stat); line-height: 1.1; }
+  .bh__stats span { font-size: var(--fs-small); color: var(--color-text-soft); }
+  .bh__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
+  @media (min-width: 640px) { .bh__stats { column-gap: var(--space-7); } }
+
+  .bh__frame { margin: 0; }
+  .bh__frame img { display: block; width: 100%; height: auto; aspect-ratio: 5 / 4; object-fit: cover; border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+  .bh__frame figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-4); margin-top: var(--space-3); font-size: var(--fs-small); }
+  .bh__frame figcaption b { font-weight: 700; }
+  .bh__frame figcaption span { color: var(--color-muted); }
+
+  /* ── ссылки на источники ── */
+  .src { margin: 0; font-size: var(--fs-tiny); color: var(--color-muted); }
+  .src a,
+  .src-link { color: var(--color-muted); text-decoration: underline; text-underline-offset: 2px; font-size: var(--fs-tiny); white-space: nowrap; }
+  .src a:hover,
+  .src-link:hover { color: var(--color-accent-text); }
+
+  /* ── 1. галерея ── */
+  .gal { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 1080px) { .gal { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-5); } }
+  .gal__item { margin: 0; }
+  .gal__item img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius); }
+  .gal__item figcaption { display: flex; flex-direction: column; gap: 2px; margin-top: var(--space-2); }
+  .gal__cap { font-weight: 700; line-height: 1.3; }
+  .gal__meta { font-size: var(--fs-tiny); color: var(--color-muted); }
+  .gal__note { max-width: 68ch; margin: var(--space-6) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
+  .gal__note a { color: var(--color-accent-text); font-weight: 600; white-space: nowrap; }
+
+  /* ── 2. под кирпич ── */
+  .rule { max-width: 68ch; margin: 0 0 var(--space-6); color: var(--color-text-soft); }
+  .rule .src-link { margin-left: var(--space-1); }
+
+  .bw-list { display: grid; gap: var(--space-5); }
+  .bw {
+    display: grid;
+    gap: var(--space-5);
+    padding: var(--space-6) var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    scroll-margin-top: var(--space-9);
+  }
+  .bw__head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .bw__num { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-small); color: var(--color-accent-text); }
+  .bw__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); line-height: 1.15; }
+  .bw__abs { margin: 0; color: var(--color-text-soft); }
+  .bw__abs b { color: var(--color-text); }
+  .bw__more { font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
+  .bw__more:first-of-type { margin-top: var(--space-2); }
+  .bw__more:hover { text-decoration: underline; }
+
+  .bw__series { display: grid; gap: var(--space-6); }
+  .bw__ser { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+  .bw__ser + .bw__ser { padding-top: var(--space-5); border-top: 1px solid var(--color-border-soft); }
+  .bw__ser :global(.sw-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bw__quote {
+    margin: 0;
+    padding: var(--space-1) 0 var(--space-1) var(--space-4);
+    border-left: 3px solid var(--color-brand);
+    font-size: var(--fs-small);
+    color: var(--color-text-soft);
+  }
+  .bw__quote p { margin: 0; }
+  .bw__foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-4); margin: 0; font-size: var(--fs-small); }
+  .bw__spec { font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
+  .bw__spec:hover { text-decoration: underline; }
+
+  @media (min-width: 760px) {
+    .bw__series { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .bw__ser + .bw__ser { padding-top: 0; border-top: 0; }
+  }
+  @media (min-width: 1080px) {
+    .bw { grid-template-columns: 260px minmax(0, 1fr); gap: var(--space-7); padding: var(--space-7) var(--space-6); }
+  }
+
+  /* ── 3. расшивка ── */
+  .rs { display: grid; gap: var(--space-5); }
+  @media (min-width: 860px) { .rs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .rs__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+    padding: var(--space-6) var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+  .rs__kind { margin: 0; font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-muted); }
+  .rs__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); line-height: 1.15; }
+  .rs__title a { color: inherit; text-decoration: none; }
+  .rs__title a:hover { color: var(--color-accent-text); }
+  .rs__quote { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-brand); font-size: var(--fs-small); color: var(--color-text-soft); }
+  .rs__quote p { margin: 0; }
+  .rs__card :global(.sw-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 360px; }
+
+  .how {
+    margin-top: var(--space-7);
+    padding: var(--space-6) var(--space-5);
+    border-radius: var(--radius);
+    background: var(--color-bg-alt);
+  }
+  .how__title { margin: 0 0 var(--space-3); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .how__lead { max-width: 76ch; margin: 0 0 var(--space-4); color: var(--color-text-soft); }
+  .how .src { margin-top: var(--space-4); }
+  .how__list { display: grid; gap: var(--space-3); max-width: 76ch; margin: 0; padding: 0; list-style: none; counter-reset: how; color: var(--color-text-soft); }
+  .how__list li { position: relative; padding-left: var(--space-6); counter-increment: how; }
+  .how__list li::before { content: counter(how); position: absolute; left: 0; top: 0; font-family: var(--font-head); font-weight: 800; color: var(--color-accent-text); }
+  .how__note { max-width: 76ch; margin: var(--space-5) 0 0; color: var(--color-text-soft); }
+
+  /* ── 4. чистый шов ── */
+  .cl { display: grid; gap: var(--space-7); }
+  @media (min-width: 1000px) { .cl { grid-template-columns: 1.05fr 1fr 1fr; gap: var(--space-6); } }
+  .cl__col { min-width: 0; }
+  .cl__h { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
+  .cl__why { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+  .cl__card {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-5);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+  .cl__card b { font-family: var(--font-head); font-weight: 800; }
+  .cl__card p { margin: 0; color: var(--color-text-soft); }
+  .cl__card .src { color: var(--color-muted); }
+  .cl__list { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+  .cl__list li {
+    position: relative;
+    padding-left: var(--space-5);
+    color: var(--color-text-soft);
+  }
+  .cl__list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--color-surface);
+    box-shadow: inset 0 0 0 2px var(--color-brand);
+  }
+</style>
