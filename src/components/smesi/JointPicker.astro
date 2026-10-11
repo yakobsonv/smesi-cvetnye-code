@@ -32,8 +32,11 @@ const TONE_OF_SEAM: Record<string, string> = {
 // Кадры, где шов почти в цвет кирпича (ΔE < 10, замер агента данных): подписываем, чтобы
 // человек не решил, что шва «нет».
 const toneOnTone = new Set(KLADKA_TONE_ON_TONE.map(([b, s]) => `${b}|${s}`));
+// «красный кирпич», но «кирпич «крафт»», «кирпич «слоновая кость»»: прилагательное ставим перед
+// словом «кирпич», название-существительное — после, в кавычках.
+const brickLabel = (name: string) => (/(ый|ий|ой)$/.test(name) ? `${name} кирпич` : `кирпич «${name}»`);
 const data = JSON.stringify(
-  bricks.map((b) => ({ id: b.id, factory: b.factory, brick: b.brick, seams: b.seams.map((s) => ({ id: s.id, label: s.label, src: s.src, srcSm: s.srcSm, tone: TONE_OF_SEAM[s.id] ?? '', same: toneOnTone.has(`${b.id}|${s.id}`) })) })),
+  bricks.map((b) => ({ id: b.id, factory: b.factory, brick: b.brick, label: brickLabel(b.brick), seams: b.seams.map((s) => ({ id: s.id, label: s.label, src: s.src, srcSm: s.srcSm, tone: TONE_OF_SEAM[s.id] ?? '', same: toneOnTone.has(`${b.id}|${s.id}`) })) })),
 );
 ---
 
@@ -47,12 +50,12 @@ const data = JSON.stringify(
         sizes={variant === 'compact' ? '(min-width: 960px) 44vw, 92vw' : '(min-width: 960px) 56vw, 92vw'}
         width={firstSeam.w}
         height={firstSeam.h}
-        alt={`Кладка: ${first.brick} кирпич, ${firstSeam.label} шов`}
+        alt={`Кладка: ${brickLabel(first.brick)}, ${firstSeam.label} шов`}
         data-jp-img
         fetchpriority={variant === 'compact' ? 'high' : undefined}
       />
       <figcaption class="jp__cap">
-        <span data-jp-caption>{first.brick} кирпич · шов {firstSeam.label}{toneOnTone.has(`${first.id}|${firstSeam.id}`) ? ' — почти в цвет кирпича' : ''}</span>
+        <span data-jp-caption>{brickLabel(first.brick)} · шов {firstSeam.label}{toneOnTone.has(`${first.id}|${firstSeam.id}`) ? ' — почти в цвет кирпича' : ''}</span>
         <span class="jp__hint">визуализация кладки, цвет на экране приблизительный</span>
       </figcaption>
     </figure>
@@ -108,7 +111,7 @@ const data = JSON.stringify(
 
 <script>
   type Seam = { id: string; label: string; src: string; srcSm: string; tone: string; same?: boolean };
-  type Brick = { id: string; factory: string; brick: string; seams: Seam[] };
+  type Brick = { id: string; factory: string; brick: string; label: string; seams: Seam[] };
 
   document.querySelectorAll<HTMLElement>('[data-jp]').forEach((root) => {
     const bricks: Brick[] = JSON.parse(root.dataset.jp || '[]');
@@ -133,8 +136,8 @@ const data = JSON.stringify(
       // srcset снимаем: иначе браузер оставит прежний кадр из набора
       img.removeAttribute('srcset');
       img.src = seam.src;
-      img.alt = `Кладка: ${brick.brick} кирпич, ${seam.label} шов`;
-      if (caption) caption.textContent = `${brick.brick} кирпич · шов ${seam.label}${seam.same ? ' — почти в цвет кирпича' : ''}`;
+      img.alt = `Кладка: ${brick.label}, ${seam.label} шов`;
+      if (caption) caption.textContent = `${brick.label} · шов ${seam.label}${seam.same ? ' — почти в цвет кирпича' : ''}`;
       if (link) link.href = `${katalog}?ton=${seam.tone}`;
       press('[data-jp-seam]', 'data-jp-seam', seam.id);
     };
