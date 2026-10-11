@@ -7,7 +7,7 @@
 //
 // Без JS: виден первый кадр и все переключатели-ссылки ведут в каталог; со скриптом кадр
 // меняется на месте, загружаются только выбранные кадры (атрибут data-src, не src).
-import { KLADKA } from '../../data/kladka';
+import { KLADKA, KLADKA_TONE_ON_TONE } from '../../data/kladka';
 import { PAGES } from '../../data/nav';
 
 interface Props {
@@ -26,11 +26,14 @@ const factories = [...new Map(bricks.map((b) => [b.factory, b.factoryName])).ent
 
 // Связь видимого оттенка шва с группой оттенка каталога — для ссылки «смеси этого тона».
 const TONE_OF_SEAM: Record<string, string> = {
-  white: 'white', superwhite: 'white', grey: 'grey', darkgrey: 'grey', black: 'black',
-  brown: 'brown', lightbrown: 'brown', cream: 'beige',
+  white: 'white', superwhite: 'white', lightgrey: 'grey', grey: 'grey', darkgrey: 'grey', black: 'black',
+  brown: 'brown', lightbrown: 'brown', darkbrown: 'brown', blackbrown: 'brown', cream: 'beige',
 };
+// Кадры, где шов почти в цвет кирпича (ΔE < 10, замер агента данных): подписываем, чтобы
+// человек не решил, что шва «нет».
+const toneOnTone = new Set(KLADKA_TONE_ON_TONE.map(([b, s]) => `${b}|${s}`));
 const data = JSON.stringify(
-  bricks.map((b) => ({ id: b.id, factory: b.factory, brick: b.brick, seams: b.seams.map((s) => ({ id: s.id, label: s.label, src: s.src, srcSm: s.srcSm, tone: TONE_OF_SEAM[s.id] ?? '' })) })),
+  bricks.map((b) => ({ id: b.id, factory: b.factory, brick: b.brick, seams: b.seams.map((s) => ({ id: s.id, label: s.label, src: s.src, srcSm: s.srcSm, tone: TONE_OF_SEAM[s.id] ?? '', same: toneOnTone.has(`${b.id}|${s.id}`) })) })),
 );
 ---
 
@@ -49,7 +52,7 @@ const data = JSON.stringify(
         fetchpriority={variant === 'compact' ? 'high' : undefined}
       />
       <figcaption class="jp__cap">
-        <span data-jp-caption>{first.brick} кирпич · шов {firstSeam.label}</span>
+        <span data-jp-caption>{first.brick} кирпич · шов {firstSeam.label}{toneOnTone.has(`${first.id}|${firstSeam.id}`) ? ' — почти в цвет кирпича' : ''}</span>
         <span class="jp__hint">визуализация кладки, цвет на экране приблизительный</span>
       </figcaption>
     </figure>
@@ -104,7 +107,7 @@ const data = JSON.stringify(
 )}
 
 <script>
-  type Seam = { id: string; label: string; src: string; srcSm: string; tone: string };
+  type Seam = { id: string; label: string; src: string; srcSm: string; tone: string; same?: boolean };
   type Brick = { id: string; factory: string; brick: string; seams: Seam[] };
 
   document.querySelectorAll<HTMLElement>('[data-jp]').forEach((root) => {
@@ -130,7 +133,7 @@ const data = JSON.stringify(
       img.removeAttribute('srcset');
       img.src = seam.src;
       img.alt = `Кладка: ${brick.brick} кирпич, ${seam.label} шов`;
-      if (caption) caption.textContent = `${brick.brick} кирпич · шов ${seam.label}`;
+      if (caption) caption.textContent = `${brick.brick} кирпич · шов ${seam.label}${seam.same ? ' — почти в цвет кирпича' : ''}`;
       if (link) link.href = `${katalog}?ton=${seam.tone}`;
       press('[data-jp-seam]', 'data-jp-seam', seam.id);
     };
@@ -251,7 +254,10 @@ const data = JSON.stringify(
   .jp__dot[data-seam='black'] { background: #232220; }
   .jp__dot[data-seam='brown'] { background: #5a3a26; }
   .jp__dot[data-seam='lightbrown'] { background: #a77b55; }
-  .jp__dot[data-seam='cream'] { background: #e3c6b0; }
+  .jp__dot[data-seam='cream'] { background: #cbaca5; }
+  .jp__dot[data-seam='lightgrey'] { background: #c7c6c1; }
+  .jp__dot[data-seam='darkbrown'] { background: #5c3d2c; }
+  .jp__dot[data-seam='blackbrown'] { background: #422f28; }
 
   .jp__link { font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
   .jp__link:hover { text-decoration: underline; }
