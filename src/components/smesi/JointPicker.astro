@@ -64,8 +64,8 @@ const data = JSON.stringify(
             <div class="jp__group">
               <p class="jp__label">Кирпич</p>
               <div class="jp__tabs" role="tablist">
-                {factories.map(([f, name], i) => (
-                  <button type="button" class="jp__tab" role="tab" aria-selected={i === 0 ? 'true' : 'false'} data-jp-factory={f}>{name}</button>
+                {factories.map(([f, name]) => (
+                  <button type="button" class="jp__tab" role="tab" aria-selected={f === first.factory ? 'true' : 'false'} data-jp-factory={f}>{name}</button>
                 ))}
               </div>
             </div>
@@ -119,7 +119,8 @@ const data = JSON.stringify(
     const link = root.querySelector<HTMLAnchorElement>('[data-jp-link]');
     if (!img || !seamsBox || !bricks.length) return;
 
-    let brick = bricks[0];
+    const startId = root.querySelector<HTMLElement>('[data-jp-brick][aria-pressed="true"]')?.dataset.jpBrick;
+    let brick = bricks.find((b) => b.id === startId) ?? bricks[0];
     let seamId = brick.seams[0]?.id;
 
     const press = (sel: string, attr: string, value: string) =>

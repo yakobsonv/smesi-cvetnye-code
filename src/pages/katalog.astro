@@ -86,7 +86,7 @@ const itemList = {
             ))}
           </div>
         </fieldset>
-        <p class="flt__count" aria-live="polite"><span data-flt-count>{POSITIONS.length}</span> поз. <button type="button" class="flt__reset" data-flt-reset hidden>Сбросить фильтр</button></p>
+        <p class="flt__count" aria-live="polite"><span><span data-flt-count>{POSITIONS.length}</span> поз.</span> <button type="button" class="flt__reset" data-flt-reset hidden>Сбросить фильтр</button></p>
       </form>
 
       <div class="kat__list">
@@ -219,9 +219,15 @@ const itemList = {
   .flt__count { margin: 0; font-weight: 700; display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
   .flt__reset { padding: 0; border: 0; background: none; color: var(--color-accent-text); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 
+  @media (max-width: 599px) {
+    .flt { padding: var(--space-4); gap: var(--space-3); }
+    .flt__opts { gap: 6px; }
+    .flt__opt span { min-height: 36px; padding: 4px 11px; font-size: 14px; gap: 6px; }
+  }
+
   @media (min-width: 1080px) {
-    .flt { grid-template-columns: repeat(3, auto) 1fr; align-items: start; column-gap: var(--space-7); }
-    .flt__group--tones, .flt__count { grid-column: 1 / -1; }
+    .flt { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-5) var(--space-7); }
+    .flt__group--tones, .flt__count { flex-basis: 100%; }
   }
 
   .kat__list { display: grid; gap: clamp(40px, 5vw, 64px); }

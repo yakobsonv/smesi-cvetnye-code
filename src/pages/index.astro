@@ -27,7 +27,8 @@ const heroBrick = KLADKA.find((b) => b.id === 'osmibt-krasnyj') ?? KLADKA[0];
 const uniqueColors = new Set([...PEREL_COLORS, ...PEREL_RL_COLORS, ...OSNOVIT_COLORS].map((c) => c.name)).size;
 
 // Тот же кирпич с тремя разными швами — чтобы показать, насколько шов меняет фасад.
-const demoBrick = heroBrick;
+// другой кирпич, чем на первом экране, — чтобы не показывать одно и то же дважды подряд
+const demoBrick = KLADKA.find((b) => b.id === 'osmibt-soloma') ?? heroBrick;
 const demo = ['white', 'grey', 'black']
   .map((id) => demoBrick?.seams.find((s) => s.id === id))
   .filter((s): s is NonNullable<typeof s> => Boolean(s));
@@ -176,10 +177,10 @@ const rasshivka = SERIES.filter((s) => s.purpose === 'rasshivka');
     margin: 0;
     font-family: var(--font-head);
     font-weight: var(--fw-head);
-    font-size: var(--fs-h1);
-    line-height: 1.02;
+    font-size: clamp(34px, 4.7vw, 66px);
+    line-height: 1.04;
     letter-spacing: -0.025em;
-    max-width: 14ch;
+    max-width: 17ch;
     text-wrap: balance;
   }
   .hero__lead { max-width: 52ch; margin: var(--space-5) 0 0; font-size: var(--fs-lead); color: rgb(255 255 255 / 0.8); }
