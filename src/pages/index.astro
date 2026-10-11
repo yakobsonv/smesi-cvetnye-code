@@ -15,7 +15,7 @@ import BrickTypes from '../components/smesi/BrickTypes.astro';
 import SeriesCard from '../components/smesi/SeriesCard.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
 import { KLADKA } from '../data/kladka';
-import { POSITIONS, SERIES, TONES, PEREL_COLORS, OSNOVIT_COLORS, PEREL_RL_COLORS, type Tone } from '../data/catalog';
+import { POSITIONS, SERIES, TONES, PEREL_COLORS, OSNOVIT_COLORS, PEREL_RL_COLORS, seriesById, type Tone } from '../data/catalog';
 import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
 import { OFFICES } from '../lib/sites';
@@ -24,7 +24,9 @@ import { OFFICES } from '../lib/sites';
 const heroBrick = KLADKA.find((b) => b.id === 'osmibt-krasnyj') ?? KLADKA[0];
 
 // Сколько разных оттенков шва у дилера: названия цветов всех палитр без повторов.
-const uniqueColors = new Set([...PEREL_COLORS, ...PEREL_RL_COLORS, ...OSNOVIT_COLORS].map((c) => c.name)).size;
+// «супер-белый» (Perel) и «супербелый» (Основит) — один оттенок: считаем и пишем одним словом.
+const sameName = (n: string) => n.replace('супер-', 'супер');
+const uniqueColors = new Set([...PEREL_COLORS, ...PEREL_RL_COLORS, ...OSNOVIT_COLORS].map((c) => sameName(c.name))).size;
 
 // Тот же кирпич с тремя разными швами — чтобы показать, насколько шов меняет фасад.
 // другой кирпич, чем на первом экране, — чтобы не показывать одно и то же дважды подряд
@@ -38,8 +40,16 @@ const toneOrder: Tone[] = ['white', 'grey', 'black', 'beige', 'brown', 'yellow',
 const tones = toneOrder
   .map((t) => {
     const ps = POSITIONS.filter((p) => p.color.tone === t);
-    const sample = [...new Map(ps.map((p) => [p.color.name, swatchFor(p.series, p.color.code)])).values()].slice(0, 6);
-    return { t, label: TONES[t], count: ps.length, names: [...new Set(ps.map((p) => p.color.name))], sample };
+    // Плашку тона берём с КЛАДОЧНОЙ палитры (первая встреченная позиция): у расшивочных RL и ХС30
+    // оттенки сняты с фотографий образцов и темнее — в плитке «Жёлтые и оранжевые» не было ни
+    // жёлтого, ни оранжевого (сквозная проверка 11.10).
+    const byName = new Map<string, string>();
+    for (const p of [...ps].sort((a, b) => Number(seriesById(a.series).purpose === 'rasshivka') - Number(seriesById(b.series).purpose === 'rasshivka'))) {
+      const n = sameName(p.color.name);
+      if (!byName.has(n)) byName.set(n, swatchFor(p.series, p.color.code));
+    }
+    const sample = [...byName.values()].slice(0, 6);
+    return { t, label: TONES[t], count: ps.length, names: [...byName.keys()], sample };
   })
   .filter((x) => x.count > 0);
 
@@ -58,7 +68,7 @@ const rasshivka = SERIES.filter((s) => s.purpose === 'rasshivka');
       <div class="hero__grid">
         <div class="hero__text">
           <p class="hero__kicker" data-reveal>Москва и Московская область</p>
-          <h1 class="hero__title" data-reveal="head">Цветные кладочные смеси для облицовочного кирпича</h1>
+          <h1 class="hero__title" data-reveal="head">Цветные кладочные смеси для облицовочного кирпича</h1>
           <p class="hero__lead" data-reveal>
             Perel и Основит — смеси для клинкера, обычного кирпича и кирпича ручной формовки,
             растворы для расшивки швов. Подберём цвет шва под ваш кирпич и посчитаем, сколько нужно мешков.
@@ -96,7 +106,7 @@ const rasshivka = SERIES.filter((s) => s.purpose === 'rasshivka');
           </li>
         ))}
       </ul>
-      <p class="trio__note">Визуализации кладки из материалов дилера. <a href={PAGES.podbor.href}>Все сочетания кирпича и шва →</a></p>
+      <p class="trio__note">Визуализации кладки, не фотографии. <a href={PAGES.podbor.href}>Все сочетания кирпича и шва →</a></p>
     </Section>
   )}
 
@@ -139,7 +149,7 @@ const rasshivka = SERIES.filter((s) => s.purpose === 'rasshivka');
 
   <Section id="populyarnoe" kicker="Часто ищут" title="С чего обычно начинают" bg="base">
     <ul class="tiles" data-reveal-stagger>
-      <li><a class="tile" href={PAGES.belaya.href}><span class="tile__chip" style="--c:#f3f0ea" aria-hidden="true"></span><b>Белая кладочная смесь</b><span>белый и супер-белый шов у Perel и Основит</span></a></li>
+      <li><a class="tile" href={PAGES.belaya.href}><span class="tile__chip" style="--c:#f3f0ea" aria-hidden="true"></span><b>Белая кладочная смесь</b><span>белый и супербелый шов у Perel и Основит</span></a></li>
       <li><a class="tile" href={PAGES.chernaya.href}><span class="tile__chip" style="--c:#2a2826" aria-hidden="true"></span><b>Чёрная и графитовая</b><span>тёмный шов у Perel и Основит</span></a></li>
       <li><a class="tile" href={PAGES.klinker.href}><span class="tile__chip tile__chip--brick" aria-hidden="true"></span><b>Для клинкерного кирпича</b><span>низкое водопоглощение — своя смесь</span></a></li>
       <li><a class="tile" href={PAGES.kalkulyator.href}><span class="tile__chip tile__chip--calc" aria-hidden="true">кг</span><b>Калькулятор расхода</b><span>сколько мешков на вашу кладку</span></a></li>
@@ -208,7 +218,13 @@ const rasshivka = SERIES.filter((s) => s.purpose === 'rasshivka');
   .sub:first-of-type { margin-top: 0; }
   .cards { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
   @media (min-width: 700px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (min-width: 1080px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1080px) {
+    .cards { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .cards > li { grid-column: span 2; }
+    /* пять кладочных серий: ряд из трёх и ряд из двух, без пустой ячейки */
+    .cards > li:nth-child(4):nth-last-child(2), .cards > li:nth-child(5):last-child { grid-column: span 3; }
+    .cards--2 > li { grid-column: span 3; }
+  }
 
   .tones { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
   .tone {

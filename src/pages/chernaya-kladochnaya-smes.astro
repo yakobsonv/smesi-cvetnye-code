@@ -153,9 +153,13 @@ const specRows = darkAll.map((p) => {
   };
 });
 const specSources = [...new Map(specRows.flatMap((r) => [r.frost, r.strength]).filter(Boolean).map((f) => [f!.src, f!.src])).values()];
+// Подписи источников различимы: у Perel VL и NL морозостойкость чёрного взята с карточки чёрной
+// смеси, остальное — с карточки серии; одинаковые «Perel VL, Perel VL» путали (сквозная проверка 11.10).
+const blackFrostSrcs = new Set(Object.values(PEREL_BLACK_FROST_SRC));
 const sourceLabel = (src: string) => {
   const row = specRows.find((r) => r.frost?.src === src || r.strength?.src === src);
-  return row ? row.name : host(src);
+  if (!row) return host(src);
+  return blackFrostSrcs.has(src) ? `${row.name}, чёрная смесь` : row.name;
 };
 
 /* ── Вопросы ──────────────────────────────────────────────────────────────────── */
@@ -302,7 +306,7 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
       </div>
     ))}
     <p class="note">
-      Кадры — визуализации кладки из материалов дилера, а не фотографии: цвет шва на них — видимый оттенок,
+      Кадры — визуализации кладки, а не фотографии: цвет шва на них — видимый оттенок,
       а не конкретная смесь. Больше сочетаний кирпича и шва — в <a href={PAGES.podbor.href}>подборе шва</a>.
     </p>
   </Section>

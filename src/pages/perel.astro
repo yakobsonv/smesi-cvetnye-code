@@ -275,7 +275,7 @@ const bgOf = (i: number) => (i % 2 === 0 ? 'base' : 'alt') as 'base' | 'alt';
                 <a href={`#${s.id}`}>{s.name}</a>
                 <span class="cmp__colors">{s.colors.length} цветов</span>
               </th>
-              <td data-label="Для какого кирпича">{SERIES_FACTS[s.id].forBrick}</td>
+              <td data-label="Для какого кирпича">«{SERIES_FACTS[s.id].forBrick}»</td>
               <td data-label="Прочность на сжатие">{nb(val(s.id, 'Прочность на сжатие'))}</td>
               <td data-label="Морозостойкость">{nb(val(s.id, 'Морозостойкость'))}</td>
               <td data-label="Мешок у нас" class="cmp__pack">{s.packKg} кг</td>
@@ -406,7 +406,7 @@ const bgOf = (i: number) => (i % 2 === 0 ? 'base' : 'alt') as 'base' | 'alt';
         </figure>
         <div class="rl-for" data-reveal>
           <p class="rl-for__label">Для каких швов</p>
-          <p class="rl-for__text">{rlF.forBrick}</p>
+          <p class="rl-for__text">«{rlF.forBrick}»</p>
           <a class="rl-for__src" href={rlF.forBrickSrc} rel="nofollow noopener" target="_blank">{srcLabel(rlF.forBrickSrc)} <span aria-hidden="true">↗</span></a>
         </div>
       </div>

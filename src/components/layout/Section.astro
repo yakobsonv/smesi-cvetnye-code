@@ -65,6 +65,7 @@ const cls = [
 const style = bg === 'image' && image
   ? `--section-image:url('${image}');--section-overlay:${overlay};`
   : undefined;
+import { nb } from '../../lib/typo';
 ---
 
 <section class={cls} id={id} style={style} {...rest}>
@@ -75,8 +76,8 @@ const style = bg === 'image' && image
           <Container>
             <header class="section__head" data-reveal>
               {kicker && <p class="section__kicker">{kicker}</p>}
-              {title && <Heading class="section__title">{title}</Heading>}
-              {subtitle && <p class="section__subtitle">{subtitle}</p>}
+              {title && <Heading class="section__title">{nb(title)}</Heading>}
+              {subtitle && <p class="section__subtitle">{nb(subtitle)}</p>}
             </header>
           </Container>
         )}
@@ -93,8 +94,8 @@ const style = bg === 'image' && image
         {hasHeader && (
           <header class="section__head" data-reveal>
             {kicker && <p class="section__kicker">{kicker}</p>}
-            {title && <Heading class="section__title">{title}</Heading>}
-            {subtitle && <p class="section__subtitle">{subtitle}</p>}
+            {title && <Heading class="section__title">{nb(title)}</Heading>}
+            {subtitle && <p class="section__subtitle">{nb(subtitle)}</p>}
           </header>
         )}
         {clampOn ? (

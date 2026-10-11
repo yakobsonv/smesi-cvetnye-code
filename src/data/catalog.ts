@@ -155,6 +155,10 @@ export interface SeriesRef {
   purpose: Purpose;
   /** для какого кирпича (у расшивочных — не задано: по водопоглощению они не делятся) */
   brickType?: BrickType;
+  /** водопоглощение кирпича ПО ПРОИЗВОДИТЕЛЮ (series-facts.ts, forBrick). Диапазоны дилера
+   *  (BRICK_TYPES) — только для типа кирпича; серии их не приписываем: у Perel VL 5–17 %,
+   *  а не 10–17 %, у МС11/1 «более 12 %» (сквозная проверка 11.10). */
+  absorption?: string;
   colors: Color[];
   /** фасовка, которую держит дилер, кг */
   packKg: number;
@@ -165,11 +169,11 @@ export interface SeriesRef {
 }
 
 export const SERIES: SeriesRef[] = [
-  { id: 'perel-sl', brand: 'perel', name: 'Perel SL', short: 'для керамического кирпича', purpose: 'kladka', brickType: 'obychnyj', colors: PEREL_COLORS, packKg: 50, articlePrefix: '00', page: 'perel' },
-  { id: 'perel-vl', brand: 'perel', name: 'Perel VL', short: 'для кирпича ручной формовки', purpose: 'kladka', brickType: 'ruchnoj', colors: PEREL_COLORS, packKg: 50, articlePrefix: '02', page: 'perel' },
-  { id: 'perel-nl', brand: 'perel', name: 'Perel NL', short: 'для клинкерного кирпича', purpose: 'kladka', brickType: 'klinker', colors: PEREL_COLORS, packKg: 50, articlePrefix: '01', page: 'perel' },
-  { id: 'osnovit-mc11', brand: 'osnovit', name: 'Основит Брикформ МС11', short: 'для облицовочного кирпича до 12 % и клинкера', purpose: 'kladka', brickType: 'obychnyj', colors: OSNOVIT_COLORS, packKg: 25, page: 'osnovit' },
-  { id: 'osnovit-mc11-1', brand: 'osnovit', name: 'Основит Брикформ МС11/1', short: 'для кирпича с водопоглощением выше 12 % и ручной формовки', purpose: 'kladka', brickType: 'ruchnoj', colors: OSNOVIT_COLORS, packKg: 25, page: 'osnovit' },
+  { id: 'perel-sl', brand: 'perel', name: 'Perel SL', short: 'для керамического кирпича', purpose: 'kladka', brickType: 'obychnyj', absorption: '5–12 %', colors: PEREL_COLORS, packKg: 50, articlePrefix: '00', page: 'perel' },
+  { id: 'perel-vl', brand: 'perel', name: 'Perel VL', short: 'для кирпича ручной формовки', purpose: 'kladka', brickType: 'ruchnoj', absorption: '5–17 %', colors: PEREL_COLORS, packKg: 50, articlePrefix: '02', page: 'perel' },
+  { id: 'perel-nl', brand: 'perel', name: 'Perel NL', short: 'для клинкерного кирпича', purpose: 'kladka', brickType: 'klinker', absorption: '0–5 %', colors: PEREL_COLORS, packKg: 50, articlePrefix: '01', page: 'perel' },
+  { id: 'osnovit-mc11', brand: 'osnovit', name: 'Основит Брикформ МС11', short: 'для облицовочного кирпича до 12 % и клинкера', purpose: 'kladka', brickType: 'obychnyj', absorption: 'до 12 %, а также клинкер', colors: OSNOVIT_COLORS, packKg: 25, page: 'osnovit' },
+  { id: 'osnovit-mc11-1', brand: 'osnovit', name: 'Основит Брикформ МС11/1', short: 'для кирпича с водопоглощением выше 12 % и ручной формовки', purpose: 'kladka', brickType: 'ruchnoj', absorption: 'более 12 %', colors: OSNOVIT_COLORS, packKg: 25, page: 'osnovit' },
   { id: 'perel-rl', brand: 'perel', name: 'Perel RL', short: 'затирка для швов', purpose: 'rasshivka', colors: PEREL_RL_COLORS, packKg: 25, articlePrefix: '04', page: 'perel' },
   { id: 'osnovit-xc30', brand: 'osnovit', name: 'Основит Бриксэйв ХС30', short: 'раствор для расшивки швов', purpose: 'rasshivka', colors: OSNOVIT_COLORS, packKg: 20, page: 'osnovit' },
 ];

@@ -4,6 +4,7 @@
 import Container from '../layout/Container.astro';
 import Breadcrumbs from '../layout/Breadcrumbs.astro';
 import { PAGES } from '../../data/nav';
+import { nb } from '../../lib/typo';
 import type { BreadcrumbItem } from '../../lib/types';
 
 interface Props {
@@ -27,8 +28,8 @@ const hasAside = Astro.slots.has('aside');
     <div class="phead__grid">
       <div class="phead__text">
         {kicker && <p class="phead__kicker" data-reveal>{kicker}</p>}
-        <h1 class="phead__title" data-reveal="head">{h1}</h1>
-        {lead && <p class="phead__lead" data-reveal>{lead}</p>}
+        <h1 class="phead__title" data-reveal="head">{nb(h1)}</h1>
+        {lead && <p class="phead__lead" data-reveal>{nb(lead)}</p>}
         <slot />
       </div>
       {hasAside && <div class="phead__aside" data-reveal><slot name="aside" /></div>}

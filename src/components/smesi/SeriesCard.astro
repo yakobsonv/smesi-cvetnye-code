@@ -1,6 +1,6 @@
 ---
 // Карточка серии: для какого кирпича, сколько цветов у дилера, полоска оттенков, фасовка.
-import { BRICK_TYPES, seriesById, type SeriesId } from '../../data/catalog';
+import { seriesById, type SeriesId } from '../../data/catalog';
 import { swatchFor } from '../../data/swatches';
 import { localPath } from '../../lib/sites';
 
@@ -16,7 +16,6 @@ const { id, level = 3, href } = Astro.props;
 const s = seriesById(id);
 const Heading = `h${level}` as any;
 const link = href ?? `${localPath('smesi', s.page)}#${s.id}`;
-const bt = s.brickType ? BRICK_TYPES[s.brickType] : null;
 ---
 
 <article class="sc">
@@ -28,7 +27,7 @@ const bt = s.brickType ? BRICK_TYPES[s.brickType] : null;
     <Heading class="sc__title"><a href={link}>{s.name}</a></Heading>
     <p class="sc__short">{s.short}</p>
     <ul class="sc__facts">
-      {bt && <li><span>Кирпич</span><b>{bt.short.toLowerCase()}, {bt.absorption}</b></li>}
+      {s.absorption && <li><span>Водопоглощение кирпича</span><b>{s.absorption}</b></li>}
       <li><span>Цветов у нас</span><b>{s.colors.length}</b></li>
       <li><span>Мешок</span><b>{s.packKg} кг</b></li>
     </ul>

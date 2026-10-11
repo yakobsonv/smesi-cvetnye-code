@@ -14,7 +14,7 @@ import PageHead from '../components/smesi/PageHead.astro';
 import Section from '../components/layout/Section.astro';
 import JointPicker from '../components/smesi/JointPicker.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
-import { KLADKA } from '../data/kladka';
+import { KLADKA_UNIQUE as KLADKA } from '../data/kladka';
 import { PAGES } from '../data/nav';
 
 const start = KLADKA.find((b) => b.id === 'osmibt-krasnyj')?.id ?? KLADKA[0]?.id;
@@ -34,8 +34,8 @@ const rules = [
   },
   {
     title: 'Тёмное к тёмному',
-    text: 'Общее правило: для тёмного кирпича — тёмный раствор, для светлого — светлый или нейтральный.',
-    ton: 'grey',
+    text: 'Для тёмного кирпича — тёмный раствор: графитовый, чёрный или тёмно-серый шов.',
+    ton: 'black',
   },
 ];
 ---

@@ -99,7 +99,7 @@ const itemList = {
                   <h2 class="ser__title">{s.name}</h2>
                   <p class="ser__short">
                     {s.short}
-                    {s.brickType && <Fragment> · водопоглощение кирпича {BRICK_TYPES[s.brickType].absorption}</Fragment>}
+                    {s.absorption && <Fragment> · водопоглощение кирпича {s.absorption}</Fragment>}
                     {' '}· мешок {s.packKg} кг
                   </p>
                 </div>

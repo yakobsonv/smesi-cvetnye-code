@@ -15,6 +15,7 @@ interface Props {
 }
 
 const { rows, title, caption, columns = 1, note, class: className } = Astro.props;
+import { nb } from '../../lib/typo';
 ---
 
 {
@@ -27,9 +28,9 @@ const { rows, title, caption, columns = 1, note, class: className } = Astro.prop
         <tbody>
           {rows.map((row) => (
             <tr class="specs__row">
-              <th class="specs__label" scope="row">{row.label}</th>
+              <th class="specs__label" scope="row">{nb(row.label)}</th>
               <td class="specs__value">
-                {row.value}{row.unit ? ` ${row.unit}` : ''}
+                {nb(row.value)}{row.unit ? `\u00a0${row.unit}` : ''}
                 {row.note && <span class="specs__note">{row.note}</span>}
               </td>
             </tr>

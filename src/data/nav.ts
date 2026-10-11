@@ -12,7 +12,7 @@ export const PAGES = {
   perel: { href: p('perel'), label: 'Perel' },
   osnovit: { href: p('osnovit'), label: 'Основит' },
   belaya: { href: p('belaya-kladochnaya-smes'), label: 'Белая смесь' },
-  chernaya: { href: p('chernaya-kladochnaya-smes'), label: 'Чёрная и графитовая' },
+  chernaya: { href: p('chernaya-kladochnaya-smes'), label: 'Чёрная и графитовая смесь' },
   podbor: { href: p('podbor-shva'), label: 'Подбор шва под кирпич' },
   kalkulyator: { href: p('kalkulyator'), label: 'Калькулятор расхода' },
   klinker: { href: p('dlya-klinkernogo-kirpicha'), label: 'Для клинкерного кирпича' },

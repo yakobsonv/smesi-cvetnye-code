@@ -393,7 +393,7 @@ const itemList = {
           <p class="os-label">Назначение — слова производителя</p>
           <blockquote class="os-quote" cite={f.purposeSrc}>{f.purpose}</blockquote>
           <p class="os-label">Для какого кирпича</p>
-          <p class="os-ser__brick">{f.forBrick}</p>
+          <p class="os-ser__brick">«{f.forBrick}»</p>
           <ul class="os-chips">
             {chips.map((c) => <li>{c}</li>)}
           </ul>
@@ -455,7 +455,7 @@ const itemList = {
         <p class="os-label">Назначение — слова производителя</p>
         <blockquote class="os-quote" cite={XC30.purposeSrc}>{XC30.purpose}</blockquote>
         <p class="os-label">Для каких материалов</p>
-        <p class="os-ser__brick">{XC30.forBrick}</p>
+        <p class="os-ser__brick">«{XC30.forBrick}»</p>
         {xcNewOrOld && <p class="os-ser__brick">{xcNewOrOld.text}</p>}
         <div class="os-rate">
           <p class="os-rate__num"><b>{xcRateText}</b> кг/м²</p>
