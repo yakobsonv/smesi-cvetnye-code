@@ -42,6 +42,7 @@ const shown = take(items, max);
 const hiddenCount = items.length - shown.length;
 // В микроразметку идут ровно те вопросы, что видны на странице.
 const data = jsonLd ? faqJsonLd(shown, site, slug) : null;
+import { nb } from '../../lib/typo';
 ---
 
 {
@@ -53,7 +54,7 @@ const data = jsonLd ? faqJsonLd(shown, site, slug) : null;
         {shown.map((item, index) => (
           <details class="faq__item" open={openFirst && index === 0} id={`q-${toId(item.q)}`}>
             <summary class="faq__q">
-              <span>{item.q}</span>
+              <span>{nb(item.q)}</span>
               <span class="faq__sign" aria-hidden="true"></span>
             </summary>
             <div class="faq__a" set:html={item.a} />

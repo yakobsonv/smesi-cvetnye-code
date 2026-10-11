@@ -4,6 +4,7 @@
 import { seriesById, type SeriesId } from '../../data/catalog';
 import { swatchFor } from '../../data/swatches';
 import { localPath } from '../../lib/sites';
+import { nb } from '../../lib/typo';
 
 interface Props { id: SeriesId; level?: 2 | 3; href?: string }
 
@@ -19,7 +20,7 @@ const link = href ?? `${localPath('smesi', s.page)}#${s.id}`;
   </a>
   <p class="sr__kind label">{s.purpose === 'kladka' ? 'Кладочная смесь' : 'Для расшивки швов'}</p>
   <Heading class="sr__title"><a href={link}>{s.name}</a></Heading>
-  <p class="sr__short">{s.short}</p>
+  <p class="sr__short">{nb(s.short)}</p>
   <dl class="sr__facts">
     {s.absorption && <div><dt>Водопоглощение кирпича</dt><dd class="num">{s.absorption}</dd></div>}
     <div><dt>Оттенков у нас</dt><dd class="num">{s.colors.length}</dd></div>
