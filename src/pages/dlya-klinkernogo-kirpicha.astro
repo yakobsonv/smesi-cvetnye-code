@@ -14,6 +14,12 @@
 //   - цвета и фасовка — ассортимент дилера (catalog.ts), расход — CONSUMPTION.
 // Кадров кладки здесь нет: визуализаций клинкера в материалах клиента нет. Цен нет (catalog.ts).
 // Зимние модификации не показываем: возит ли их дилер — неизвестно (series-facts.ts).
+//
+// Вид (редизайн 11.10, язык «палитра шва»): без карточек-коробок — разделение тонкими линиями;
+// шкала водопоглощения — линия 0–20 % с зоной клинкера песком и диапазонами серий тушью;
+// цитаты производителей — курсивом антиквы с подписью-источником. Цвет на странице дают только
+// плашки раствора. Ось 0–20 % — оформление графика, а не данные: границы диапазонов на оси —
+// из строк «Водопоглощение кирпича» самих производителей.
 import Page from '../layouts/Page.astro';
 import PageHead from '../components/smesi/PageHead.astro';
 import Section from '../components/layout/Section.astro';
@@ -29,6 +35,9 @@ import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
 import { localPath } from '../lib/sites';
 import { plural } from '../lib/format';
+import { nb as typoNb } from '../lib/typo';
+// Пробел перед «—» — неразрывный: тире не начинает строку (сквозная проверка дизайна 11.10).
+const nb = (t: string) => typoNb(t).replace(/ — /g, '\u00a0— ');
 import type { FaqItem, SpecRow } from '../lib/types';
 
 const SLUG = 'dlya-klinkernogo-kirpicha';
@@ -68,7 +77,9 @@ function parseRange(v: string): { from: number; to: number | null } {
 // ── Шкала водопоглощения: на какой кирпич рассчитана каждая кладочная серия ──────────
 const scaleIds: SeriesId[] = ['perel-nl', 'perel-sl', 'perel-vl', 'osnovit-mc11', 'osnovit-mc11-1'];
 const parsed = scaleIds.map((id) => ({ id, value: absOf(id).value, ...parseRange(absOf(id).value) }));
-const scaleMax = Math.max(...parsed.map((r) => r.to ?? 0));
+// Ось — 0–20 %: с запасом над самой верхней границей в данных (17 % у VL), чтобы открытый
+// диапазон «более 12 %» было куда продолжить. Если в данных появится граница выше — ось растянется.
+const scaleMax = Math.max(20, ...parsed.map((r) => r.to ?? r.from));
 const pct = (n: number) => `${((n / scaleMax) * 100).toFixed(2)}%`;
 const zone = parseRange(KL.absorption);
 const scaleRows = parsed.map((r) => ({
@@ -78,7 +89,8 @@ const scaleRows = parsed.map((r) => ({
   klinker: klinkerIds.includes(r.id),
   style: `--from:${pct(r.from)};--to:${pct(r.to ?? scaleMax)}`,
 }));
-const ticks = [...new Set(parsed.flatMap((r) => [r.from, r.to]).filter((n): n is number => n !== null))].sort((a, b) => a - b);
+// Деления оси — границы диапазонов из данных + концы оси
+const ticks = [...new Set([0, ...parsed.flatMap((r) => [r.from, r.to]).filter((n): n is number => n !== null), zone.from, zone.to ?? 0, scaleMax])].sort((a, b) => a - b);
 const zoneStyle = `--from:${pct(zone.from)};--to:${pct(zone.to ?? scaleMax)}`;
 
 // Источники шкалы: у Perel все три диапазона названы на странице подбора по водопоглощению,
@@ -187,6 +199,25 @@ const picks = [nl, mc11].map((s) => ({
   strip: s.colors.map((c) => swatchFor(s.id, c.code)),
 }));
 
+
+// Ключевые цифры серии — строкой через линии (цвета у нас, мешок, водопоглощение кирпича)
+const keyFacts = {
+  nl: [
+    { v: String(nl.colors.length), l: `${plural(nl.colors.length, 'цвет', 'цвета', 'цветов')} у нас` },
+    { v: `${nl.packKg} кг`, l: 'мешок' },
+    { v: absOf('perel-nl').value, l: 'водопоглощение кирпича' },
+  ],
+  mc11: [
+    { v: String(mc11.colors.length), l: `${plural(mc11.colors.length, 'цвет', 'цвета', 'цветов')} у нас` },
+    { v: `${mc11.packKg} кг`, l: 'мешок' },
+    { v: mc11Abs[0], l: 'водопоглощение кирпича, а также клинкер' },
+  ],
+};
+const colorsTitle = (n: number, name: string) => `${n} ${plural(n, 'цвет', 'цвета', 'цветов')} ${name}`;
+const two = (n: number) => String(n).padStart(2, '0');
+// Дословная цитата: только неразрывные пробелы (nb) и ещё один — перед дефисом-тире «0% - до 5%»,
+// чтобы строка не начиналась с дефиса. Буквы и знаки цитаты не меняются.
+const qt = (t: string) => nb(t).replace(/ (?=[-–—] )/g, '\u00a0');
 ---
 
 <Page
@@ -204,105 +235,119 @@ const picks = [nl, mc11].map((s) => ({
     trail={[{ label: 'Каталог', href: PAGES.katalog.href }]}
     lead={`У клинкерного кирпича низкое водопоглощение — ${KL.absorption}. Для него у Perel есть отдельная серия NL, а у Основит клинкер назван в назначении Брикформ МС11. У нас ${colorsWord(nl.colors.length)} NL и ${colorsWord(mc11.colors.length)} МС11 — нажмите на образец, чтобы узнать цену и наличие.`}
   >
-    <div class="picks" slot="aside" data-reveal-stagger>
-      {picks.map((p) => (
-        <a class="pick" href={p.href}>
-          <span class="pick__strip" aria-hidden="true">{p.strip.map((c) => <span style={`--c:${c}`}></span>)}</span>
-          <span class="pick__body">
-            <span class="pick__name">{p.s.name}</span>
-            <span class="pick__abs">водопоглощение кирпича: {p.abs}</span>
-            <span class="pick__meta">{colorsWord(p.s.colors.length)} · мешок {p.s.packKg} кг</span>
-          </span>
-          <span class="pick__go" aria-hidden="true">↓</span>
-        </a>
-      ))}
-      <a class="pick-more" href="#rasshivka">Кладка уже готова — расшивка {xc30.name} <span aria-hidden="true">↓</span></a>
+    <div class="kh" slot="aside">
+      <p class="kh__big num">{nb(KL.absorption)}</p>
+      <p class="label kh__cap">водопоглощение клинкерного кирпича</p>
+      <ol class="kh__list" data-reveal-stagger>
+        {picks.map((p) => (
+          <li>
+            <a class="kh__pick" href={p.href}>
+              <span class="kh__strip strip" aria-hidden="true">{p.strip.map((c) => <span class="mortar" style={`--c:${c}`}></span>)}</span>
+              <span class="kh__name">{p.s.name}</span>
+              <span class="kh__go" aria-hidden="true">↓</span>
+              <span class="kh__meta">водопоглощение кирпича: <span class="num">{nb(p.abs)}</span> · {colorsWord(p.s.colors.length)} · мешок {p.s.packKg}&nbsp;кг</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+      <a class="arrow-link kh__more" href="#rasshivka">Кладка уже готова — расшивка {xc30.name} <span aria-hidden="true">↓</span></a>
     </div>
   </PageHead>
 
-  <Section id="pochemu" kicker="Водопоглощение" title="Почему клинкеру нужна своя смесь" bg="base">
-    <div class="why">
-      <div class="why__text">
-        <p class="lead" data-reveal>
-          Главное условие подбора кладочной смеси у Perel — водопоглощение кирпича, то есть сколько воды он
-          впитывает. У клинкера оно низкое, от 0 до 5 %, и оба производителя из нашего каталога называют
-          такой кирпич отдельно.
-        </p>
-        <div class="quotes" data-reveal-stagger>
-          <blockquote class="quote">
-            <p>«{F['perel-nl'].forBrick}»</p>
-            <footer>Perel, подбор серии по водопоглощению кирпича — <a href={F['perel-nl'].forBrickSrc} rel="nofollow noopener" target="_blank">td-perel.ru</a></footer>
-          </blockquote>
-          <blockquote class="quote">
-            <p>«{F['osnovit-mc11'].forBrick}»</p>
-            <footer>Основит, рекомендуемые материалы для Брикформ МС11 — <a href={F['osnovit-mc11'].forBrickSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
-          </blockquote>
-        </div>
-        <p class="why__p" data-reveal>
-          Диапазоны остальных кладочных серий начинаются выше: у {sl.name} и {vl.name} — от 5 %,
-          у Брикформ МС11/1 — более 12 %.
-        </p>
-      </div>
+  <Section
+    id="pochemu"
+    kicker="01 — Водопоглощение"
+    title="Почему клинкеру нужна своя смесь"
+    subtitle="Главное условие подбора кладочной смеси у Perel — водопоглощение кирпича, то есть сколько воды он впитывает. У клинкера оно низкое, от 0 до 5 %, и оба производителя из нашего каталога называют такой кирпич отдельно."
+    bg="base"
+  >
+    <figure class="sc" data-reveal>
+      <figcaption class="sc__top">
+        <span class="sc__cap">{nb('На какое водопоглощение кирпича рассчитана смесь')}</span>
+        <span class="sc__legend">
+          <span class="sc__key"><i class="sc__key-zone" aria-hidden="true"></i>зона клинкера, {nb(KL.absorption)}</span>
+          <span class="sc__key"><i class="sc__key-bar" aria-hidden="true"></i>смеси, которые производитель называет для клинкера</span>
+        </span>
+      </figcaption>
 
-      <figure class="scale" data-reveal>
-        <figcaption class="scale__cap">На какое водопоглощение кирпича рассчитана смесь</figcaption>
-        <ul class="scale__rows">
+      <div class="sc__plot">
+        <div class="sc__row sc__row--head" aria-hidden="true">
+          <span class="sc__name"></span>
+          <span class="sc__track">
+            <span class="sc__zone" style={zoneStyle}></span>
+            <span class="sc__zlabel label" style={zoneStyle}>Клинкер</span>
+          </span>
+        </div>
+        <ul class="sc__rows">
           {scaleRows.map((r) => (
-            <li class:list={['scale__row', r.klinker && 'is-klinker']}>
-              <span class="scale__name">{r.name}<small>{r.value}</small></span>
-              <span class="scale__track" aria-hidden="true">
-                <span class="scale__zone" style={zoneStyle}></span>
-                <span class:list={['scale__bar', r.open && 'is-open']} style={r.style}></span>
+            <li class:list={['sc__row', r.klinker && 'is-klinker']}>
+              <span class="sc__name"><span class="sc__nm">{r.name}</span><span class="sc__val">{nb(r.value)}</span></span>
+              <span class="sc__track" aria-hidden="true">
+                <span class="sc__zone" style={zoneStyle}></span>
+                {ticks.map((t) => <span class="sc__gl" style={`--x:${pct(t)}`}></span>)}
+                <span class:list={['sc__bar', r.open && 'is-open']} style={r.style}></span>
               </span>
             </li>
           ))}
-          <li class="scale__row scale__row--axis" aria-hidden="true">
-            <span class="scale__name"></span>
-            <span class="scale__ticks">
-              {ticks.map((t, i) => (
-                <span class:list={['scale__tick', i === 0 && 'is-first', i === ticks.length - 1 && 'is-last']} style={`--x:${pct(t)}`}>{t} %</span>
-              ))}
-            </span>
-          </li>
         </ul>
-        <p class="scale__legend">
-          <span class="scale__item"><span class="scale__key" aria-hidden="true"></span>зона клинкера, {KL.absorption}</span>
-          <span class="scale__item"><span class="scale__key scale__key--bar" aria-hidden="true"></span>смеси, которые производитель называет для клинкера</span>
-        </p>
-        <p class="src">
-          По данным производителей:{' '}
-          {scaleSrc.map((s, i) => (
-            <Fragment>{i > 0 && ', '}<a href={s.href} rel="nofollow noopener" target="_blank">{s.label}</a></Fragment>
-          ))}
-        </p>
-      </figure>
-    </div>
+        <div class="sc__row sc__row--axis" aria-hidden="true">
+          <span class="sc__name label">водопоглощение, %</span>
+          <span class="sc__track sc__ticks">
+            {ticks.map((t, i) => (
+              <span class:list={['sc__tick', 'num', i === 0 && 'is-first', i === ticks.length - 1 && 'is-last']} style={`--x:${pct(t)}`}>{i === ticks.length - 1 ? `${t} %` : t}</span>
+            ))}
+          </span>
+        </div>
+      </div>
 
-    <aside class="passport" data-reveal>
-      <h3 class="passport__title">Как узнать водопоглощение своего кирпича</h3>
-      <p>
-        Найдите цифру в паспорте кирпича и сравните со шкалой выше — станет видно, какая серия смеси на него
-        рассчитана. Паспорта под рукой нет — назовите завод и марку кирпича, подскажем.
-        <a href="#zayavka">Оставить заявку</a>
+      <p class="src">
+        По данным производителей:{' '}
+        {scaleSrc.map((s, i) => (
+          <Fragment>{i > 0 && ', '}<a href={s.href} rel="nofollow noopener" target="_blank">{s.label}</a></Fragment>
+        ))}
       </p>
-    </aside>
+    </figure>
+
+    <div class="why grid12">
+      <div class="why__quotes" data-reveal-stagger>
+        <blockquote class="q">
+          <p>«{qt(F['perel-nl'].forBrick)}»</p>
+          <footer>Perel, подбор серии по водопоглощению кирпича&nbsp;— <a href={F['perel-nl'].forBrickSrc} rel="nofollow noopener" target="_blank">td-perel.ru</a></footer>
+        </blockquote>
+        <blockquote class="q">
+          <p>«{qt(F['osnovit-mc11'].forBrick)}»</p>
+          <footer>Основит, рекомендуемые материалы для Брикформ МС11&nbsp;— <a href={F['osnovit-mc11'].forBrickSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
+        </blockquote>
+      </div>
+      <aside class="why__pass" data-reveal>
+        <p class="label">Паспорт кирпича</p>
+        <h3 class="why__title">{nb('Как узнать водопоглощение своего кирпича')}</h3>
+        <p>
+          Найдите цифру в паспорте кирпича и сравните со шкалой выше — станет видно, какая серия смеси на него
+          рассчитана. Паспорта под рукой нет — назовите завод и марку кирпича, подскажем.
+        </p>
+        <a class="arrow-link" href="#zayavka">Оставить заявку <span aria-hidden="true">→</span></a>
+      </aside>
+    </div>
   </Section>
 
-  <Section id={nl.id} kicker="Perel" title="Perel NL — серия под клинкер" bg="alt">
-    <div class="ser">
+  <Section id={nl.id} kicker="02 — Perel" title="Perel NL — серия под клинкер" bg="alt">
+    <div class="ser grid12">
       <div class="ser__intro" data-reveal>
-        <blockquote class="quote quote--plain">
-          <p>{F['perel-nl'].purpose}</p>
-          <footer>Назначение серии — <a href={F['perel-nl'].purposeSrc} rel="nofollow noopener" target="_blank">td-perel.ru</a></footer>
+        <blockquote class="q q--lead">
+          <p>{qt(F['perel-nl'].purpose)}</p>
+          <footer>Назначение серии&nbsp;— <a href={F['perel-nl'].purposeSrc} rel="nofollow noopener" target="_blank">td-perel.ru</a></footer>
         </blockquote>
-        <ul class="facts">
-          <li><b>{nl.colors.length}</b><span>{plural(nl.colors.length, 'цвет', 'цвета', 'цветов')} у нас</span></li>
-          <li><b>{nl.packKg} кг</b><span>мешок</span></li>
-          <li><b>{absOf('perel-nl').value}</b><span>водопоглощение кирпича</span></li>
-        </ul>
-        <button class="btn btn--primary" type="button" data-ask={`${nl.name} — цвет подберём`}>Узнать цену</button>
+        <dl class="kf">
+          {keyFacts.nl.map((f) => <div><dt>{f.l}</dt><dd class="num">{nb(f.v)}</dd></div>)}
+        </dl>
+        <div class="ser__actions">
+          <button class="btn btn--primary" type="button" data-ask={`${nl.name} — цвет подберём`}>Узнать цену</button>
+          <a class="arrow-link" href={`#${nl.id}-cveta`}>{colorsWord(nl.colors.length)} <span aria-hidden="true">↓</span></a>
+        </div>
       </div>
       <div class="ser__specs" data-reveal>
+        <p class="label ser__label">Характеристики</p>
         <SpecTable rows={nlSpecs.rows} />
         <p class="src">
           По данным производителя:{' '}
@@ -313,30 +358,35 @@ const picks = [nl, mc11].map((s) => ({
       </div>
     </div>
 
-    <h3 class="sub" data-reveal>{nl.colors.length} {plural(nl.colors.length, 'цвет', 'цвета', 'цветов')} {nl.name}</h3>
+    <div class="pal" id={`${nl.id}-cveta`} data-reveal>
+      <h3 class="pal__title">{nb(colorsTitle(nl.colors.length, nl.name))}</h3>
+      <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
+    </div>
     <SwatchGrid series="perel-nl" />
     <SwatchNote />
   </Section>
 
-  <Section id={mc11.id} kicker="Основит" title="Брикформ МС11 — и для клинкера, и для кирпича до 12 %" bg="base">
-    <div class="ser">
+  <Section id={mc11.id} kicker="03 — Основит" title="Брикформ МС11 — и для клинкера, и для кирпича до 12 %" bg="base">
+    <div class="ser grid12">
       <div class="ser__intro" data-reveal>
-        <blockquote class="quote quote--plain">
-          <p>{F['osnovit-mc11'].purpose}</p>
-          <footer>Назначение раствора — <a href={F['osnovit-mc11'].purposeSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
+        <blockquote class="q q--lead">
+          <p>{qt(F['osnovit-mc11'].purpose)}</p>
+          <footer>Назначение раствора&nbsp;— <a href={F['osnovit-mc11'].purposeSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
         </blockquote>
-        <ul class="facts">
-          <li><b>{mc11.colors.length}</b><span>{plural(mc11.colors.length, 'цвет', 'цвета', 'цветов')} у нас</span></li>
-          <li><b>{mc11.packKg} кг</b><span>мешок</span></li>
-          <li><b>{mc11Abs[0]}</b><span>водопоглощение кирпича, а также клинкер</span></li>
-        </ul>
-        <p class="aside-note">
+        <dl class="kf">
+          {keyFacts.mc11.map((f) => <div><dt>{f.l}</dt><dd class="num">{nb(f.v)}</dd></div>)}
+        </dl>
+        <p class="ser__note">
           Не перепутайте с {mc111.name}: рекомендуемые основания у него другие —
           «{F['osnovit-mc11-1'].forBrick}» (<a href={F['osnovit-mc11-1'].forBrickSrc} rel="nofollow noopener" target="_blank">техническая карта, osnovit.ru</a>).
         </p>
-        <button class="btn btn--primary" type="button" data-ask={`${mc11.name} — цвет подберём`}>Узнать цену</button>
+        <div class="ser__actions">
+          <button class="btn btn--primary" type="button" data-ask={`${mc11.name} — цвет подберём`}>Узнать цену</button>
+          <a class="arrow-link" href={`#${mc11.id}-cveta`}>{colorsWord(mc11.colors.length)} <span aria-hidden="true">↓</span></a>
+        </div>
       </div>
       <div class="ser__specs" data-reveal>
+        <p class="label ser__label">Характеристики</p>
         <SpecTable rows={mc11Specs.rows} />
         <p class="src">
           По данным производителя:{' '}
@@ -347,32 +397,34 @@ const picks = [nl, mc11].map((s) => ({
       </div>
     </div>
 
-    <h3 class="sub" data-reveal>{mc11.colors.length} {plural(mc11.colors.length, 'цвет', 'цвета', 'цветов')} Брикформ МС11</h3>
+    <div class="pal" id={`${mc11.id}-cveta`} data-reveal>
+      <h3 class="pal__title">{nb(colorsTitle(mc11.colors.length, 'Брикформ МС11'))}</h3>
+      <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
+    </div>
     <SwatchGrid series="osnovit-mc11" />
     <SwatchNote />
   </Section>
 
-  <Section id="rasshivka" kicker="Расшивка" title="Цветной шов на готовой клинкерной кладке" bg="alt">
-    <div class="rs">
+  <Section id="rasshivka" kicker="04 — Расшивка" title="Цветной шов на готовой клинкерной кладке" bg="alt">
+    <div class="rs grid12">
       <div class="rs__text">
-        <p class="lead" data-reveal>
+        <p class="rs__lead" data-reveal>
           Если кладка уже готова, цвет шву можно дать раствором для расшивки. Среди рекомендуемых оснований
           для {xc30.name} производитель называет клинкерный облицовочный кирпич:
         </p>
-        <blockquote class="quote" data-reveal>
-          <p>«{xcFacts.forBrick}»</p>
-          <footer>Основит, рекомендуемые основания для Бриксэйв ХС30 — <a href={xcFacts.forBrickSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
+        <blockquote class="q" data-reveal>
+          <p>«{qt(xcFacts.forBrick)}»</p>
+          <footer>Основит, рекомендуемые основания для Бриксэйв ХС30&nbsp;— <a href={xcFacts.forBrickSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
         </blockquote>
-        <ul class="points" data-reveal-stagger>
-          {xcPoints.map((p) => <li>{p.text}</li>)}
-        </ul>
+        <ol class="pts" data-reveal-stagger>
+          {xcPoints.map((p, i) => <li><span class="pts__n num">{two(i + 1)}</span><span class="pts__t">{nb(p.text)}</span></li>)}
+        </ol>
         <p class="src" data-reveal>
           По данным производителя:{' '}
           {xcSrcs.map((h, i) => (
             <Fragment>{i > 0 && ', '}<a href={h} rel="nofollow noopener" target="_blank">{h.toLowerCase().includes('.pdf') ? 'техническая карта ХС30' : `страница ХС30 на ${srcName(h)}`}</a></Fragment>
           ))}
         </p>
-        <a class="more" href={xcHref} data-reveal>Все цвета и характеристики ХС30 <span aria-hidden="true">→</span></a>
       </div>
       <div class="rs__card" data-reveal>
         <SeriesCard id="osnovit-xc30" href={xcHref} />
@@ -380,213 +432,213 @@ const picks = [nl, mc11].map((s) => ({
     </div>
   </Section>
 
-  <Section kicker="Вопросы и ответы" title="Коротко о смеси для клинкера" bg="base">
+  <Section kicker="05 — Вопросы и ответы" title="Коротко о смеси для клинкера" bg="base">
     <FaqAccordion items={faq} site="smesi" slug={SLUG} />
   </Section>
 
   <CtaBand
     source="klinker"
-    title="Подберём смесь под ваш клинкер"
-    text="Назовите клинкерный кирпич и объём кладки — подскажем серию и цвет шва, посчитаем количество мешков."
+    title={nb('Подберём смесь под ваш клинкер')}
+    text={nb('Назовите клинкерный кирпич и объём кладки — подскажем серию и цвет шва, посчитаем количество мешков.')}
   />
 </Page>
 
 <style>
-  /* ── первый экран: две смеси для клинкера ── */
-  .picks { display: grid; gap: var(--space-3); }
-  .pick {
+  /* ── первый экран: «0–5 %» крупно и две смеси под клинкер строками через линии ── */
+  .kh { display: grid; }
+  .kh__big {
+    margin: 0;
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: clamp(64px, 7vw, 108px);
+    line-height: 0.85;
+    letter-spacing: -0.035em;
+    white-space: nowrap;
+  }
+  .kh__cap { margin: var(--space-3) 0 var(--space-6); }
+  .kh__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .kh__list li { border-bottom: 1px solid var(--hair); }
+  .kh__pick {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    overflow: hidden;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    background: var(--color-surface);
-    color: var(--color-text);
-    text-decoration: none;
-    transition: translate var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
-  }
-  .pick:hover { opacity: 1; translate: 0 -3px; box-shadow: var(--shadow-card); border-color: var(--color-brand); }
-  .pick__strip { grid-column: 1 / -1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: 40px; }
-  .pick__strip span { background: var(--c); }
-  .pick__body { display: grid; gap: 2px; padding: var(--space-4) var(--space-5); min-width: 0; }
-  .pick__name { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); line-height: 1.2; }
-  .pick__abs { font-size: var(--fs-small); color: var(--color-text-soft); }
-  .pick__meta { font-size: var(--fs-small); font-weight: 600; }
-  .pick__go { align-self: center; padding-right: var(--space-5); font-weight: 800; color: var(--color-accent-text); }
-  .pick-more {
-    padding: var(--space-2) var(--space-1);
-    font-size: var(--fs-small);
-    font-weight: 700;
-    color: var(--color-accent-text);
+    gap: 6px var(--space-4);
+    align-items: baseline;
+    padding: var(--space-4) 0 var(--space-5);
+    color: var(--ink);
     text-decoration: none;
   }
-  .pick-more:hover { text-decoration: underline; }
+  .kh__strip { grid-column: 1 / -1; height: 40px; margin-bottom: var(--space-3); }
+  .kh__strip span { transition: flex-grow 0.5s var(--ease); }
+  .kh__pick:hover .kh__strip span:hover { flex-grow: 2.4; }
+  .kh__name { font-family: var(--font-head); font-weight: 500; font-size: clamp(26px, 2.2vw, 32px); line-height: 1; letter-spacing: -0.01em; }
+  .kh__go { font-size: 22px; line-height: 1; transition: translate 0.4s var(--ease); }
+  .kh__meta { grid-column: 1 / -1; font-size: var(--fs-small); color: var(--color-muted); }
+  .kh__pick:hover .kh__name { font-style: italic; }
+  .kh__pick:hover .kh__go { translate: 0 4px; }
+  .kh__pick:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+  .kh__more { justify-self: start; margin-top: var(--space-5); font-size: var(--fs-small); }
 
   /* ── общие мелочи ── */
-  .lead { max-width: 62ch; margin: 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
-  .src { margin: var(--space-3) 0 0; font-size: var(--fs-tiny); color: var(--color-muted); }
+  .src { margin: var(--space-4) 0 0; font-size: var(--fs-tiny); color: var(--color-muted); }
   .src a { color: inherit; white-space: nowrap; }
 
-  .quote {
-    margin: 0;
-    padding: var(--space-4) var(--space-5);
-    border-left: 3px solid var(--color-brand);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    background: var(--color-bg-alt);
-  }
-  .quote p { margin: 0; font-weight: 600; line-height: 1.45; }
-  .quote footer { margin-top: var(--space-2); font-size: var(--fs-tiny); color: var(--color-muted); }
-  .quote footer a { color: inherit; white-space: nowrap; }
-  .quote--plain { background: var(--color-surface); }
+  /* Дословная цитата производителя: курсив антиквы, подпись-источник мелко; без плашки и полосы */
+  .q { margin: 0; }
+  .q p { margin: 0; max-width: 38ch; font-family: var(--font-head); font-style: italic; font-weight: 500; font-size: clamp(22px, 1.9vw, 27px); line-height: 1.22; letter-spacing: -0.005em; color: var(--ink); }
+  .q footer { margin-top: var(--space-3); font-size: var(--fs-tiny); color: var(--color-muted); }
+  .q footer a { color: inherit; white-space: nowrap; }
+  .q--lead p { max-width: none; font-size: clamp(23px, 2vw, 29px); }
 
-  /* ── почему своя смесь ── */
-  .why { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-7); align-items: start; }
-  .why__text { display: grid; gap: var(--space-5); }
-  .quotes { display: grid; gap: var(--space-3); }
-  .why__p { margin: 0; max-width: 62ch; color: var(--color-text-soft); }
+  /* ── шкала водопоглощения: линия 0–20 %, зона клинкера песком, диапазоны серий тушью ── */
+  .sc { margin: 0; }
+  .sc__top {
+    display: grid;
+    gap: var(--space-3) var(--space-7);
+    padding-bottom: var(--space-5);
+  }
+  .sc__cap { font-family: var(--font-head); font-weight: 500; font-size: var(--fs-h3); line-height: 1.05; letter-spacing: -0.01em; max-width: 22ch; }
+  .sc__legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); align-self: end; font-size: var(--fs-tiny); color: var(--color-text-soft); }
+  .sc__key { display: inline-flex; align-items: center; gap: 10px; }
+  .sc__key i { display: inline-block; flex: none; }
+  .sc__key-zone { width: 22px; height: 14px; background: var(--sand); }
+  .sc__key-bar { width: 22px; height: 5px; background: var(--ink); }
 
-  .scale {
-    margin: 0;
-    padding: var(--space-5);
-    border-radius: var(--radius);
-    background: var(--color-bg-alt);
-  }
-  .scale__cap { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); line-height: 1.25; }
-  .scale__rows { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-  .scale__row { display: grid; gap: var(--space-2); align-items: center; }
-  .scale__name { display: grid; gap: 1px; font-weight: 700; font-size: var(--fs-small); line-height: 1.3; }
-  .scale__name small { font-weight: 400; font-size: var(--fs-tiny); color: var(--color-muted); }
-  .scale__track {
-    position: relative;
-    height: 14px;
-    border-radius: var(--radius-pill);
-    background: var(--color-surface);
-    box-shadow: inset 0 0 0 1px var(--color-border);
-  }
-  .scale__zone,
-  .scale__bar {
+  .sc__plot { --nw: 0px; --g: 0px; border-top: 1px solid var(--hair-strong); }
+  .sc__rows { margin: 0; padding: 0; list-style: none; }
+  .sc__row { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .sc__rows .sc__row { row-gap: 10px; padding: var(--space-4) 0 var(--space-5); border-bottom: 1px solid var(--hair); }
+  .sc__name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; min-width: 0; }
+  .sc__nm { font-family: var(--font-head); font-weight: 500; font-size: clamp(22px, 1.8vw, 26px); line-height: 1.05; color: var(--color-text-soft); }
+  .sc__val { font-size: var(--fs-tiny); color: var(--color-muted); }
+  .is-klinker .sc__nm { color: var(--ink); }
+  .is-klinker .sc__val { color: var(--color-text-soft); }
+
+  .sc__track { position: relative; display: block; min-height: 30px; }
+  .sc__zone { position: absolute; top: 0; bottom: 0; left: var(--from); width: calc(var(--to) - var(--from)); background: color-mix(in srgb, var(--sand) 72%, transparent); }
+  .sc__gl { position: absolute; top: 0; bottom: 0; left: var(--x); width: 1px; translate: -0.5px 0; background: var(--hair); }
+  .sc__bar {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 50%;
     left: var(--from);
     width: calc(var(--to) - var(--from));
+    height: 2px;
+    translate: 0 -50%;
+    background: var(--hair-strong);
+    color: var(--hair-strong);
   }
-  .scale__zone { background: color-mix(in srgb, var(--color-brand) 16%, transparent); border-radius: var(--radius-pill) 0 0 var(--radius-pill); }
-  .scale__bar { top: 3px; bottom: 3px; border-radius: var(--radius-pill); background: var(--color-muted); opacity: 0.55; }
-  .is-klinker .scale__bar { background: var(--color-brand); opacity: 1; }
-  .scale__bar.is-open { -webkit-mask-image: linear-gradient(90deg, var(--color-text) 60%, transparent); mask-image: linear-gradient(90deg, var(--color-text) 60%, transparent); }
-  .is-klinker .scale__name { color: var(--color-text); }
-  .scale__row:not(.is-klinker) .scale__name { color: var(--color-text-soft); }
-
-  .scale__row--axis { margin-top: calc(-1 * var(--space-2)); }
-  .scale__row--axis .scale__name { display: none; }
-  .scale__ticks { position: relative; height: 18px; }
-  .scale__tick {
-    position: absolute;
-    left: var(--x);
-    translate: -50% 0;
-    font-size: var(--fs-tiny);
-    color: var(--color-muted);
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  .scale__tick.is-first { translate: 0 0; }
-  .scale__tick.is-last { translate: -100% 0; }
-
-  .scale__legend {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2) var(--space-5);
-    margin: var(--space-4) 0 0;
-    font-size: var(--fs-tiny);
-    color: var(--color-text-soft);
-  }
-  .scale__item { display: inline-flex; align-items: center; gap: var(--space-2); }
-  .scale__key { display: inline-block; flex: none; width: 22px; height: 12px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--color-brand) 16%, transparent); box-shadow: inset 0 0 0 1px var(--color-border); }
-  .scale__key--bar { height: 8px; border-radius: var(--radius-pill); background: var(--color-brand); box-shadow: none; }
-
-  .passport {
-    display: grid;
-    gap: var(--space-2);
-    max-width: 880px;
-    margin-top: var(--space-7);
-    padding: var(--space-5);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-  }
-  .passport__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .passport p { margin: 0; color: var(--color-text-soft); }
-  .passport a { font-weight: 700; color: var(--color-accent-text); white-space: nowrap; }
-
-  @media (min-width: 640px) {
-    .scale__row { grid-template-columns: 168px minmax(0, 1fr); gap: var(--space-4); }
-    .scale__row--axis .scale__name { display: block; }
-  }
-  @media (min-width: 1000px) {
-    .why { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 4vw, 64px); }
-    .scale { padding: var(--space-6); }
-  }
-
-  /* ── серии ── */
-  .ser { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-items: start; }
-  .ser__intro { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); justify-items: start; }
-  .ser__intro .facts { max-width: 560px; }
-  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3); width: 100%; margin: 0; padding: 0; list-style: none; }
-  .facts li {
-    display: grid;
-    align-content: start;
-    gap: 2px;
-    min-width: 0;
-    padding: var(--space-3) var(--space-4);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-  }
-  .facts b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); line-height: 1.2; }
-  .facts span { font-size: var(--fs-tiny); color: var(--color-muted); }
-  /* узкий экран: две плашки в ряд, третья — во всю ширину (а не одна с пустым местом справа) */
-  @media (max-width: 479px) {
-    .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .facts li:last-child:nth-child(odd) { grid-column: 1 / -1; }
-  }
-  .aside-note { margin: 0; max-width: 60ch; font-size: var(--fs-small); color: var(--color-text-soft); }
-  .aside-note a { color: inherit; }
-  .ser__specs {
-    padding: var(--space-4) var(--space-5) var(--space-5);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    background: var(--color-surface);
-  }
-  .sub { margin: var(--space-8) 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
-
-  @media (min-width: 1000px) {
-    .ser { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: clamp(32px, 4vw, 64px); }
-    /* таблица выше вводной колонки — вводная с кнопкой едет рядом при прокрутке */
-    .ser__intro { position: sticky; top: var(--space-9); }
-  }
-
-  /* ── расшивка ── */
-  .rs { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-items: start; }
-  .rs__text { display: grid; gap: var(--space-5); }
-  .rs__text .quote { background: var(--color-surface); }
-  .points { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
-  .points li { position: relative; padding-left: var(--space-5); color: var(--color-text-soft); max-width: 62ch; }
-  .points li::before {
+  /* засечки на концах диапазона — как на мерной линейке */
+  .sc__bar::before,
+  .sc__bar::after {
     content: '';
     position: absolute;
-    left: 0;
-    top: 0.62em;
-    width: 10px;
-    height: 3px;
-    border-radius: 2px;
-    background: var(--color-brand);
+    top: 50%;
+    width: 1px;
+    height: 14px;
+    translate: 0 -50%;
+    background: currentColor;
   }
-  .rs__text .src { margin-top: 0; }
-  .more { justify-self: start; font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
-  .more:hover { text-decoration: underline; }
+  .sc__bar::before { left: 0; }
+  .sc__bar::after { right: 0; }
+  .is-klinker .sc__bar { height: 5px; background: var(--ink); color: var(--ink); }
+  .is-klinker .sc__bar::before, .is-klinker .sc__bar::after { width: 2px; height: 20px; }
+  /* «более 12 %» — без правой засечки, линия уходит в бумагу */
+  .sc__bar.is-open::after { display: none; }
+  .sc__bar.is-open { -webkit-mask-image: linear-gradient(90deg, #000 55%, transparent); mask-image: linear-gradient(90deg, #000 55%, transparent); }
+
+  .sc__row--head { display: none; }
+  .sc__zlabel { position: absolute; left: var(--from); bottom: 8px; padding-left: 10px; color: var(--ink); white-space: nowrap; }
+
+  .sc__row--axis { padding-top: 8px; }
+  .sc__row--axis .sc__name { display: none; }
+  .sc__ticks { min-height: 20px; }
+  .sc__tick { position: absolute; top: 0; left: var(--x); translate: -50% 0; font-size: var(--fs-tiny); color: var(--color-muted); white-space: nowrap; }
+  .sc__tick.is-first { translate: 0 0; }
+  .sc__tick.is-last { translate: -100% 0; }
+  .sc .src { margin-top: var(--space-5); }
+
+  @media (min-width: 720px) {
+    .sc__plot { --nw: 220px; --g: 32px; }
+    .sc__row { grid-template-columns: var(--nw) minmax(0, 1fr); column-gap: var(--g); }
+    .sc__rows .sc__row { padding: 0; }
+    .sc__rows .sc__name { flex-direction: column; align-items: flex-start; gap: 4px; padding: 18px 0; }
+    .sc__rows .sc__track { min-height: 76px; }
+    .sc__row--head { display: grid; }
+    .sc__row--head .sc__track { min-height: 44px; }
+    .sc__row--axis .sc__name { display: block; padding-top: 1px; }
+  }
+  @media (min-width: 1000px) {
+    .sc__top { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+    .sc__legend { flex-direction: column; justify-self: end; }
+  }
+
+  /* ── цитаты производителей и «паспорт кирпича» ── */
+  .why { margin-top: clamp(56px, 7vw, 104px); row-gap: var(--space-7); }
+  .why__quotes { grid-column: 1 / -1; display: grid; border-top: 1px solid var(--hair-strong); }
+  .why__quotes .q { padding: var(--space-5) 0 var(--space-6); border-bottom: 1px solid var(--hair); }
+  .why__pass { grid-column: 1 / -1; display: grid; gap: var(--space-3); justify-items: start; align-content: start; padding-top: var(--space-4); border-top: 1px solid var(--hair-strong); }
+  .why__pass .label { margin: 0; }
+  .why__title { margin: 0; font-size: var(--fs-h3); line-height: 1.05; letter-spacing: -0.01em; }
+  .why__pass p:not(.label) { margin: 0; max-width: 44ch; color: var(--color-text-soft); }
+  .why__pass .arrow-link { margin-top: var(--space-2); }
+  @media (min-width: 1000px) {
+    .why__quotes { grid-column: 1 / span 7; }
+    .why__pass { grid-column: 9 / -1; }
+  }
+
+  /* ── серия: назначение и цифры слева, характеристики справа; без рамок ── */
+  .ser { row-gap: var(--space-7); align-items: start; }
+  .ser__intro { grid-column: 1 / -1; display: grid; gap: var(--space-6); justify-items: start; min-width: 0; }
+  .ser__specs { grid-column: 1 / -1; min-width: 0; }
+  .ser__label { margin: 0 0 var(--space-3); }
+  .ser__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-6); }
+  .ser__note { max-width: 52ch; margin: 0; padding-top: var(--space-4); border-top: 1px solid var(--hair); font-size: var(--fs-small); color: var(--color-text-soft); }
+  .ser__note a { color: inherit; }
+
+  /* цифры серии: на телефоне строки «подпись — значение», с 600 px — три колонки через линии */
+  .kf { width: 100%; margin: 0; border-top: 1px solid var(--hair-strong); }
+  .kf div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); padding: 12px 0; border-bottom: 1px solid var(--hair); }
+  .kf dt { font-size: var(--fs-small); color: var(--color-muted); }
+  .kf dd { margin: 0; font-family: var(--font-head); font-weight: 500; font-size: 26px; line-height: 1; text-align: right; white-space: nowrap; }
+  @media (min-width: 600px) {
+    .kf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--hair); }
+    .kf div { flex-direction: column-reverse; justify-content: flex-end; align-items: flex-start; gap: 8px; padding: var(--space-4) var(--space-4) var(--space-4) 0; border-bottom: 0; }
+    .kf div + div { padding-left: var(--space-4); border-left: 1px solid var(--hair); }
+    .kf dt { font-size: var(--fs-tiny); letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.35; }
+    .kf dd { font-size: clamp(34px, 3vw, 46px); text-align: left; white-space: normal; }
+  }
 
   @media (min-width: 1000px) {
-    .rs { grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr); gap: clamp(32px, 4vw, 64px); }
+    .ser__intro { grid-column: 1 / span 5; position: sticky; top: var(--space-9); }
+    .ser__specs { grid-column: 7 / -1; }
+  }
+
+  /* палитра серии: заголовок слева, ссылка на подбор шва справа, линия над всем */
+  .pal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-6);
+    margin: clamp(64px, 8vw, 112px) 0 var(--space-6);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--hair-strong);
+    scroll-margin-top: var(--space-9);
+  }
+  .pal__title { margin: 0; font-size: clamp(30px, 3vw, 44px); line-height: 1; letter-spacing: -0.015em; }
+
+  /* ── расшивка ХС30: коротко — цитата, три пункта, карточка серии справа ── */
+  .rs { row-gap: var(--space-7); align-items: start; }
+  .rs__text { grid-column: 1 / -1; display: grid; gap: var(--space-6); min-width: 0; }
+  .rs__card { grid-column: 1 / -1; min-width: 0; }
+  .rs__lead { max-width: 52ch; margin: 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
+  .rs__text .q p { max-width: 40ch; }
+  .rs__text .src { margin: 0; }
+  .pts { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .pts li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-4) 0; border-bottom: 1px solid var(--hair); }
+  .pts__n { padding-top: 3px; font-size: 12px; letter-spacing: 0.08em; color: var(--color-muted); }
+  .pts__t { max-width: 60ch; color: var(--color-text-soft); }
+  @media (min-width: 1000px) {
+    .rs__text { grid-column: 1 / span 7; }
+    .rs__card { grid-column: 9 / -1; }
   }
 </style>

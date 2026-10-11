@@ -2,12 +2,17 @@
 // Страница бренда Основит (план, волна 1, № 4): брендовый спрос «основит брикформ мс11 …».
 // Угол страницы — Брикформ под тип кирпича (МС11 или МС11/1), зимние версии и расшивка Бриксэйв ХС30.
 //
+// Редизайн 11.10 (Влад: «шаблон не нужно использовать тот же, ещё и везде кирпич»): язык «палитры шва».
+// Кадра кирпичной кладки на первом экране больше нет — вместо него полосы оттенков Брикформ и ХС30
+// (цвет раствора и есть товар); шов на кирпиче смотрят в подборе шва (/podbor-shva/). Плашки, карточки
+// и тёмные врезки переведены в строки через тонкие линии, сравнение растворов — таблица через линии.
+//
 // ФАКТЫ — только из данных (src/data):
 //   назначение и «для какого кирпича» — ДОСЛОВНО из SERIES_FACTS (purpose / forBrick);
 //   характеристики, шаги, оговорки о цвете, зимние версии — SERIES_FACTS, у каждой строки свой адрес;
 //   расход — CONSUMPTION.osnovit (50 кг/м²) и CONSUMPTION.osnovitXc30 (5,0 кг/м²);
 //   о производителе и его инструментах — BRAND_FACTS.osnovit;
-//   ассортимент (22 цвета, фасовка) — catalog.ts.
+//   ассортимент (22 цвета, фасовка) — catalog.ts; оттенки плашек — swatches.ts (приближённый замер).
 // ⚠️ Число цветов Основит как факт производителя НЕ пишем (у производителя 34 / 32 / 23 / 22 в разных
 //   местах) — только «у нас 22 цвета» (ассортимент дилера, OSNOVIT_COLORS).
 // ⚠️ Зимних МС11 F и МС11/1 F в ассортименте дилера нет — описаны как факт производителя,
@@ -15,8 +20,6 @@
 // ⚠️ В «Подборе дизайна фасада» у производителя названо число цветов шва — не переносим: читалось бы
 //   как число цветов Основит.
 // Цен нет: действие позиции — «Узнать цену» (атрибут data-ask, окно есть на странице через Page).
-// Картинка — визуализация кладки из материалов клиента (kladka.ts); бренда у кадра нет, поэтому
-// в подписи — оттенок шва, а не позиция Основит.
 import Page from '../layouts/Page.astro';
 import PageHead from '../components/smesi/PageHead.astro';
 import Section from '../components/layout/Section.astro';
@@ -26,11 +29,14 @@ import CtaBand from '../components/smesi/CtaBand.astro';
 import SpecTable from '../components/content/SpecTable.astro';
 import FaqAccordion from '../components/content/FaqAccordion.astro';
 import Collapse from '../components/ui/Collapse.astro';
-import { seriesById, OSNOVIT_COLORS, POSITIONS, type SeriesId } from '../data/catalog';
+import { seriesById, OSNOVIT_COLORS, POSITIONS, type SeriesId, type Tone } from '../data/catalog';
 import { SERIES_FACTS, CONSUMPTION, BRAND_FACTS, type SeriesFacts } from '../data/series-facts';
-import { KLADKA } from '../data/kladka';
+import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
 import { liveUrl } from '../lib/sites';
+import { nb as typoNb } from '../lib/typo';
+// Пробел перед «—» — неразрывный: тире не начинает строку (сквозная проверка дизайна 11.10).
+const nb = (t: string) => typoNb(t).replace(/ — /g, '\u00a0— ');
 import type { FaqItem, SpecRow } from '../lib/types';
 
 const MC11 = SERIES_FACTS['osnovit-mc11'];
@@ -52,6 +58,15 @@ const spec = (f: SeriesFacts, label: string) => {
   return x;
 };
 const rowsOf = (f: SeriesFacts): SpecRow[] => [...f.specs, ...f.packaging].map((x) => ({ label: x.label, value: x.value }));
+const plural = (n: number, forms: [string, string, string]) => {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return forms[2];
+  if (b === 1) return forms[0];
+  if (b >= 2 && b <= 4) return forms[1];
+  return forms[2];
+};
+const colorsWord = (n: number) => plural(n, ['цвет', 'цвета', 'цветов']);
 
 /** Подпись источника по адресу (адреса — из данных, здесь только название ссылки). */
 const SRC_NAMES: [RegExp, string][] = [
@@ -82,11 +97,34 @@ const tool = (needle: string) => {
   return x;
 };
 
-/* ── первый экран ─────────────────────────────────────────────────────────── */
+/* ── первый экран: полосы оттенков ─────────────────────────────────────────── */
 
-// Кадр кладки клиента: светлый кирпич с тёмным швом — контраст, который хорошо видно на превью.
-const frameBrick = KLADKA.find((b) => b.id === 'osmibt-slonovaya-kost') ?? KLADKA[0];
-const frame = frameBrick?.seams.find((s) => s.id === 'darkgrey') ?? frameBrick?.seams[0];
+// Порядок плашек — по тонам (белые → бежевые → жёлтые → коричневые → цветные → серые → чёрные),
+// внутри тона от светлого к тёмному. У ХС30 тот же порядок кодов, что у Брикформ: коды общие,
+// плашки сняты с разных образцов — полосы можно сравнить столбец в столбец.
+const TONE_FLOW: Tone[] = ['white', 'beige', 'yellow', 'brown', 'red', 'accent', 'grey', 'black'];
+const luma = (hex: string) => {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+};
+const codeOrder = [...sMc11.colors]
+  .sort(
+    (a, b) =>
+      TONE_FLOW.indexOf(a.tone) - TONE_FLOW.indexOf(b.tone) ||
+      luma(swatchFor(sMc11.id, b.code)) - luma(swatchFor(sMc11.id, a.code)),
+  )
+  .map((c) => c.code);
+const stripOf = (id: SeriesId) => {
+  const s = seriesById(id);
+  return codeOrder
+    .map((code) => s.colors.find((c) => c.code === code))
+    .filter((c): c is NonNullable<typeof c> => Boolean(c))
+    .map((c) => ({ title: `${c.name}, ${c.code}`, hex: swatchFor(id, c.code) }));
+};
+const strips = [
+  { key: 'lg', label: 'Брикформ МС11 и МС11/1', count: sMc11.colors.length, href: `#${sMc11.id}-cveta`, colors: stripOf(sMc11.id) },
+  { key: 'sm', label: 'Бриксэйв ХС30', count: sXc30.colors.length, href: `#${sXc30.id}-cveta`, colors: stripOf(sXc30.id) },
+];
 
 const jump = [
   { href: '#vybor', label: 'МС11 или МС11/1' },
@@ -103,6 +141,12 @@ const maker = [
   { title: 'Производство', text: 'Смеси выпускает ООО «Седрус». В декларации соответствия адрес места деятельности — Московская область, г. Коломна, Пирочинское шоссе, 13.', src: about('Коломна').src },
   { title: 'Документы', text: 'Декларация соответствия РОСС RU Д-RU.РА01.В.32635/25 по ГОСТ Р 58272-2018 действует до 11.02.2030. В перечне — колерованные Брикформ МС11, МС11/1 и Бриксэйв ХС30.', src: about('Декларация').src },
 ];
+// Номер декларации и ГОСТ не должны рваться по дефису на две строки («Д-» / «RU…»).
+const KEEP = ['РОСС RU Д-RU.РА01.В.32635/25', 'ГОСТ Р 58272-2018', 'Пирочинское шоссе, 13', 'г. Коломна'];
+// После неразрывной группы — обычный пробел: иначе nb() склеивает «…/25 по ГОСТ … 2018 действует» в одну
+// неразрывную строку шириной 530 px и рвёт телефон.
+const keepTogether = (text: string) =>
+  KEEP.reduce((acc, k) => acc.replace(k, `<span class="os-nowrap">${k}</span>`), nb(text)).replace(/<\/span>\u00a0/g, '</span> ');
 const objectsSrc = about('Зиларт').src;
 const objects = [
   { name: 'ЖК «Зиларт»', place: 'Москва, ул. Автозаводская, вл. 23' },
@@ -128,24 +172,40 @@ const cmpSources = sources([
   ...cmpLabels.flatMap((l) => [spec(MC11, l).src, spec(MC111, l).src]),
 ]);
 
+const hints = [
+  { title: 'Клинкер — к МС11.', text: 'Клинкерный кирпич производитель называет в назначении МС11; у МС11/1 его в назначении нет.' },
+  { title: 'Ручная формовка — к МС11/1.', text: 'Для кирпича ручной формовки производитель рекомендует МС11/1.' },
+  { title: 'Расшивка — сразу при кладке.', text: 'У МС11 и у МС11/1 производитель указывает возможность расшивки швов в момент укладки.' },
+];
+
 /* ── 3–4. серии Брикформ ─────────────────────────────────────────────────── */
 
+const joint = (f: SeriesFacts, label: string) => spec(f, label).value.replace(' (рекомендуемая)', '');
+type Fact = [dt: string, dd: string];
 const brikform = [
   {
     s: sMc11,
     f: MC11,
     bg: 'base' as const,
     kicker: 'Брикформ МС11',
-    title: 'Брикформ МС11\u00a0— для кирпича до 12\u00a0% и клинкера',
-    chips: [`мешок ${sMc11.packKg} кг`, `${sMc11.colors.length} цвета у нас`, `шов ${spec(MC11, 'Толщина шва').value.replace(' (рекомендуемая)', '')}`],
+    title: 'Брикформ МС11 — для кирпича до 12 % и клинкера',
+    facts: [
+      ['Мешок', `${sMc11.packKg} кг`],
+      ['Цветов у нас', String(sMc11.colors.length)],
+      ['Толщина шва', joint(MC11, 'Толщина шва')],
+    ] as Fact[],
   },
   {
     s: sMc111,
     f: MC111,
     bg: 'alt' as const,
     kicker: 'Брикформ МС11/1',
-    title: 'Брикформ МС11/1\u00a0— для кирпича более 12\u00a0% и ручной формовки',
-    chips: [`мешок ${sMc111.packKg} кг`, `${sMc111.colors.length} цвета у нас`, `шов ${spec(MC111, 'Толщина шва').value.replace(' (рекомендуемая)', '')}`],
+    title: 'Брикформ МС11/1 — для кирпича более 12 % и ручной формовки',
+    facts: [
+      ['Мешок', `${sMc111.packKg} кг`],
+      ['Цветов у нас', String(sMc111.colors.length)],
+      ['Толщина шва', joint(MC111, 'Толщина шва')],
+    ] as Fact[],
   },
 ];
 
@@ -167,13 +227,18 @@ const xcRate = CONSUMPTION.osnovitXc30;
 const xcRateText = xcRate.kgPerM2.toFixed(1).replace('.', ',');
 const xcSources = sources([...factSources(XC30).map((x) => x.url), xcRate.src]);
 const xcNewOrOld = XC30.notes?.find((n) => n.text.includes('нового строительства'));
+const xcFacts: Fact[] = [
+  ['Мешок', `${sXc30.packKg} кг`],
+  ['Цветов у нас', String(sXc30.colors.length)],
+  ['Ширина шва', joint(XC30, 'Ширина шва')],
+];
 
 /* ── 7. как работать ──────────────────────────────────────────────────────── */
 
 // Шаги 2–8 у МС11 и МС11/1 совпадают слово в слово (технические карты 07.26); первый шаг — вода,
 // у двух растворов норма разная, поэтому он собран из обоих.
 const waterStep = {
-  text: `Содержимое мешка при постоянном перемешивании высыпать в ёмкость с чистой водой: для МС11\u00a0— ${spec(MC11, 'Вода затворения').value} (2,5–3,75 л на мешок 25 кг), для МС11/1\u00a0— ${spec(MC111, 'Вода затворения').value}. Воду лить строго по норме производителя.`,
+  text: `Содержимое мешка при постоянном перемешивании высыпать в ёмкость с чистой водой: для МС11 — ${spec(MC11, 'Вода затворения').value} (2,5–3,75 л на мешок 25 кг), для МС11/1 — ${spec(MC111, 'Вода затворения').value}. Воду лить строго по норме производителя.`,
   src: MC11.steps[0]?.src ?? '',
 };
 const brikformSteps = [waterStep, ...MC11.steps.slice(1)];
@@ -199,7 +264,7 @@ const bagsPerM2 = rate.kgPerM2 / sMc11.packKg;
 const tools = [
   {
     title: 'Кирпичный калькулятор',
-    text: 'Выберите вид кирпича — калькулятор сам подберёт МС11 или МС11/1. Дальше формат кирпича, швы и количество: результат в мешках по 25\u00a0кг и общем весе. Швы по умолчанию — 10\u00a0мм вертикальный и 12\u00a0мм горизонтальный, по СП 70.13330.2012.',
+    text: 'Выберите вид кирпича — калькулятор сам подберёт МС11 или МС11/1. Дальше формат кирпича, швы и количество: результат в мешках по 25 кг и общем весе. Швы по умолчанию — 10 мм вертикальный и 12 мм горизонтальный, по СП 70.13330.2012.',
     href: tool('Кирпичный калькулятор').src,
     cta: 'Открыть на osnovit.ru',
   },
@@ -210,14 +275,12 @@ const tools = [
     cta: 'Открыть на osnovit.ru',
   },
   {
-    video: true,
     title: 'Видео о Брикформ МС11',
     text: 'Ролик производителя «Цветной кладочный раствор ОСНОВИТ БРИКФОРМ МС11».',
     href: tool('БРИКФОРМ МС11').src,
     cta: 'Смотреть на YouTube',
   },
   {
-    video: true,
     title: 'Видео о Бриксэйв ХС30',
     text: 'Ролик производителя «Раствор для расшивки швов ОСНОВИТ БРИКСЭЙВ ХС 30».',
     href: tool('БРИКСЭЙВ ХС 30').src,
@@ -271,7 +334,6 @@ const itemList = {
   slug="osnovit"
   current="osnovit"
   source="osnovit"
-  ogImage={frame?.src}
   jsonLd={[itemList]}
 >
   <PageHead
@@ -279,54 +341,58 @@ const itemList = {
     h1="Цветные кладочные растворы Основит Брикформ"
     crumb="Основит"
     trail={[{ label: 'Каталог', href: PAGES.katalog.href }]}
-    lead={`Раствор Основит подбирают по кирпичу: МС11 — для облицовочного кирпича с водопоглощением до 12\u00a0% и клинкера, МС11/1 — для кирпича более 12\u00a0% и ручной формовки. Готовые швы отделывают Бриксэйв ХС30. У нас ${colorsCount}\u00a0цвета каждого раствора — ${positionsCount}\u00a0позиций.`}
+    lead={`Раствор Основит подбирают по кирпичу: МС11 — для облицовочного кирпича с водопоглощением до 12 % и клинкера, МС11/1 — для кирпича более 12 % и ручной формовки. Готовые швы отделывают Бриксэйв ХС30. У нас ${colorsCount} ${colorsWord(colorsCount)} каждого раствора — ${positionsCount} позиций.`}
   >
     <nav class="os-jump" aria-label="Разделы страницы" data-reveal>
-      {jump.map((j) => <a href={j.href}>{j.label}</a>)}
+      <ol>
+        {jump.map((j) => <li><a href={j.href}>{j.label}</a></li>)}
+      </ol>
     </nav>
     <Fragment slot="aside">
-    {frame && frameBrick && (
-      <figure class="os-frame">
-        <img
-          src={frame.src}
-          srcset={`${frame.srcSm} 320w, ${frame.src} ${frame.w}w`}
-          sizes="(min-width: 960px) 44vw, 92vw"
-          width={frame.w}
-          height={frame.h}
-          alt={`Визуализация кладки: кирпич «${frameBrick.brick}», ${frame.label} шов`}
-          fetchpriority="high"
-        />
-        <figcaption>
-          Визуализация кладки: кирпич «{frameBrick.brick}», шов {frame.label}.
-          <span>Кадр показывает оттенок шва, а не конкретный раствор.</span>
-        </figcaption>
-      </figure>
-    )}
+      <div class="os-pal">
+        {strips.map((st) => (
+          <div class:list={['os-pal__item', `os-pal__item--${st.key}`]}>
+            <a class="os-pal__strip strip" href={st.href} tabindex="-1" aria-hidden="true">
+              {st.colors.map((c) => <span class="mortar" style={`--c:${c.hex}`} title={c.title}></span>)}
+            </a>
+            <p class="os-pal__cap">
+              <a href={st.href}>{st.label}</a>
+              <span class="num">{st.count}&nbsp;{colorsWord(st.count)} у&nbsp;нас</span>
+            </p>
+          </div>
+        ))}
+        <p class="os-pal__note">
+          Цвет на экране приблизительный: плашки Брикформ сняты с палитры производителя, плашки ХС30&nbsp;— с&nbsp;фотографии образцов.
+        </p>
+        <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
+      </div>
     </Fragment>
   </PageHead>
 
   <Section id="proizvoditel" kicker="Производитель" title="Основит — растворы из Коломны" bg="base">
     <div class="os-maker">
-      <ul class="os-maker__facts" data-reveal-stagger>
+      <dl class="os-maker__facts" data-reveal>
         {maker.map((m) => (
-          <li>
-            <h3 class="os-maker__title">{m.title}</h3>
-            <p>{m.text}</p>
-            <a class="os-src-link" href={m.src} rel="nofollow noopener" target="_blank">{srcName(m.src)}</a>
-          </li>
+          <div class="os-maker__row">
+            <dt class="label">{m.title}</dt>
+            <dd>
+              <p set:html={keepTogether(m.text)} />
+              <a class="os-srclink" href={m.src} rel="nofollow noopener" target="_blank">{srcName(m.src)}</a>
+            </dd>
+          </div>
         ))}
-      </ul>
-      <aside class="os-objects" data-reveal>
-        <p class="os-label">Объекты на Брикформ МС11</p>
-        <ul class="os-objects__list">
+      </dl>
+      <div class="os-objects" data-reveal>
+        <p class="label">Объекты на Брикформ МС11</p>
+        <ol class="os-objects__list">
           {objects.map((o) => (
             <li><b>{o.name}</b><span>{o.place}</span></li>
           ))}
-        </ul>
-        <p class="os-objects__src">
+        </ol>
+        <p class="os-src">
           Список объектов — <a href={objectsSrc} rel="nofollow noopener" target="_blank">{srcName(objectsSrc)}</a>
         </p>
-      </aside>
+      </div>
     </div>
   </Section>
 
@@ -337,69 +403,65 @@ const itemList = {
     subtitle="Прочность, морозостойкость и толщина шва у двух растворов одинаковые. Главное различие — кирпич, под который рассчитан раствор; норма воды у каждого своя."
     bg="alt"
   >
-    <div class="os-cmp" data-reveal>
-      <table class="os-cmp__table">
-        <thead>
-          <tr>
-            <th scope="col"><span class="os-visually-hidden">Показатель</span></th>
-            <th scope="col"><a href={`#${sMc11.id}`}>Брикформ МС11</a><span>{spec(MC11, 'Водопоглощение кирпича').value}</span></th>
-            <th scope="col"><a href={`#${sMc111.id}`}>Брикформ МС11/1</a><span>{spec(MC111, 'Водопоглощение кирпича').value}</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {cmp.map((r) =>
-            r.a === r.b ? (
-              <tr class="os-cmp__row os-cmp__row--same">
-                <th scope="row">{r.label}</th>
-                <td colspan="2">{r.a} <span class="os-cmp__same">одинаково</span></td>
-              </tr>
-            ) : (
-              <tr class:list={['os-cmp__row', r.wide && 'os-cmp__row--wide']}>
-                <th scope="row">{r.label}</th>
-                <td data-col="МС11">{r.a}</td>
-                <td data-col="МС11/1">{r.b}</td>
-              </tr>
-            ),
-          )}
-        </tbody>
-      </table>
-    </div>
+    <table class="os-cmp" data-reveal>
+      <caption class="os-vh">Сравнение Брикформ МС11 и МС11/1</caption>
+      <thead>
+        <tr>
+          <th scope="col"><span class="os-vh">Показатель</span></th>
+          <th scope="col"><a href={`#${sMc11.id}`}>Брикформ МС11</a><span class="os-cmp__abs">{spec(MC11, 'Водопоглощение кирпича').value}</span></th>
+          <th scope="col"><a href={`#${sMc111.id}`}>Брикформ МС11/1</a><span class="os-cmp__abs">{spec(MC111, 'Водопоглощение кирпича').value}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {cmp.map((r) =>
+          r.a === r.b ? (
+            <tr class="os-cmp__row os-cmp__row--same">
+              <th scope="row">{r.label}</th>
+              <td colspan="2">{nb(r.a)} <span class="os-cmp__same">одинаково</span></td>
+            </tr>
+          ) : (
+            <tr class:list={['os-cmp__row', r.wide && 'os-cmp__row--wide']}>
+              <th scope="row">{r.label}</th>
+              <td data-col="МС11">{nb(r.a)}</td>
+              <td data-col="МС11/1">{nb(r.b)}</td>
+            </tr>
+          ),
+        )}
+      </tbody>
+    </table>
     <p class="os-src">
       По данным производителя:
       {cmpSources.map((s, i) => (
         <Fragment>{i > 0 && ' · '}<a href={s.url} rel="nofollow noopener" target="_blank">{s.name}</a></Fragment>
       ))}
     </p>
-    <ul class="os-hints" data-reveal-stagger>
-      <li>
-        <b>Клинкер — к МС11.</b>
-        Клинкерный кирпич производитель называет в назначении МС11; у МС11/1 его в назначении нет.
-      </li>
-      <li>
-        <b>Ручная формовка — к&nbsp;МС11/1.</b>
-        Для кирпича ручной формовки производитель рекомендует МС11/1.
-      </li>
-      <li>
-        <b>Расшивка — сразу при кладке.</b>
-        У МС11 и у МС11/1 производитель указывает возможность расшивки швов в момент укладки.
-      </li>
-    </ul>
+    <div class="os-hints" data-reveal>
+      <p class="label">Коротко о выборе</p>
+      <ol class="os-hints__list">
+        {hints.map((h) => (
+          <li><b>{nb(h.title)}</b><span>{nb(h.text)}</span></li>
+        ))}
+      </ol>
+    </div>
   </Section>
 
-  {brikform.map(({ s, f, bg, kicker, title, chips }) => (
+  {brikform.map(({ s, f, bg, kicker, title, facts }) => (
     <Section id={s.id} kicker={kicker} title={title} bg={bg}>
       <div class="os-ser">
         <div class="os-ser__about" data-reveal>
-          <p class="os-label">Назначение — слова производителя</p>
-          <blockquote class="os-quote" cite={f.purposeSrc}>{f.purpose}</blockquote>
-          <p class="os-label">Для какого кирпича</p>
-          <p class="os-ser__brick">«{f.forBrick}»</p>
-          <ul class="os-chips">
-            {chips.map((c) => <li>{c}</li>)}
-          </ul>
+          <p class="label">Назначение — слова производителя</p>
+          <blockquote class="os-quote" cite={f.purposeSrc}>«{nb(f.purpose)}»</blockquote>
+          <p class="os-quote__src">— <a href={f.purposeSrc} rel="nofollow noopener" target="_blank">{srcName(f.purposeSrc)}</a></p>
+          <div class="os-ser__brick">
+            <p class="label">Для какого кирпича</p>
+            <p>«{nb(f.forBrick)}»</p>
+          </div>
+          <dl class="os-dl">
+            {facts.map(([dt, dd]) => <div><dt>{dt}</dt><dd class="num">{nb(dd)}</dd></div>)}
+          </dl>
           <div class="os-ser__actions">
             <button class="btn btn--primary" type="button" data-ask={`${s.name} — цвет подберём`}>Узнать цену</button>
-            <a class="btn btn--ghost" href={`#${s.id}-cveta`}>Смотреть цвета</a>
+            <a class="arrow-link" href={`#${s.id}-cveta`}>Смотреть цвета <span aria-hidden="true">↓</span></a>
           </div>
         </div>
         <div class="os-ser__specs" data-reveal>
@@ -414,21 +476,24 @@ const itemList = {
           </p>
         </div>
       </div>
-      <h3 class="os-sub" id={`${s.id}-cveta`}>Цвета {s.name.replace('Основит ', '')} у нас — {s.colors.length}</h3>
+      <div class="os-colors-head">
+        <h3 class="os-sub" id={`${s.id}-cveta`}>{nb(`Цвета ${s.name.replace('Основит ', '')} у нас — ${s.colors.length}`)}</h3>
+        <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
+      </div>
       <SwatchGrid series={s.id} />
       <SwatchNote />
     </Section>
   ))}
 
-  <Section id="zima" kicker="Зимняя кладка" title="Зимние версии: МС11 F и МС11/1 F" bg="base">
+  <Section id="zima" kicker="Зимняя кладка" title="Зимние версии: МС11 F и МС11/1 F" bg="dark" class="os-zima">
     <div class="os-winter">
-      <div data-reveal>
+      <div class="os-winter__main" data-reveal>
         <p class="os-winter__lead">
-          У производителя есть зимние версии растворов Брикформ&nbsp;— МС11&nbsp;F и МС11/1&nbsp;F.
+          У производителя есть зимние версии растворов Брикформ&nbsp;— МС11&nbsp;F и&nbsp;МС11/1&nbsp;F.
           Условия работы с ними по техническим картам производителя:
         </p>
         <ol class="os-winter__list">
-          {winterRules.map((r) => <li>{r}</li>)}
+          {winterRules.map((r) => <li>{nb(r)}</li>)}
         </ol>
         <p class="os-src">
           По данным производителя:
@@ -437,42 +502,43 @@ const itemList = {
           ))}
         </p>
       </div>
-      <aside class="os-winter__card" data-reveal>
-        <p class="os-winter__big">−10…+5 °C</p>
-        <p>температура воздуха и основания при нанесении зимней версии</p>
+      <aside class="os-winter__aside" data-reveal>
+        <p class="os-winter__big num">−10…+5&nbsp;°C</p>
+        <p class="os-winter__cap">температура воздуха и основания при нанесении зимней версии</p>
         <p class="os-winter__stock">Наличие зимних версий уточняйте у менеджера.</p>
         <div class="os-winter__actions">
           <button class="btn btn--primary btn--sm" type="button" data-ask="Основит Брикформ МС11 F, зимняя версия — наличие">Спросить о МС11 F</button>
-          <button class="btn btn--ghost btn--sm" type="button" data-ask="Основит Брикформ МС11/1 F, зимняя версия — наличие">Спросить о МС11/1 F</button>
+          <button class="btn btn--ghost-inv btn--sm" type="button" data-ask="Основит Брикформ МС11/1 F, зимняя версия — наличие">Спросить о МС11/1 F</button>
         </div>
       </aside>
     </div>
   </Section>
 
-  <Section id={sXc30.id} kicker="Расшивка швов" title={'Бриксэйв ХС30\u00a0— раствор для расшивки'} bg="alt">
+  <Section id={sXc30.id} kicker="Расшивка швов" title={'Бриксэйв ХС30 — раствор для расшивки'} bg="base">
     <div class="os-ser">
       <div class="os-ser__about" data-reveal>
-        <p class="os-label">Назначение — слова производителя</p>
-        <blockquote class="os-quote" cite={XC30.purposeSrc}>{XC30.purpose}</blockquote>
-        <p class="os-label">Для каких материалов</p>
-        <p class="os-ser__brick">«{XC30.forBrick}»</p>
-        {xcNewOrOld && <p class="os-ser__brick">{xcNewOrOld.text}</p>}
-        <div class="os-rate">
-          <p class="os-rate__num"><b>{xcRateText}</b> кг/м²</p>
-          <p class="os-rate__text">расход на 1 м² кладки: {xcRate.condition}</p>
+        <p class="label">Назначение — слова производителя</p>
+        <blockquote class="os-quote" cite={XC30.purposeSrc}>«{nb(XC30.purpose)}»</blockquote>
+        <p class="os-quote__src">— <a href={XC30.purposeSrc} rel="nofollow noopener" target="_blank">{srcName(XC30.purposeSrc)}</a></p>
+        <div class="os-ser__brick">
+          <p class="label">Для каких материалов</p>
+          <p>«{nb(XC30.forBrick)}»</p>
+          {xcNewOrOld && <p>{nb(xcNewOrOld.text)}</p>}
         </div>
-        <ul class="os-chips">
-          <li>мешок {sXc30.packKg} кг</li>
-          <li>{sXc30.colors.length} цвета у нас</li>
-          <li>шов {spec(XC30, 'Ширина шва').value.replace(' (рекомендуемая)', '')}</li>
-        </ul>
+        <div class="os-rate">
+          <p class="os-rate__num num"><b>{xcRateText}</b> кг/м²</p>
+          <p class="os-rate__text">расход на 1&nbsp;м² кладки: {xcRate.condition}</p>
+        </div>
+        <dl class="os-dl">
+          {xcFacts.map(([dt, dd]) => <div><dt>{dt}</dt><dd class="num">{nb(dd)}</dd></div>)}
+        </dl>
         <div class="os-ser__actions">
           <button class="btn btn--primary" type="button" data-ask={`${sXc30.name} — цвет подберём`}>Узнать цену</button>
-          <a class="btn btn--ghost" href={`#${sXc30.id}-cveta`}>Смотреть цвета</a>
+          <a class="arrow-link" href={`#${sXc30.id}-cveta`}>Смотреть цвета <span aria-hidden="true">↓</span></a>
         </div>
       </div>
       <div class="os-ser__specs" data-reveal>
-        <Collapse max={560} fade="alt" label="Все характеристики">
+        <Collapse max={560} fade="base" label="Все характеристики">
           <SpecTable rows={rowsOf(XC30)} caption={`Характеристики ${sXc30.name}`} />
         </Collapse>
         <p class="os-src">
@@ -483,7 +549,10 @@ const itemList = {
         </p>
       </div>
     </div>
-    <h3 class="os-sub" id={`${sXc30.id}-cveta`}>Цвета Бриксэйв ХС30 у нас — {sXc30.colors.length}</h3>
+    <div class="os-colors-head">
+      <h3 class="os-sub" id={`${sXc30.id}-cveta`}>{nb(`Цвета Бриксэйв ХС30 у нас — ${sXc30.colors.length}`)}</h3>
+      <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
+    </div>
     <p class="os-xc-note">
       Коды цветов у ХС30 те же, что у Брикформ, но плашки сняты с фотографии образцов ХС30, а не с палитры
       Брикформ, — поэтому одинаковые коды на экране выглядят по-разному.
@@ -492,25 +561,25 @@ const itemList = {
     <SwatchNote />
   </Section>
 
-  <Section id="kak-rabotat" kicker="Как работать" title="Кладка и расшивка по шагам" bg="base" clamp={1150} clampLabel="Все шаги">
+  <Section id="kak-rabotat" kicker="Как работать" title="Кладка и расшивка по шагам" bg="alt" clamp={1150} clampLabel="Все шаги">
     <div class="os-steps">
       <div class="os-steps__col" data-reveal>
-        <h3 class="os-steps__title">Кладка на Брикформ МС11 и МС11/1</h3>
+        <h3 class="os-steps__title">Кладка на Брикформ МС11 и&nbsp;МС11/1</h3>
         <ol class="os-steps__list">
-          {brikformSteps.map((s) => <li>{s.text}</li>)}
+          {brikformSteps.map((s) => <li>{nb(s.text)}</li>)}
         </ol>
       </div>
       <div class="os-steps__col" data-reveal>
         <h3 class="os-steps__title">Расшивка Бриксэйв ХС30</h3>
         <ol class="os-steps__list">
-          {XC30.steps.map((s) => <li>{s.text}</li>)}
+          {XC30.steps.map((s) => <li>{nb(s.text)}</li>)}
         </ol>
       </div>
     </div>
     <div class="os-color" data-reveal>
       <h3 class="os-color__title">От чего зависит цвет шва</h3>
       <ul class="os-color__list">
-        {colorNotes.map((n) => <li>{n.text}</li>)}
+        {colorNotes.map((n) => <li>{nb(n.text)}</li>)}
       </ul>
     </div>
     <p class="os-src">
@@ -521,53 +590,63 @@ const itemList = {
     </p>
   </Section>
 
-  <Section id="rashod" kicker="Расход" title={`Брикформ: ${rate.kgPerM2}\u00a0кг на\u00a01\u00a0м² кладки`} bg="alt">
+  <Section id="rashod" kicker="Расход" title={`Брикформ: ${rate.kgPerM2} кг на 1 м² кладки`} bg="base">
     <div class="os-calc">
       <div class="os-calc__norm" data-reveal>
-        <p class="os-calc__big"><b>{rate.kgPerM2}</b> кг/м²</p>
-        <p>{rate.joint}, {wall} — норма одна для МС11 и МС11/1</p>
+        <p class="label">Норма производителя</p>
+        <p class="os-calc__big num"><b>{rate.kgPerM2}</b> кг/м²</p>
+        <p class="os-calc__cap">{rate.joint}, {wall} — норма одна для МС11 и МС11/1</p>
         <p class="os-src">
           По данным производителя: <a href={rate.src} rel="nofollow noopener" target="_blank">{srcName(rate.src)}</a>
         </p>
       </div>
       <div class="os-calc__example" data-reveal>
-        <p class="os-label">Пример по этой норме</p>
-        <p class="os-calc__line">
-          {exampleM2} м² кладки × {rate.kgPerM2} кг = <b>{exampleKg} кг</b> — это <b>{exampleBags} мешков</b> по {sMc11.packKg} кг.
-        </p>
+        <p class="label">Пример по этой норме</p>
+        <dl class="os-calc__sum num">
+          <div><dt>Площадь кладки</dt><dd>{exampleM2}&nbsp;м²</dd></div>
+          <div><dt>Норма</dt><dd>× {rate.kgPerM2}&nbsp;кг/м²</dd></div>
+          <div><dt>Сухой смеси</dt><dd>{exampleKg}&nbsp;кг</dd></div>
+          <div class="os-calc__total"><dt>Мешков по {sMc11.packKg}&nbsp;кг</dt><dd>{exampleBags}</dd></div>
+        </dl>
         <p class="os-calc__hint">
-          Норма дана для шва 10 мм и кладки в ½ кирпича. Для своей площади откройте калькулятор — Брикформ он считает по этой же норме.
+          Норма дана для шва 10&nbsp;мм и кладки в&nbsp;½&nbsp;кирпича. Для своей площади откройте калькулятор — Брикформ он считает по этой же норме.
         </p>
         <a class="btn btn--primary" href={PAGES.kalkulyator.href}>Открыть калькулятор расхода</a>
       </div>
     </div>
   </Section>
 
-  <Section id="instrumenty" kicker="Инструменты производителя" title="Калькуляторы и видео Основит" bg="base" clamp={900} clampLabel="Все инструменты">
-    <ul class="os-tools" data-reveal-stagger>
+  <Section id="instrumenty" kicker="Инструменты производителя" title="Калькуляторы и видео Основит" bg="alt" clamp={900} clampLabel="Все инструменты">
+    <ol class="os-tools" data-reveal-stagger>
       {tools.map((t) => (
-        <li class:list={['os-tool', t.video && 'os-tool--video']}>
+        <li class="os-tool">
           <h3 class="os-tool__title">{t.title}</h3>
-          <p>{t.text}</p>
-          <a class="os-tool__link" href={t.href} rel="nofollow noopener" target="_blank">{t.cta} <span aria-hidden="true">↗</span></a>
+          <p class="os-tool__text">{nb(t.text)}</p>
+          <a class="arrow-link os-tool__link" href={t.href} rel="nofollow noopener" target="_blank">{t.cta} <span aria-hidden="true">↗</span></a>
         </li>
       ))}
-    </ul>
+    </ol>
   </Section>
 
-  <Section id="voprosy" kicker="Вопросы" title="Частые вопросы об Основит" bg="alt">
+  <Section id="voprosy" kicker="Вопросы" title="Частые вопросы об Основит" bg="base">
     <FaqAccordion items={faq} site="smesi" slug="osnovit" />
   </Section>
 
   <CtaBand
     source="osnovit"
-    title="Подберём Основит под ваш кирпич"
-    text="Назовите кирпич и площадь кладки — подскажем, МС11 или МС11/1, поможем с цветом шва и посчитаем мешки."
+    title={nb('Подберём Основит под ваш кирпич')}
+    text={nb('Назовите кирпич и площадь кладки — подскажем, МС11 или МС11/1, поможем с цветом шва и посчитаем мешки.')}
   />
 </Page>
 
+<style is:global>
+  /* Подпись секции на тёмной полосе: общий .section__kicker красит её --color-muted (#625d55),
+     на туши это 2,6:1. Только для своей полосы «Зимние версии» (класс os-zima). */
+  html[data-site='smesi'] .os-zima .section__kicker { color: rgb(247 244 238 / 0.66); }
+</style>
+
 <style>
-  .os-visually-hidden {
+  .os-vh {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -576,257 +655,371 @@ const itemList = {
     white-space: nowrap;
   }
 
-  /* первый экран */
-  .os-jump { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-6); }
+  /* ── первый экран: оглавление строками через линии ───────────────────────── */
+  .os-jump { margin-top: var(--space-7); }
+  .os-jump ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hair-strong);
+    counter-reset: os-jump;
+  }
+  .os-jump li { counter-increment: os-jump; border-bottom: 1px solid var(--hair); }
   .os-jump a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 40px;
-    padding: 6px 14px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--fs-small);
-    font-weight: 600;
-    text-decoration: none;
-    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
-  }
-  .os-jump a:hover { border-color: var(--color-brand); background: var(--color-brand-soft); }
-
-  .os-frame { position: relative; margin: 0; overflow: hidden; border-radius: var(--radius-lg); background: var(--color-bg); }
-  .os-frame img { display: block; width: 100%; height: auto; aspect-ratio: 5 / 4; object-fit: cover; }
-  .os-frame figcaption {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--color-dark) 82%, transparent);
-    color: var(--color-on-dark);
+    align-items: baseline;
+    gap: 12px;
+    min-height: 44px;
+    padding: 12px 0 10px;
+    color: var(--ink);
     font-size: var(--fs-small);
-    font-weight: 600;
+    font-weight: 500;
+    text-decoration: none;
   }
-  .os-frame figcaption span { font-weight: 400; font-size: var(--fs-tiny); opacity: 0.85; }
+  .os-jump a::before {
+    content: counter(os-jump, decimal-leading-zero);
+    flex: none;
+    font-size: 12px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+  .os-jump a::after {
+    content: '↓';
+    margin-left: auto;
+    color: var(--color-muted);
+    opacity: 0;
+    translate: 0 -4px;
+    transition: opacity var(--dur) var(--ease), translate var(--dur) var(--ease);
+  }
+  .os-jump a:hover::after, .os-jump a:focus-visible::after { opacity: 1; translate: 0 0; }
 
-  /* общее */
-  .os-label {
-    margin: 0 0 var(--space-2);
+  /* ── первый экран: полосы оттенков вместо кадра кладки ───────────────────── */
+  .os-pal { display: grid; gap: var(--space-5); justify-items: start; }
+  .os-pal__item { width: 100%; }
+  .os-pal__strip { height: clamp(160px, 24vw, 360px); }
+  .os-pal__item--sm .os-pal__strip { height: clamp(44px, 4.6vw, 68px); }
+  .os-pal__strip span { transition: flex-grow 0.5s var(--ease); }
+  .os-pal__strip:hover span:hover { flex-grow: 3; }
+  .os-pal__cap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 4px 16px;
+    margin: 10px 0 0;
     font-size: var(--fs-tiny);
-    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .os-pal__cap a { color: var(--ink); font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--hair-strong); }
+  .os-pal__cap a:hover { border-color: var(--ink); }
+  .os-pal__note { max-width: 46ch; margin: 0; font-size: var(--fs-small); color: var(--color-muted); }
+
+  /* ── общее ──────────────────────────────────────────────────────────────── */
+  .label { margin: 0 0 var(--space-3); }
+  .os-src { max-width: 90ch; margin: var(--space-5) 0 0; font-size: var(--fs-tiny); line-height: 1.6; color: var(--color-muted); }
+  .os-src a, .os-srclink { color: var(--color-text-soft); }
+  .os-srclink { font-size: var(--fs-tiny); }
+  .os-colors-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-6);
+    margin: clamp(56px, 7vw, 104px) 0 var(--space-6);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--hair-strong);
+  }
+  .os-sub { margin: 0; font-size: var(--fs-h3); line-height: 1.05; letter-spacing: -0.01em; }
+
+  /* ── 1. производитель: факты строками, объекты списком через линии ──────── */
+  .os-maker { display: grid; gap: var(--space-8); }
+  .os-maker__facts { margin: 0; border-top: 1px solid var(--hair-strong); }
+  .os-maker__row { display: grid; gap: var(--space-2) var(--space-6); padding: var(--space-5) 0; border-bottom: 1px solid var(--hair); }
+  .os-maker__row dt { margin: 0; padding-top: 5px; }
+  .os-maker__row dd { margin: 0; }
+  .os-maker__row :global(.os-nowrap) { white-space: nowrap; }
+  .os-maker__row p { max-width: 58ch; margin: 0 0 var(--space-3); color: var(--color-text-soft); }
+  @media (min-width: 760px) { .os-maker__row { grid-template-columns: 150px minmax(0, 1fr); } }
+
+  .os-objects__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); counter-reset: os-obj; }
+  .os-objects__list li {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: var(--space-3);
+    padding: 14px 0 13px;
+    border-bottom: 1px solid var(--hair);
+    counter-increment: os-obj;
+  }
+  .os-objects__list li::before {
+    content: counter(os-obj, decimal-leading-zero);
+    grid-row: 1 / span 2;
+    padding-top: 9px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+  .os-objects__list b { font-family: var(--font-head); font-weight: 500; font-size: clamp(23px, 2vw, 28px); line-height: 1.1; }
+  .os-objects__list span { margin-top: 2px; font-size: var(--fs-small); color: var(--color-muted); }
+  @media (min-width: 1080px) {
+    .os-maker { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(48px, 6vw, 96px); align-items: start; }
+  }
+
+  /* ── 2. сравнение: таблица через линии ──────────────────────────────────── */
+  .os-cmp { width: 100%; border-collapse: collapse; }
+  .os-cmp th, .os-cmp td { padding: 16px 24px 16px 0; text-align: left; vertical-align: top; }
+  .os-cmp thead th { padding-bottom: 18px; border-bottom: 1px solid var(--ink); vertical-align: bottom; }
+  .os-cmp thead a {
+    display: block;
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: clamp(28px, 2.8vw, 40px);
+    line-height: 1;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .os-cmp thead a:hover { font-style: italic; }
+  .os-cmp__abs {
+    display: block;
+    margin-top: 8px;
+    font-size: var(--fs-tiny);
+    font-weight: 500;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--color-muted);
   }
-  .os-src { margin: var(--space-4) 0 0; font-size: var(--fs-tiny); color: var(--color-muted); }
-  .os-src a, .os-src-link { color: var(--color-accent-text); }
-  .os-sub {
-    margin: clamp(40px, 5vw, 64px) 0 var(--space-5);
-    font-family: var(--font-head);
-    font-weight: 800;
-    font-size: var(--fs-h3);
-  }
-
-  /* 1. производитель */
-  .os-maker { display: grid; gap: var(--space-6); }
-  .os-maker__facts { display: grid; gap: var(--space-5); margin: 0; padding: 0; list-style: none; }
-  .os-maker__facts li { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-4); border-top: 2px solid var(--color-brand); }
-  .os-maker__facts p { margin: 0; color: var(--color-text-soft); }
-  .os-maker__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .os-src-link { font-size: var(--fs-tiny); }
-  .os-objects { padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-dark); color: var(--color-on-dark); }
-  .os-objects .os-label { color: var(--color-brand-on-dark); }
-  .os-objects__list { display: grid; gap: var(--space-4); margin: var(--space-4) 0 0; padding: 0; list-style: none; }
-  .os-objects__list li { display: flex; flex-direction: column; gap: 2px; padding-bottom: var(--space-3); border-bottom: 1px solid color-mix(in srgb, var(--color-on-dark) 16%, transparent); }
-  .os-objects__list b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .os-objects__list span { font-size: var(--fs-small); color: color-mix(in srgb, var(--color-on-dark) 74%, transparent); }
-  .os-objects__src { margin: var(--space-4) 0 0; font-size: var(--fs-tiny); color: color-mix(in srgb, var(--color-on-dark) 74%, transparent); }
-  .os-objects__src a { color: var(--color-brand-on-dark); }
-  @media (min-width: 760px) { .os-maker__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-6); } }
-  @media (min-width: 1080px) { .os-maker { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: clamp(40px, 5vw, 72px); align-items: start; } }
-
-  /* 2. сравнение */
-  .os-cmp { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); }
-  .os-cmp__table { width: 100%; border-collapse: collapse; }
-  .os-cmp__table th, .os-cmp__table td { padding: var(--space-4) var(--space-5); text-align: left; vertical-align: top; }
-  .os-cmp__table thead th { border-bottom: 2px solid var(--color-text); }
-  .os-cmp__table thead a {
-    display: block;
-    font-family: var(--font-head);
-    font-weight: 800;
-    font-size: var(--fs-h4);
-    color: var(--color-text);
-    text-decoration: none;
-  }
-  .os-cmp__table thead a:hover { color: var(--color-accent-text); }
-  .os-cmp__table thead span:not(.os-visually-hidden) { display: block; margin-top: 2px; font-size: var(--fs-small); font-weight: 500; color: var(--color-accent-text); }
-  .os-cmp__row { border-bottom: 1px solid var(--color-border-soft); }
-  .os-cmp__row:last-child { border-bottom: 0; }
-  .os-cmp__row th { width: 24%; font-weight: 500; color: var(--color-text-soft); }
-  .os-cmp__row td { font-weight: 600; }
-  .os-cmp__row--wide td { font-weight: 500; }
-  .os-cmp__row--same td { color: var(--color-text-soft); }
+  .os-cmp__row { border-bottom: 1px solid var(--hair); }
+  .os-cmp__row th { width: 26%; font-weight: 400; font-size: var(--fs-small); color: var(--color-muted); }
+  .os-cmp__row td { width: 37%; font-weight: 500; }
+  .os-cmp__row--wide td { font-weight: 400; color: var(--color-text-soft); }
   .os-cmp__same {
-    display: inline-block;
-    margin-left: var(--space-2);
-    padding: 2px 10px;
-    border-radius: var(--radius-pill);
-    background: var(--color-bg-alt);
-    font-size: var(--fs-tiny);
-    font-weight: 600;
+    margin-left: 12px;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     color: var(--color-muted);
-    vertical-align: 1px;
+    white-space: nowrap;
   }
 
-  /* на телефоне таблица — блоки: показатель сверху, значения двух растворов рядом */
+  /* на телефоне строка таблицы — показатель сверху, значения двух растворов рядом */
   @media (max-width: 699px) {
-    .os-cmp__table thead tr { display: grid; grid-template-columns: 1fr 1fr; }
-    .os-cmp__table thead th:first-child { display: none; }
-    .os-cmp__table thead th { padding: var(--space-4); }
-    .os-cmp__table tbody tr { display: grid; grid-template-columns: 1fr 1fr; padding: var(--space-3) var(--space-4); }
-    .os-cmp__table tbody th { grid-column: 1 / -1; width: auto; padding: 0 0 var(--space-1); font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-muted); }
-    .os-cmp__table tbody td { padding: var(--space-1) var(--space-3) 0 0; font-size: var(--fs-small); }
-    .os-cmp__table tbody td[colspan] { grid-column: 1 / -1; }
-    .os-cmp__row--wide td { grid-column: 1 / -1; padding-bottom: var(--space-2); }
-    .os-cmp__table tbody td[data-col]::before {
+    .os-cmp thead tr { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-4); }
+    .os-cmp thead th:first-child { display: none; }
+    .os-cmp thead th { align-self: end; padding: 0 0 14px; }
+    .os-cmp thead a { font-size: 26px; }
+    .os-cmp tbody tr { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-4); padding: 14px 0; }
+    .os-cmp tbody th { grid-column: 1 / -1; width: auto; padding: 0 0 6px; font-size: var(--fs-tiny); letter-spacing: 0.12em; text-transform: uppercase; }
+    .os-cmp tbody td { width: auto; padding: 0; font-size: var(--fs-small); }
+    .os-cmp tbody td[colspan] { grid-column: 1 / -1; }
+    .os-cmp__row--wide td + td { margin-top: 0; }
+    .os-cmp tbody td[data-col]::before {
       content: attr(data-col);
       display: block;
-      font-size: var(--fs-tiny);
-      font-weight: 700;
-      color: var(--color-accent-text);
+      margin-bottom: 2px;
+      font-size: 11.5px;
+      letter-spacing: 0.08em;
+      color: var(--color-muted);
     }
   }
 
-  .os-hints { display: grid; gap: var(--space-4); margin: var(--space-6) 0 0; padding: 0; list-style: none; }
-  .os-hints li { padding: var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-soft); }
-  .os-hints b { display: block; margin-bottom: var(--space-2); font-family: var(--font-head); font-weight: 800; color: var(--color-text); }
-  @media (min-width: 860px) { .os-hints { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-
-  /* 3–4, 6. серии */
-  .os-ser { display: grid; gap: var(--space-6); }
-  .os-ser__about { display: flex; flex-direction: column; align-items: flex-start; }
-  .os-quote {
-    margin: 0 0 var(--space-5);
-    padding-left: var(--space-4);
-    border-left: 3px solid var(--color-brand);
-    font-size: var(--fs-lead);
-    line-height: 1.45;
+  .os-hints { display: grid; gap: 0 var(--space-6); margin-top: clamp(56px, 7vw, 96px); }
+  .os-hints__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); counter-reset: os-hint; }
+  .os-hints__list li {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 4px var(--space-3);
+    padding: 18px 0;
+    border-bottom: 1px solid var(--hair);
+    counter-increment: os-hint;
   }
-  .os-ser__brick { margin: 0 0 var(--space-4); color: var(--color-text-soft); }
-  .os-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
-  .os-chips li { padding: 4px 12px; border-radius: var(--radius-pill); background: var(--color-brand-soft); font-size: var(--fs-small); font-weight: 600; }
-  .os-ser__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
-  @media (min-width: 960px) {
-    .os-ser { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: clamp(32px, 4vw, 64px); align-items: start; }
+  .os-hints__list li::before {
+    content: counter(os-hint, decimal-leading-zero);
+    grid-row: 1 / span 2;
+    padding-top: 9px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+  .os-hints__list b { font-family: var(--font-head); font-weight: 500; font-size: clamp(23px, 2vw, 28px); line-height: 1.1; }
+  .os-hints__list span { color: var(--color-text-soft); }
+  @media (min-width: 900px) {
+    .os-hints__list li { grid-template-columns: 34px minmax(0, 5fr) minmax(0, 6fr); column-gap: var(--space-5); align-items: baseline; }
+    .os-hints__list li::before { grid-row: auto; padding-top: 0; }
+  }
+  @media (min-width: 1000px) {
+    .os-hints { grid-template-columns: minmax(0, 3fr) minmax(0, 9fr); align-items: start; }
+    .os-hints > .label { padding-top: var(--space-4); }
+  }
+
+  /* ── 3–4, 6. серии ──────────────────────────────────────────────────────── */
+  .os-ser { display: grid; gap: var(--space-7); }
+  .os-ser__about { display: flex; flex-direction: column; align-items: stretch; }
+  .os-quote {
+    max-width: 30ch;
+    margin: 0;
+    font-family: var(--font-head);
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(24px, 2.3vw, 32px);
+    line-height: 1.18;
+    letter-spacing: -0.005em;
+    text-wrap: pretty;
+  }
+  .os-quote__src { margin: var(--space-3) 0 0; font-size: var(--fs-tiny); color: var(--color-muted); }
+  .os-quote__src a { color: var(--color-text-soft); }
+  .os-ser__brick { margin-top: var(--space-7); }
+  .os-ser__brick p:not(.label) { max-width: 52ch; margin: 0 0 var(--space-2); color: var(--color-text-soft); }
+  .os-dl { margin: var(--space-6) 0 0; border-top: 1px solid var(--hair-strong); }
+  .os-dl div { display: flex; justify-content: space-between; gap: var(--space-4); padding: 11px 0; border-bottom: 1px solid var(--hair); font-size: var(--fs-small); }
+  .os-dl dt { color: var(--color-muted); }
+  .os-dl dd { margin: 0; font-weight: 500; text-align: right; }
+  .os-ser__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5) var(--space-6); margin-top: var(--space-6); }
+  @media (min-width: 1000px) {
+    .os-ser { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(48px, 7vw, 112px); align-items: start; }
     /* характеристики длиннее описания — описание с кнопкой едет рядом с таблицей */
     .os-ser__about { position: sticky; top: 96px; }
   }
 
-  .os-rate { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); margin: var(--space-2) 0 var(--space-3); padding: var(--space-4) var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); }
-  .os-rate__num { margin: 0; font-size: var(--fs-h4); }
-  .os-rate__num b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-stat); color: var(--color-accent-text); }
-  .os-rate__text { margin: 0; font-size: var(--fs-small); color: var(--color-text-soft); }
-  .os-xc-note { max-width: 68ch; margin: 0 0 var(--space-5); color: var(--color-text-soft); }
+  .os-rate { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-5); margin-top: var(--space-6); padding-top: var(--space-4); border-top: 1px solid var(--hair-strong); }
+  .os-rate p { margin: 0; }
+  .os-rate__num { font-size: var(--fs-small); color: var(--color-text-soft); }
+  .os-rate__num b { margin-right: 4px; font-family: var(--font-head); font-weight: 500; font-size: var(--fs-stat); line-height: 1; color: var(--ink); }
+  .os-rate__text { max-width: 34ch; font-size: var(--fs-small); color: var(--color-text-soft); }
+  .os-rate + .os-dl { border-top-color: var(--hair); }
+  .os-xc-note { max-width: 68ch; margin: 0 0 var(--space-6); color: var(--color-text-soft); }
 
-  /* 5. зима */
-  .os-winter { display: grid; gap: var(--space-6); }
-  .os-winter__lead { max-width: 60ch; margin: 0 0 var(--space-5); font-size: var(--fs-lead); color: var(--color-text-soft); }
-  .os-winter__list { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
-  .os-winter__list li { position: relative; padding-left: 28px; }
-  .os-winter__list li::before {
-    content: '';
-    position: absolute;
-    left: 2px;
-    top: 0.55em;
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
-    background: var(--color-brand);
+  /* ── 5. зима: тушь, строки через линии ──────────────────────────────────── */
+  .os-winter { display: grid; gap: var(--space-8); }
+  .os-winter__lead { max-width: 56ch; margin: 0 0 var(--space-6); font-size: var(--fs-lead); color: rgb(247 244 238 / 0.82); }
+  .os-winter__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid rgb(247 244 238 / 0.32); counter-reset: os-win; }
+  .os-winter__list li {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: var(--space-3);
+    padding: 14px 0;
+    border-bottom: 1px solid rgb(247 244 238 / 0.16);
+    counter-increment: os-win;
   }
-  .os-winter__card { padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-dark); color: var(--color-on-dark); }
-  .os-winter__card p { margin: 0; }
-  .os-winter__big { font-family: var(--font-head); font-weight: 800; font-size: clamp(34px, 4.4vw, 52px); line-height: 1; color: var(--color-brand-on-dark); }
-  .os-winter__big + p { margin-top: var(--space-3); color: color-mix(in srgb, var(--color-on-dark) 80%, transparent); }
-  .os-winter__card .os-winter__stock { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid color-mix(in srgb, var(--color-on-dark) 18%, transparent); font-weight: 600; }
-  .os-winter__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
-  .os-winter__actions .btn--ghost { color: var(--color-on-dark); border-color: color-mix(in srgb, var(--color-on-dark) 60%, transparent); }
-  .os-winter__actions .btn--ghost:hover { background: color-mix(in srgb, var(--color-on-dark) 12%, transparent); }
-  @media (min-width: 960px) { .os-winter { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: clamp(40px, 5vw, 72px); align-items: start; } }
+  .os-winter__list li::before {
+    content: counter(os-win, decimal-leading-zero);
+    padding-top: 3px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: rgb(247 244 238 / 0.6);
+  }
+  .os-winter .os-src { color: rgb(247 244 238 / 0.62); }
+  .os-winter .os-src a { color: var(--paper); }
+  .os-winter__big {
+    font-family: var(--font-head);
+    font-weight: 500;
+    margin: 0;
+    font-size: clamp(56px, 6.6vw, 100px);
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    color: var(--sand);
+    white-space: nowrap;
+  }
+  .os-winter__cap { max-width: 30ch; margin: var(--space-4) 0 0; color: rgb(247 244 238 / 0.75); }
+  .os-winter__stock { margin: var(--space-6) 0 0; padding-top: var(--space-4); border-top: 1px solid rgb(247 244 238 / 0.32); font-weight: 500; }
+  .os-winter__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
+  /* на туши главная кнопка — бумагой; три класса, чтобы перебить html[data-site] .btn--primary (0,2,1) */
+  .os-winter .os-winter__actions .btn--primary { background: var(--paper); color: var(--ink); }
+  .os-winter .os-winter__actions .btn--primary:hover { background: var(--sand); }
+  @media (min-width: 1000px) {
+    .os-winter { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(48px, 6vw, 96px); align-items: start; }
+  }
 
-  /* 7. шаги */
-  .os-steps { display: grid; gap: var(--space-7); }
-  .os-steps__title { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
-  .os-steps__list { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; counter-reset: os-step; }
+  /* ── 7. шаги ────────────────────────────────────────────────────────────── */
+  .os-steps { display: grid; gap: var(--space-8); }
+  .os-steps__title { margin: 0 0 var(--space-5); font-size: var(--fs-h3); line-height: 1.05; }
+  .os-steps__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); counter-reset: os-step; }
   .os-steps__list li {
-    position: relative;
-    padding: 0 0 var(--space-3) 44px;
-    border-bottom: 1px solid var(--color-border-soft);
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: var(--space-3);
+    padding: 14px 0;
+    border-bottom: 1px solid var(--hair);
     color: var(--color-text-soft);
     counter-increment: os-step;
   }
   .os-steps__list li::before {
-    content: counter(os-step);
-    position: absolute;
-    left: 0;
-    top: 0;
+    content: counter(os-step, decimal-leading-zero);
+    padding-top: 3px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+  @media (min-width: 960px) { .os-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(40px, 5vw, 80px); } }
+
+  .os-color { display: grid; gap: var(--space-5) var(--space-6); margin-top: clamp(56px, 7vw, 96px); padding-top: var(--space-4); border-top: 1px solid var(--hair-strong); }
+  .os-color__title { margin: 0; font-size: var(--fs-h3); line-height: 1.05; max-width: 12ch; }
+  .os-color__list { margin: 0; padding: 0; list-style: none; color: var(--color-text-soft); }
+  .os-color__list li { padding: 12px 0; border-bottom: 1px solid var(--hair); }
+  .os-color__list li:first-child { padding-top: 0; }
+  @media (min-width: 1000px) {
+    .os-color { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); align-items: start; }
+  }
+
+  /* ── 8. расход ──────────────────────────────────────────────────────────── */
+  .os-calc { display: grid; gap: var(--space-8); }
+  .os-calc .label { margin-bottom: var(--space-3); }
+  .os-calc__big { margin: 0; font-size: var(--fs-h3); font-family: var(--font-head); color: var(--color-text-soft); }
+  .os-calc__big b { font-weight: 500; font-size: clamp(120px, 16vw, 220px); line-height: 0.8; letter-spacing: -0.04em; color: var(--ink); }
+  .os-calc__cap { max-width: 36ch; margin: var(--space-5) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--hair-strong); color: var(--color-text-soft); }
+  .os-calc__sum { margin: 0; border-top: 1px solid var(--hair-strong); }
+  .os-calc__sum div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); padding: 12px 0; border-bottom: 1px solid var(--hair); }
+  .os-calc__sum dt { color: var(--color-muted); font-size: var(--fs-small); }
+  .os-calc__sum dd { margin: 0; font-weight: 500; text-align: right; }
+  .os-calc__sum .os-calc__total { border-bottom-color: var(--ink); }
+  .os-calc__sum .os-calc__total dt { color: var(--ink); font-weight: 500; }
+  .os-calc__sum .os-calc__total dd { font-family: var(--font-head); font-size: var(--fs-stat); line-height: 1; }
+  .os-calc__hint { max-width: 52ch; margin: var(--space-5) 0 var(--space-6); color: var(--color-text-soft); }
+  @media (min-width: 1000px) {
+    .os-calc { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(48px, 7vw, 112px); align-items: start; }
+  }
+
+  /* ── 9. инструменты: строки через линии ─────────────────────────────────── */
+  .os-tools { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); counter-reset: os-tool; }
+  .os-tool {
     display: grid;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: var(--color-brand-soft);
-    font-family: var(--font-head);
-    font-weight: 800;
-    font-size: var(--fs-small);
-    color: var(--color-accent-text);
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: var(--space-2) var(--space-3);
+    padding: 22px 0;
+    border-bottom: 1px solid var(--hair);
+    counter-increment: os-tool;
   }
-  @media (min-width: 960px) { .os-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 4vw, 64px); } }
-
-  .os-color { margin-top: var(--space-7); padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-bg-alt); }
-  .os-color__title { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .os-color__list { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; color: var(--color-text-soft); }
-  .os-color__list li { position: relative; padding-left: 22px; }
-  .os-color__list li::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.6em;
-    width: 10px;
-    height: 3px;
-    border-radius: 2px;
-    background: var(--color-brand);
+  .os-tool::before {
+    content: counter(os-tool, decimal-leading-zero);
+    grid-row: 1 / span 3;
+    padding-top: 10px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
   }
-  @media (min-width: 860px) { .os-color__list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-7); } }
-
-  /* 8. расход */
-  .os-calc { display: grid; gap: var(--space-5); }
-  .os-calc__norm, .os-calc__example { padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); }
-  .os-calc__norm p, .os-calc__example p { margin: 0; }
-  .os-calc__big { font-size: var(--fs-h3); }
-  .os-calc__big b { font-family: var(--font-head); font-weight: 800; font-size: clamp(56px, 7vw, 96px); line-height: 1; color: var(--color-accent-text); }
-  .os-calc__big + p { margin-top: var(--space-3); color: var(--color-text-soft); }
-  .os-calc__norm .os-src { margin-top: var(--space-4); }
-  .os-calc__line { font-size: var(--fs-lead); }
-  .os-calc__example .os-calc__hint { margin: var(--space-3) 0 var(--space-5); color: var(--color-text-soft); }
-  @media (min-width: 860px) { .os-calc { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); } }
-
-  /* 9. инструменты */
-  .os-tools { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-  .os-tool { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-6) var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); }
-  .os-tool p { margin: 0; color: var(--color-text-soft); }
-  .os-tool__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .os-tool__link { margin-top: auto; padding-top: var(--space-2); font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
-  .os-tool__link:hover { text-decoration: underline; }
-  @media (min-width: 700px) { .os-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (min-width: 1080px) {
-    .os-tools { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-    /* после 11.10 инструментов два (общий строительный калькулятор убран — сайт только о цветных смесях): по два в ряд */
-    .os-tool { grid-column: span 3; }
-    .os-tool--video { grid-column: span 3; }
+  .os-tool__title { margin: 0; font-size: clamp(26px, 2.4vw, 34px); line-height: 1.05; }
+  .os-tool__text { max-width: 60ch; margin: 0; color: var(--color-text-soft); }
+  .os-tool__link { justify-self: start; margin-top: var(--space-2); }
+  @media (min-width: 1000px) {
+    .os-tool { grid-template-columns: 34px minmax(0, 4fr) minmax(0, 5fr) minmax(0, 2.4fr); column-gap: var(--space-6); align-items: baseline; }
+    .os-tool::before { grid-row: auto; padding-top: 0; }
+    .os-tool__link { justify-self: end; margin-top: 0; white-space: nowrap; }
   }
 
+  /* Сквозная проверка 11.10: подпись таблицы характеристик была обычным серым текстом, на /perel/ и
+     /dlya-klinkernogo-kirpicha/ такая подпись — мелкий капс (.label). Приводим к одному виду. */
+  .os-ser__specs :global(.specs__caption) {
+    margin-bottom: var(--space-3);
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
 </style>

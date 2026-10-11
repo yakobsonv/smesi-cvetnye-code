@@ -1,18 +1,21 @@
 ---
 // Страница 404. Без неё Vercel отдаёт служебную заглушку на английском.
 // Показываем те же входы, что и в меню, и телефон офиса.
+// Редизайн 11.10 («палитра шва»): крупная антиква слева, пояснение и телефон справа (7/5),
+// ниже — указатель разделов через линии с номерами, как «С чего обычно начинают» на главной.
 import Page from '../layouts/Page.astro';
 import Container from '../components/layout/Container.astro';
 import { PAGES } from '../data/nav';
 import { getSite } from '../lib/sites';
+import { nb } from '../lib/typo';
 
 const seller = getSite('smesi');
 const входы = [
   { ...PAGES.katalog, note: 'все цвета Perel и Основит' },
   { ...PAGES.podbor, note: 'как будет выглядеть шов на вашем кирпиче' },
   { ...PAGES.kalkulyator, note: 'сколько мешков нужно' },
-  { ...PAGES.perel, note: 'серии SL, VL, NL и затирка RL' },
-  { ...PAGES.osnovit, note: 'Брикформ МС11, МС11/1 и Бриксэйв ХС30' },
+  { ...PAGES.perel, note: 'серии SL, VL, NL и затирка\u00a0RL' },
+  { ...PAGES.osnovit, note: 'Брикформ МС11, МС11/1 и Бриксэйв\u00a0ХС30' },
   { ...PAGES.dostavka, note: 'офисы продаж и телефоны' },
 ];
 ---
@@ -23,67 +26,96 @@ const входы = [
   slug="404"
   priceModal={false}
 >
-  <Container>
-    <section class="nf">
-      <p class="nf__code">404</p>
-      <h1 class="display nf__title">Такой страницы здесь нет</h1>
-      <p class="nf__text">
-        Возможно, в адресе опечатка или страницу переименовали. Вот куда можно пойти отсюда.
-      </p>
-      <ul class="nf__list">
-        {входы.map((в) => (
+  <section class="nf">
+    <Container>
+      <div class="nf__head">
+        <div class="nf__main">
+          <p class="label nf__code"><span class="num">404</span> — страница не найдена</p>
+          <h1 class="nf__title" data-reveal="head">{nb('Такой страницы здесь нет')}</h1>
+        </div>
+        <div class="nf__side" data-reveal>
+          <p class="nf__text">
+            {nb('Возможно, в адресе опечатка или страницу переименовали. Вот куда можно пойти отсюда.')}
+          </p>
+          <p class="nf__phone">
+            <span class="label">Или позвоните</span>
+            <a class="nf__tel num" href={seller.phone.href}>{seller.phone.display}</a>
+            <span class="nf__hours num">{seller.hours}</span>
+          </p>
+        </div>
+      </div>
+
+      <ol class="nf__list">
+        {входы.map((в, i) => (
           <li>
             <a href={в.href}>
-              <span class="nf__label">{в.label}</span>
-              <span class="nf__note">{в.note}</span>
+              <span class="nf__n num">0{i + 1}</span>
+              <span class="nf__label">{nb(в.label)}</span>
+              <span class="nf__note">{nb(в.note)}</span>
+              <span class="nf__arrow" aria-hidden="true">→</span>
             </a>
           </li>
         ))}
-      </ul>
-      <p class="nf__phone">
-        Или позвоните: <a href={seller.phone.href}>{seller.phone.display}</a>, {seller.hours}
-      </p>
-    </section>
-  </Container>
+      </ol>
+    </Container>
+  </section>
 </Page>
 
 <style>
-  .nf { padding: clamp(48px, 10vh, 120px) 0 clamp(56px, 12vh, 140px); }
-  .nf__code {
+  .nf { padding: clamp(40px, 7vw, 104px) 0 clamp(64px, 9vw, 140px); }
+
+  .nf__head { display: grid; gap: var(--space-6); align-items: end; }
+  .nf__code { margin: 0 0 var(--space-5); }
+  .nf__title {
+    margin: 0;
+    font-size: var(--fs-h1);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+    max-width: 11ch;
+    text-wrap: balance;
+  }
+  .nf__side { display: grid; gap: var(--space-6); }
+  .nf__text { margin: 0; max-width: 40ch; font-size: var(--fs-lead); color: var(--color-text-soft); }
+  .nf__phone { display: grid; gap: 6px; margin: 0; padding-top: var(--space-4); border-top: 1px solid var(--hair); }
+  .nf__tel {
+    justify-self: start;
     font-family: var(--font-head);
-    font-weight: 700;
-    font-size: var(--fs-h3);
-    color: var(--color-brand);
-    letter-spacing: 0.12em;
-  }
-  .nf__title { margin: var(--space-3) 0 var(--space-4); }
-  .nf__text { color: var(--color-text-soft); max-width: 52ch; font-size: var(--fs-lead); }
-
-  .nf__list {
-    list-style: none;
-    margin: clamp(28px, 5vh, 48px) 0 0;
-    padding: 0;
-    display: grid;
-    gap: var(--space-3);
-    grid-template-columns: 1fr;
-  }
-  .nf__list a {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: var(--space-4) 0;
-    border-bottom: 1px solid var(--color-border-soft);
-    color: inherit;
+    font-size: clamp(30px, 3.2vw, 44px);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    color: var(--ink);
     text-decoration: none;
-    transition: padding-left 380ms var(--ease), border-color 380ms var(--ease);
+    border-bottom: 1px solid transparent;
   }
-  .nf__list a:hover { padding-left: 10px; border-bottom-color: var(--color-brand); }
-  .nf__label { font-family: var(--font-head); font-weight: 500; font-size: var(--fs-h4); }
-  .nf__note { color: var(--color-muted); font-size: var(--fs-small); }
-  .nf__phone { margin-top: clamp(28px, 5vh, 48px); color: var(--color-text-soft); }
-  .nf__phone a { color: inherit; }
+  .nf__tel:hover { border-bottom-color: var(--ink); }
+  .nf__hours { font-size: var(--fs-small); color: var(--color-muted); }
+  @media (min-width: 1000px) {
+    .nf__head { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: clamp(40px, 6vw, 96px); }
+  }
 
-  @media (min-width: 760px) {
-    .nf__list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-6); }
+  /* Указатель разделов — строки через линии */
+  .nf__list { margin: clamp(56px, 8vw, 120px) 0 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .nf__list a {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 4px 20px;
+    align-items: baseline;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--hair);
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .nf__n { font-size: 12px; color: var(--color-muted); }
+  .nf__label { font-family: var(--font-head); font-weight: 500; font-size: clamp(28px, 3.2vw, 48px); line-height: 1; letter-spacing: -0.015em; }
+  .nf__note { grid-column: 2; color: var(--color-muted); font-size: var(--fs-small); }
+  .nf__arrow { grid-row: 1; grid-column: 3; font-size: 28px; transition: translate 0.4s var(--ease); }
+  .nf__list a:hover .nf__label { font-style: italic; }
+  .nf__list a:hover .nf__arrow { translate: 8px 0; }
+  @media (min-width: 900px) {
+    .nf__list a { grid-template-columns: 60px minmax(0, 7fr) minmax(0, 4fr) auto; }
+    .nf__note { grid-column: 3; }
+    .nf__arrow { grid-column: 4; }
   }
 </style>

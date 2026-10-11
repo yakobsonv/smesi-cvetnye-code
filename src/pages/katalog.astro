@@ -14,6 +14,7 @@ import CtaBand from '../components/smesi/CtaBand.astro';
 import { SERIES, BRICK_TYPES, BRANDS, TONES, POSITIONS, ALSO_FOR, type BrickType, type Tone } from '../data/catalog';
 import { swatchFor } from '../data/swatches';
 import { localPath } from '../lib/sites';
+import { nb } from '../lib/typo';
 
 const typeOrder: BrickType[] = ['obychnyj', 'ruchnoj', 'klinker'];
 const toneOrder: Tone[] = ['white', 'grey', 'black', 'beige', 'brown', 'yellow', 'red', 'accent'];
@@ -98,9 +99,9 @@ const itemList = {
                 <div>
                   <h2 class="ser__title">{s.name}</h2>
                   <p class="ser__short">
-                    {s.short}
-                    {s.absorption && <Fragment> · водопоглощение кирпича {s.absorption}</Fragment>}
-                    {' '}· мешок {s.packKg} кг
+                    {nb(s.short)}
+                    {s.absorption && <Fragment> · водопоглощение кирпича {nb(s.absorption)}</Fragment>}
+                    {' '}· {nb(`мешок ${s.packKg} кг`)}
                   </p>
                 </div>
                 <a class="ser__more" href={`${localPath('smesi', s.page)}#${s.id}`}>Характеристики <span aria-hidden="true">→</span></a>
@@ -118,7 +119,7 @@ const itemList = {
     </Container>
   </section>
 
-  <CtaBand source="katalog" title="Не нашли нужный оттенок?" text="Назовите кирпич и желаемый цвет шва — подскажем ближайшую позицию и посчитаем количество мешков." />
+  <CtaBand source="katalog" title="Не нашли нужный оттенок?" text={nb('Назовите кирпич и желаемый цвет шва — подскажем ближайшую позицию и посчитаем количество мешков.').replace(/ — /g, '\u00a0— ')} />
 </Page>
 
 <script>

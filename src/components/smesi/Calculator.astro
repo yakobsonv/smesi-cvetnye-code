@@ -7,11 +7,14 @@
 // Своих коэффициентов и «запаса на бой» НЕТ — в данных производителей их нет.
 // Мешок — фасовка дилера (src/data/catalog.ts → packKg), мешков = вверх до целого.
 //
+// Вид (редизайн 11.10) — «бланк»: выбор смеси — строки через линии (название антиквой, норма мелко,
+// полоса оттенков серии), поля — подчёркнутые, итог — крупные цифры антиквой на var(--paper-2).
 // Скрипт меняет только текст и атрибуты, узлов не создаёт (скоуп-стили до созданных узлов не доходят).
 // Поля под выбранную смесь переключает CSS (:has), поэтому форма работает и без скрипта;
 // без JS вместо результата — нормы всех четырёх смесей (noscript).
 import { CONSUMPTION } from '../../data/series-facts';
 import { seriesById, type SeriesId } from '../../data/catalog';
+import { swatchFor } from '../../data/swatches';
 import { PAGES } from '../../data/nav';
 
 interface Props {
@@ -30,7 +33,7 @@ const keep = (t: string) => t.replace(/([\d\p{L}])([-–])(?=[\d\p{L}])/gu, '$1$
 /** Нормы на кирпич — с одной десятой, как в таблице каталога Perel: «0,8–1,0», а не «0,8–1». */
 const one = (n: number) => n.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const range1 = (a: number, b: number) => (a === b ? one(a) : `${one(a)}–${one(b)}`);
-/** Название в карточке выбора: « / » не рвётся — «МС11 / МС11/1» не разваливается по строкам. */
+/** Название в строке выбора: « / » не рвётся — «МС11 / МС11/1» не разваливается по строкам. */
 const unbreak = (t: string) => t.replace(/ \/ /g, '\u00a0/\u00a0');
 
 /** Фасовка дилера для группы серий — у группы она обязана быть одной. */
@@ -39,6 +42,8 @@ const packOf = (ids: SeriesId[]): number => {
   if (kg.length !== 1) throw new Error(`Калькулятор: у серий ${ids.join(', ')} разная фасовка (${kg.join(', ')} кг)`);
   return kg[0];
 };
+/** Полоса оттенков серии — те же плашки, что в каталоге (палитра производителя). */
+const shadesOf = (s: SeriesId): string[] => seriesById(s).colors.map((c) => swatchFor(s, c.code));
 
 // Оговорки берём из самих данных, чтобы текст не разошёлся с источником.
 const P = CONSUMPTION.perel;
@@ -67,6 +72,8 @@ interface Mix {
   empty: string;
   /** коротко для списка без JS */
   brief: string;
+  /** оттенки серии для полосы в строке выбора */
+  shades: string[];
 }
 
 const perelPack = packOf(['perel-sl', 'perel-vl', 'perel-nl']);
@@ -95,6 +102,7 @@ const MIXES: Mix[] = [
     srcLabel: 'каталог Perel, стр. 7',
     empty: 'Введите количество кирпичей',
     brief: `${range1(perelMin, perelMax)} кг на 1 кирпич в зависимости от формата, мешок ${perelPack} кг`,
+    shades: shadesOf('perel-sl'),
   },
   {
     id: 'osnovit',
@@ -109,6 +117,7 @@ const MIXES: Mix[] = [
     srcLabel: 'страница Брикформ МС11, osnovit.ru',
     empty: 'Введите площадь кладки',
     brief: `${num(O.kgPerM2)} кг на 1 м² кладки (${osCond}), мешок ${osPack} кг`,
+    shades: shadesOf('osnovit-mc11'),
   },
   {
     id: 'rl',
@@ -123,6 +132,7 @@ const MIXES: Mix[] = [
     srcLabel: 'карточка Perel RL, td-perel.ru',
     empty: 'Введите площадь кладки',
     brief: `${range(R.kgPerM2Min, R.kgPerM2Max)} кг на 1 м² — ${rlCond}, мешок ${rlPack} кг`,
+    shades: shadesOf('perel-rl'),
   },
   {
     id: 'xc30',
@@ -137,6 +147,7 @@ const MIXES: Mix[] = [
     srcLabel: 'страница Бриксэйв ХС30, osnovit.ru',
     empty: 'Введите площадь кладки',
     brief: `${X.kgPerM2.toLocaleString('ru-RU', { minimumFractionDigits: 1 })} кг на 1 м² (${X.condition}), мешок ${xcPack} кг`,
+    shades: shadesOf('osnovit-xc30'),
   },
 ];
 
@@ -152,15 +163,23 @@ const config = {
   <div class="calc__grid">
     <div class="calc__form" data-reveal>
       <fieldset class="calc__group">
-        <legend class="calc__legend"><span class="calc__step" aria-hidden="true">1</span>Смесь</legend>
+        <legend class="calc__legend"><span class="calc__step num" aria-hidden="true">01</span>Смесь</legend>
         <div class="calc__mixes">
           {MIXES.map((m) => (
             <label class="mix">
               <input class="mix__input" type="radio" name="mix" value={m.id} data-method={m.method} checked={m.id === first.id} />
-              <span class="mix__box">
+              <span class="mix__mark" aria-hidden="true"></span>
+              <span class="mix__body">
                 <span class="mix__name">{unbreak(m.name)}</span>
                 <span class="mix__use">{m.use}</span>
-                <span class="mix__meta">{keep(nb(m.meta))}</span>
+              </span>
+              <span class="mix__side">
+                <span class="mix__meta">
+                  {m.meta.split(' · ').map((part) => <span>{keep(nb(part))}</span>)}
+                </span>
+                <span class="mix__strip" aria-hidden="true">
+                  {m.shades.map((c) => <span class="mortar" style={`--c:${c}`}></span>)}
+                </span>
               </span>
             </label>
           ))}
@@ -171,28 +190,28 @@ const config = {
       </fieldset>
 
       <fieldset class="calc__group">
-        <legend class="calc__legend"><span class="calc__step" aria-hidden="true">2</span>Объём кладки</legend>
+        <legend class="calc__legend"><span class="calc__step num" aria-hidden="true">02</span>Объём кладки</legend>
 
         <div class="calc__fields" data-fields="brick">
-          <div class="field">
-            <label class="field__label" for={`${id}-format`}>Формат кирпича</label>
-            <select class="field__control calc__select" id={`${id}-format`} name="format">
+          <div class="field calc__field">
+            <label class="field__label calc__label" for={`${id}-format`}>Формат кирпича</label>
+            <select class="field__control calc__control calc__select" id={`${id}-format`} name="format">
               {P.perBrick.map((f, i) => (
                 <option value={String(i)} selected={i === 0}>{f.format} · {f.size} мм</option>
               ))}
             </select>
           </div>
-          <div class="field">
-            <label class="field__label" for={`${id}-count`}>Количество кирпичей, шт</label>
-            <input class="field__control" id={`${id}-count`} name="count" type="number" inputmode="numeric" min="0" step="1" placeholder="например, 3000" autocomplete="off" />
+          <div class="field calc__field">
+            <label class="field__label calc__label" for={`${id}-count`}>Количество кирпичей, шт</label>
+            <input class="field__control calc__control" id={`${id}-count`} name="count" type="number" inputmode="numeric" min="0" step="1" placeholder="например, 3000" autocomplete="off" />
             <p class="calc__hint">Возьмите из проекта или сметы.</p>
           </div>
         </div>
 
         <div class="calc__fields" data-fields="area">
-          <div class="field">
-            <label class="field__label" for={`${id}-area`}>Площадь кладки, м²</label>
-            <input class="field__control" id={`${id}-area`} name="area" type="number" inputmode="decimal" min="0" step="any" placeholder="например, 120" autocomplete="off" />
+          <div class="field calc__field">
+            <label class="field__label calc__label" for={`${id}-area`}>Площадь кладки, м²</label>
+            <input class="field__control calc__control" id={`${id}-area`} name="area" type="number" inputmode="decimal" min="0" step="any" placeholder="например, 120" autocomplete="off" />
             <p class="calc__hint">Площадь стен под облицовку за вычетом окон и дверей.</p>
           </div>
         </div>
@@ -205,10 +224,18 @@ const config = {
 
     <div class="calc__out" data-reveal>
       <div class="calc__live" data-calc-live hidden>
-        <p class="calc__out-label">Понадобится</p>
+        <p class="calc__out-label"><span class="calc__step num" aria-hidden="true">03</span>Понадобится</p>
+        <p class="calc__mix" data-calc-name>{unbreak(first.name)}</p>
         <output class="calc__result" for={`${id}-format ${id}-count ${id}-area`} aria-live="polite">
-          <span class="calc__bags" data-calc-bags>—</span>
-          <span class="calc__kg" data-calc-kg>{first.empty}</span>
+          <span class="calc__msg" data-calc-msg>{first.empty}</span>
+          <span class="calc__row calc__row--bags">
+            <span class="calc__n num" data-calc-bags data-empty>—</span>
+            <span class="calc__u" data-calc-bags-unit>{nb(`мешков по ${first.pack} кг`)}</span>
+          </span>
+          <span class="calc__row calc__row--kg">
+            <span class="calc__n num" data-calc-kg data-empty>—</span>
+            <span class="calc__u">кг сухой смеси</span>
+          </span>
         </output>
         <p class="calc__norm" data-calc-norm>{first.rates[0].norm}</p>
         <p class="calc__src">
@@ -257,6 +284,14 @@ const config = {
   // j — невидимый запрет переноса после тире (только для текста на экране, не для заявки)
   const span = (a: number, b: number, j = '') => (a === b ? nf.format(a) : `${nf.format(a)}–${j}${nf.format(b)}`);
   const WJ = '\u2060';
+  const NB = '\u00a0';
+  const unbreak = (t: string) => t.replace(/ \/ /g, `${NB}/${NB}`);
+  /** Крупная цифра итога: кегль подстраивается под длину числа (CSS берёт --n), чтобы «18 000–22 000» не вылезало из колонки. */
+  const setFigure = (el: HTMLElement, text: string) => {
+    el.textContent = text;
+    el.style.setProperty('--n', String(Math.max(1, text.replace(/\u2060/g, '').length)));
+    el.toggleAttribute('data-empty', text === '—');
+  };
 
   document.querySelectorAll<HTMLFormElement>('form[data-calc]').forEach((form) => {
     let cfg: { mixes: Record<string, MixCfg> };
@@ -267,7 +302,10 @@ const config = {
     }
     const q = <T extends Element>(s: string) => form.querySelector<T>(s);
     const live = q<HTMLElement>('[data-calc-live]');
+    const nameEl = q<HTMLElement>('[data-calc-name]');
+    const msgEl = q<HTMLElement>('[data-calc-msg]');
     const bagsEl = q<HTMLElement>('[data-calc-bags]');
+    const bagsUnitEl = q<HTMLElement>('[data-calc-bags-unit]');
     const kgEl = q<HTMLElement>('[data-calc-kg]');
     const normEl = q<HTMLElement>('[data-calc-norm]');
     const srcEl = q<HTMLAnchorElement>('[data-calc-src]');
@@ -276,7 +314,7 @@ const config = {
     const count = q<HTMLInputElement>('input[name="count"]');
     const area = q<HTMLInputElement>('input[name="area"]');
     const quick = q<HTMLElement>('[data-calc-quick]');
-    if (!live || !bagsEl || !kgEl || !normEl || !srcEl || !askEl || !format || !count || !area) return;
+    if (!live || !msgEl || !bagsEl || !bagsUnitEl || !kgEl || !normEl || !srcEl || !askEl || !format || !count || !area) return;
 
     const update = () => {
       const mixId = (form.elements.namedItem('mix') as RadioNodeList | null)?.value || '';
@@ -285,6 +323,7 @@ const config = {
       const rate = mix.method === 'brick' ? mix.rates[Number(format.value) || 0] ?? mix.rates[0] : mix.rates[0];
       const input = mix.method === 'brick' ? count : area;
 
+      if (nameEl) nameEl.textContent = unbreak(mix.name);
       normEl.textContent = rate.norm;
       srcEl.href = mix.src;
       srcEl.textContent = mix.srcLabel;
@@ -292,8 +331,11 @@ const config = {
       const raw = input.value.trim();
       const value = input.valueAsNumber;
       if (!raw || !Number.isFinite(value) || value <= 0) {
-        bagsEl.textContent = '—';
-        kgEl.textContent = input.validity.badInput || (raw && !(value > 0)) ? 'Введите число больше нуля' : mix.empty;
+        msgEl.textContent = input.validity.badInput || (raw && !(value > 0)) ? 'Введите число больше нуля' : mix.empty;
+        msgEl.hidden = false;
+        setFigure(bagsEl, '—');
+        bagsUnitEl.textContent = `мешков по ${mix.pack}${NB}кг`;
+        setFigure(kgEl, '—');
         askEl.dataset.ask = mix.name;
         askEl.textContent = 'Узнать цену';
         if (quick) quick.hidden = true;
@@ -306,13 +348,14 @@ const config = {
       const bMax = bagsOf(kgMax, mix.pack);
       const bags = span(bMin, bMax);
       const bagsShown = span(bMin, bMax, WJ);
-      const NB = '\u00a0';
-      // обычный пробел: при очень больших числах слово уходит на строку ниже, а не рвётся посередине
-      bagsEl.textContent = `${bagsShown} ${plural(bMax, 'мешок', 'мешка', 'мешков')}`;
-      kgEl.textContent = `по ${mix.pack}${NB}кг · ${span(kgMin, kgMax, WJ)}${NB}кг сухой смеси`;
+      msgEl.hidden = true;
+      setFigure(bagsEl, bagsShown);
+      bagsUnitEl.textContent = `${plural(bMax, 'мешок', 'мешка', 'мешков')} по ${mix.pack}${NB}кг`;
+      setFigure(kgEl, span(kgMin, kgMax, WJ));
       askEl.dataset.ask = `${mix.name}: около ${bags} ${plural(bMax, 'мешка', 'мешков', 'мешков')} по ${mix.pack} кг`;
       askEl.textContent = `Узнать цену на ${bagsShown}${NB}${plural(bMax, 'мешок', 'мешка', 'мешков')}`;
       if (quick) {
+        // обычный пробел: при очень больших числах слово уходит на строку ниже, а не рвётся посередине
         quick.textContent = `Понадобится ${bagsShown} ${plural(bMax, 'мешок', 'мешка', 'мешков')} по ${mix.pack}${NB}кг`;
         quick.hidden = false;
       }
@@ -329,142 +372,217 @@ const config = {
 
 <style>
   .calc { margin: 0; }
-  .calc__grid { display: grid; gap: var(--space-6); align-items: start; }
+  .calc__grid { display: grid; gap: clamp(40px, 5vw, 56px); align-items: start; }
 
-  .calc__group { margin: 0 0 var(--space-6); padding: 0; border: 0; min-width: 0; }
+  /* ── Шаги бланка: номер мелко, подпись капсом, под ней линия ─────────────── */
+  .calc__group { margin: 0 0 clamp(44px, 5vw, 64px); padding: 0; border: 0; min-width: 0; }
   .calc__group:last-child { margin-bottom: 0; }
-  .calc__legend {
+  .calc__legend,
+  .calc__out-label {
     display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    margin-bottom: var(--space-4);
-    padding: 0;
-    font-family: var(--font-head);
-    font-weight: 800;
-    font-size: var(--fs-h4);
-  }
-  .calc__step {
-    display: inline-grid;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    border-radius: var(--radius-pill);
-    background: var(--color-dark);
-    color: var(--color-on-dark);
+    align-items: baseline;
+    gap: 14px;
+    width: 100%;
+    margin: 0;
+    padding: 0 0 12px;
+    border-bottom: 1px solid var(--hair-strong);
     font-size: var(--fs-tiny);
-    font-weight: 800;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .calc__step { letter-spacing: 0.04em; color: var(--ink); }
+
+  /* ── Выбор смеси: строки через линии ─────────────────────────────────────── */
+  .calc__mixes { display: grid; }
+  .mix {
+    --mix-fs: clamp(24px, 2.3vw, 31px);
+    position: relative;
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 10px 16px;
+    align-items: start;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--hair);
+    cursor: pointer;
+  }
+  .mix__input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .mix__mark {
+    width: 14px;
+    height: 14px;
+    margin-top: calc(var(--mix-fs) * 0.53 - 7px);
+    border: 1px solid var(--ink);
+    transition: background-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  .mix__body { display: grid; gap: 6px; min-width: 0; }
+  .mix__name {
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: var(--mix-fs);
+    line-height: 1.06;
+    letter-spacing: -0.01em;
+    color: var(--color-text-soft);
+    transition: color var(--dur) var(--ease);
+  }
+  .mix__use { font-size: var(--fs-tiny); letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-muted); }
+  .mix__side { grid-column: 2; display: grid; gap: 10px; min-width: 0; }
+  .mix__meta { display: flex; flex-wrap: wrap; gap: 0 12px; font-size: 14px; line-height: 1.4; color: var(--color-muted); }
+  .mix__strip { display: flex; height: 8px; overflow: hidden; opacity: 0.45; transition: opacity var(--dur) var(--ease); }
+  .mix__strip > span { flex: 1 1 0; min-width: 0; }
+
+  .mix__input:checked ~ .mix__mark { background: var(--ink); box-shadow: inset 0 0 0 3px var(--paper); }
+  .mix__input:checked ~ .mix__body .mix__name { color: var(--ink); }
+  .mix__input:checked ~ .mix__side .mix__strip { opacity: 1; }
+  .mix:has(.mix__input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 4px; }
+  @media (hover: hover) {
+    .mix:hover .mix__name { color: var(--ink); font-style: italic; }
+    .mix:hover .mix__strip { opacity: 1; }
+  }
+  @media (max-width: 639px) {
+    .mix { padding: 16px 0; }
+    .mix__body { gap: 4px; }
+    .mix__side { gap: 8px; }
+    .mix__strip { height: 6px; }
+  }
+  @media (min-width: 640px) {
+    .mix { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 210px); gap: 6px 20px; }
+    .mix__side { grid-column: 3; padding-top: 4px; }
+    .mix__meta { flex-direction: column; }
   }
 
-  .calc__mixes { display: grid; gap: var(--space-3); }
-  @media (min-width: 560px) { .calc__mixes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .calc__hint { margin: var(--space-3) 0 0; font-size: 14px; line-height: 1.45; color: var(--color-muted); }
+  .calc__hint a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--hair-strong); }
+  .calc__hint a:hover { text-decoration-color: var(--ink); }
 
-  .mix { position: relative; display: block; }
-  .mix__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-  .mix__box {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    height: 100%;
-    padding: var(--space-4);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    background: var(--color-surface);
-    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-  }
-  .mix__name { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-body); line-height: 1.2; }
-  .mix__use { font-size: var(--fs-small); font-weight: 600; color: var(--color-accent-text); }
-  .mix__meta { margin-top: var(--space-1); font-size: var(--fs-tiny); color: var(--color-muted); }
-  @media (hover: hover) { .mix:hover .mix__box { border-color: var(--color-text); } }
-  @media (max-width: 559px) { .mix__box { padding: var(--space-3) var(--space-4); } }
-  .mix__input:checked + .mix__box {
-    border-color: var(--color-brand);
-    background: var(--color-brand-soft);
-    box-shadow: inset 0 0 0 1px var(--color-brand);
-  }
-  .mix__input:focus-visible + .mix__box { outline: var(--focus-ring) solid var(--color-brand); outline-offset: 2px; }
-
-  .calc__hint { margin: var(--space-2) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
-  .calc__hint a { color: var(--color-accent-text); font-weight: 600; }
-
-  .calc__fields { display: grid; gap: var(--space-4); }
+  /* ── Поля: подчёркнутые, как в бланке ─────────────────────────────────────── */
+  .calc__fields { display: grid; gap: 28px 32px; margin-top: 28px; }
   @media (min-width: 560px) { .calc__fields[data-fields='brick'] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
-  .calc__fields .field__label { font-weight: 700; }
+  .calc__field .calc__label {
+    margin-bottom: 4px;
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .calc__field .calc__control {
+    min-height: 58px;
+    padding: 6px 0 8px;
+    border: 0;
+    border-bottom: 1px solid var(--hair-strong);
+    border-radius: 0;
+    background-color: transparent;
+    font-family: var(--font-head);
+    font-size: clamp(26px, 2.2vw, 30px);
+    font-weight: 500;
+    line-height: 1.1;
+    color: var(--ink);
+    -moz-appearance: textfield;
+  }
+  .calc__field .calc__control::-webkit-inner-spin-button,
+  .calc__field .calc__control::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+  .calc__field .calc__control::placeholder { font-style: italic; color: color-mix(in srgb, var(--ink) 42%, transparent); }
+  .calc__field .calc__control:focus { outline: none; border-bottom-color: var(--ink); box-shadow: 0 1px 0 0 var(--ink); }
+  .calc__field .calc__select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 28px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+    background-position: calc(100% - 12px) 52%, calc(100% - 6px) 52%;
+    background-size: 6px 6px;
+    background-repeat: no-repeat;
+    cursor: pointer;
+  }
+
+  /* Под выбранную смесь — только её поля и её условие. CSS, а не скрипт: работает и без JS. */
+  .calc:has(.mix__input[data-method='brick']:checked) .calc__fields[data-fields='area'] { display: none; }
+  .calc:has(.mix__input[data-method='area']:checked) .calc__fields[data-fields='brick'] { display: none; }
 
   .calc__cond {
     display: none;
-    margin: var(--space-4) 0 0;
-    padding: var(--space-3) var(--space-4);
-    border-left: 3px solid var(--color-brand);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    background: var(--color-bg-alt);
-    font-size: var(--fs-small);
+    margin: 28px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--hair);
+    font-size: 14px;
+    line-height: 1.5;
     color: var(--color-text-soft);
   }
   .calc:has(.mix__input[value='perel']:checked) .calc__cond[data-cond='perel'],
   .calc:has(.mix__input[value='osnovit']:checked) .calc__cond[data-cond='osnovit'],
   .calc:has(.mix__input[value='rl']:checked) .calc__cond[data-cond='rl'],
   .calc:has(.mix__input[value='xc30']:checked) .calc__cond[data-cond='xc30'] { display: block; }
-  .calc__select { padding-right: var(--space-6); }
 
-  /* Короткий итог под полями — только там, где карточка результата стоит ниже формы (телефон, планшет) */
+  /* Короткий итог под полями — только там, где итог стоит ниже формы (телефон, планшет) */
   .calc__quick {
-    margin: var(--space-4) 0 0;
+    margin: 24px 0 0;
     font-family: var(--font-head);
-    font-weight: 800;
-    font-size: var(--fs-lead);
-    line-height: 1.25;
-    color: var(--color-accent-text);
+    font-weight: 500;
+    font-size: clamp(24px, 6vw, 30px);
+    line-height: 1.15;
+    color: var(--ink);
     overflow-wrap: anywhere;
   }
   .calc__quick[hidden] { display: none; }
   @media (min-width: 960px) { .calc__quick { display: none; } }
 
-  /* Под выбранную смесь — только её поля. CSS, а не скрипт: работает и без JS. */
-  .calc:has(.mix__input[data-method='brick']:checked) .calc__fields[data-fields='area'] { display: none; }
-  .calc:has(.mix__input[data-method='area']:checked) .calc__fields[data-fields='brick'] { display: none; }
-
+  /* ── Итог: лист бумаги потемнее, крупные цифры антиквой ───────────────────── */
   .calc__out {
-    padding: var(--space-6) var(--space-5);
-    border-radius: var(--radius-lg);
-    background: var(--color-dark);
-    color: var(--color-on-dark);
+    container-type: inline-size;
+    padding: clamp(24px, 3vw, 40px) clamp(20px, 3vw, 40px) clamp(28px, 3vw, 40px);
+    background: var(--paper-2);
   }
   .calc__live[hidden] { display: none; }
-  .calc__out-label {
-    margin: 0 0 var(--space-2);
-    font-size: var(--fs-tiny);
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--color-brand-on-dark);
-  }
-  .calc__result { display: block; }
-  .calc__bags {
-    display: block;
+  .calc__mix {
+    margin: 16px 0 0;
     font-family: var(--font-head);
-    font-weight: 800;
-    font-size: var(--fs-h2);
-    line-height: 1.08;
-    letter-spacing: -0.02em;
+    font-style: italic;
+    font-size: clamp(21px, 1.8vw, 24px);
+    line-height: 1.15;
+    color: var(--color-text-soft);
+  }
+  .calc__result { display: block; margin-top: 8px; }
+  .calc__msg { display: block; padding: 12px 0 0; font-size: var(--fs-small); color: var(--ink); }
+  .calc__msg[hidden] { display: none; }
+  .calc__row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px 0 14px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .calc__row--kg { border-bottom-color: var(--hair-strong); }
+  .calc__n {
+    font-family: var(--font-head);
+    font-weight: 500;
+    line-height: 0.9;
+    letter-spacing: -0.025em;
+    color: var(--ink);
     overflow-wrap: anywhere;
   }
-  .calc__kg { display: block; margin-top: var(--space-2); font-size: var(--fs-lead); color: color-mix(in srgb, var(--color-on-dark) 82%, transparent); overflow-wrap: anywhere; }
-  .calc__norm {
-    margin: var(--space-5) 0 0;
-    padding-top: var(--space-4);
-    border-top: 1px solid color-mix(in srgb, var(--color-on-dark) 16%, transparent);
-    font-size: var(--fs-small);
-    color: color-mix(in srgb, var(--color-on-dark) 82%, transparent);
-  }
-  .calc__src { margin: var(--space-2) 0 0; font-size: var(--fs-small); color: color-mix(in srgb, var(--color-on-dark) 72%, transparent); }
-  .calc__src a { color: var(--color-brand-on-dark); font-weight: 600; }
-  .calc__approx { margin: var(--space-2) 0 0; font-size: var(--fs-small); color: color-mix(in srgb, var(--color-on-dark) 72%, transparent); }
-  .calc__ask { margin-top: var(--space-5); }
+  /* Кегль по длине числа: колонка итога — контейнер, --n ставит скрипт (число знаков) */
+  .calc__row--bags .calc__n { font-size: clamp(56px, 7vw, 112px); font-size: min(112px, max(32px, calc(100cqi / (var(--n, 2) * 0.5)))); }
+  .calc__row--kg .calc__n { font-size: clamp(36px, 4vw, 60px); font-size: min(60px, max(28px, calc(100cqi / (var(--n, 2) * 0.5)))); }
+  /* Пустой бланк: вместо цифры — бледный прочерк */
+  .calc__n[data-empty] { color: var(--hair-strong); line-height: 0.6; }
+  .calc__row--bags .calc__n[data-empty] { font-size: clamp(48px, 5vw, 72px); }
+  .calc__row--kg .calc__n[data-empty] { font-size: clamp(36px, 3.4vw, 48px); }
+  .calc__u { font-size: var(--fs-small); line-height: 1.3; color: var(--color-text-soft); }
 
-  .calc__nojs-list { display: grid; gap: var(--space-2); margin: 0 0 var(--space-4); padding: 0 0 0 1.1em; font-size: var(--fs-small); color: color-mix(in srgb, var(--color-on-dark) 82%, transparent); }
+  .calc__norm { margin: 18px 0 0; font-size: 14px; line-height: 1.5; color: var(--color-text-soft); }
+  .calc__src,
+  .calc__approx { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--color-muted); }
+  .calc__src a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--hair-strong); }
+  .calc__src a:hover { text-decoration-color: var(--ink); }
+  .calc__ask { margin-top: 24px; }
+
+  .calc__nojs-list { display: grid; margin: 0 0 var(--space-4); padding: 0; list-style: none; font-size: 14px; line-height: 1.45; color: var(--color-text-soft); }
+  .calc__nojs-list li { padding: 12px 0; border-bottom: 1px solid var(--hair); }
+  .calc__nojs-list b { font-weight: 500; color: var(--ink); }
 
   @media (min-width: 960px) {
-    .calc__grid { grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr); gap: clamp(32px, 4vw, 56px); }
-    .calc__out { position: sticky; top: 104px; padding: var(--space-7) var(--space-6); }
+    .calc__grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(40px, 5vw, 88px); }
+    .calc__out { position: sticky; top: 96px; }
   }
 </style>

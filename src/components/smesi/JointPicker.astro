@@ -5,6 +5,11 @@
 // ⚠️ Кадр показывает ОТТЕНОК шва, а не конкретную позицию: бренда и кода смеси у кадров нет.
 // Поэтому под кадром — ссылки на близкие по тону позиции каталога, а не «это Perel 0005».
 //
+// Вид (редизайн 11.10, язык «палитра шва»): кадр крупно без скругления, подпись ПОД кадром;
+// завод — текстовые вкладки, цвета кирпича — строка слов с подчёркиванием выбранного, цвета шва —
+// квадратные плашки раствора (.mortar) с подписью, выбранная обведена тушью. Группы — через тонкие линии.
+// На узком экране кадр (кадрирован 4:3) прилипает под шапкой: переключаешь шов — и сразу видишь кладку.
+//
 // Без JS: виден первый кадр и все переключатели-ссылки ведут в каталог; со скриптом кадр
 // меняется на месте, загружаются только выбранные кадры (атрибут data-src, не src).
 import { KLADKA_UNIQUE as KLADKA, KLADKA_TONE_ON_TONE } from '../../data/kladka';
@@ -23,6 +28,10 @@ const bricks = variant === 'compact' ? KLADKA.filter((b) => b.id === (start ?? K
 const first = bricks.find((b) => b.id === start) ?? bricks[0];
 const firstSeam = first?.seams[0];
 const factories = [...new Map(bricks.map((b) => [b.factory, b.factoryName])).entries()];
+const full = variant === 'full';
+// Номер шага у подписи группы — только в полном варианте (в компактном группа одна).
+const many = factories.length > 1;
+const step = (n: number) => (full ? `0${n}` : '');
 
 // Связь видимого оттенка шва с группой оттенка каталога — для ссылки «смеси этого тона».
 const TONE_OF_SEAM: Record<string, string> = {
@@ -43,30 +52,32 @@ const data = JSON.stringify(
 {first && firstSeam && (
   <div class:list={['jp', `jp--${variant}`]} id={id} data-jp={data} data-katalog={PAGES.katalog.href}>
     <figure class="jp__stage">
-      <img
-        class="jp__img"
-        src={firstSeam.src}
-        srcset={`${firstSeam.srcSm} 320w, ${firstSeam.src} ${firstSeam.w}w`}
-        sizes={variant === 'compact' ? '(min-width: 960px) 44vw, 92vw' : '(min-width: 960px) 56vw, 92vw'}
-        width={firstSeam.w}
-        height={firstSeam.h}
-        alt={`Кладка: ${brickLabel(first.brick)}, ${firstSeam.label} шов`}
-        data-jp-img
-        fetchpriority={variant === 'compact' ? 'high' : undefined}
-      />
+      <div class="jp__frame">
+        <img
+          class="jp__img"
+          src={firstSeam.src}
+          srcset={`${firstSeam.srcSm} 320w, ${firstSeam.src} ${firstSeam.w}w`}
+          sizes={variant === 'compact' ? '(min-width: 960px) 44vw, 92vw' : '(min-width: 860px) 56vw, 92vw'}
+          width={firstSeam.w}
+          height={firstSeam.h}
+          alt={`Кладка: ${brickLabel(first.brick)}, ${firstSeam.label} шов`}
+          data-jp-img
+          fetchpriority={variant === 'compact' ? 'high' : undefined}
+        />
+      </div>
       <figcaption class="jp__cap">
-        <span data-jp-caption>{brickLabel(first.brick)} · шов {firstSeam.label}{toneOnTone.has(`${first.id}|${firstSeam.id}`) ? ' — почти в цвет кирпича' : ''}</span>
-        <span class="jp__hint">визуализация кладки, цвет на экране приблизительный</span>
+        <span class="jp__now" data-jp-caption>{brickLabel(first.brick)} · шов {firstSeam.label}{toneOnTone.has(`${first.id}|${firstSeam.id}`) ? ' — почти в цвет кирпича' : ''}</span>
+        <span class="jp__hint">Визуализация кладки, цвет на экране приблизительный</span>
       </figcaption>
     </figure>
 
     <div class="jp__controls">
-      {variant === 'full' && (
+      {full && (
         <Fragment>
-          {factories.length > 1 && (
+          {many && (
             <div class="jp__group">
-              <p class="jp__label">Кирпич</p>
-              <div class="jp__tabs" role="tablist">
+              <p class="jp__label"><span class="jp__step num">{step(1)}</span>Завод</p>
+              <div class="jp__tabs" role="tablist" aria-label="Завод кирпича">
                 {factories.map(([f, name]) => (
                   <button type="button" class="jp__tab" role="tab" aria-selected={f === first.factory ? 'true' : 'false'} data-jp-factory={f}>{name}</button>
                 ))}
@@ -74,12 +85,12 @@ const data = JSON.stringify(
             </div>
           )}
           <div class="jp__group">
-            <p class="jp__label">Цвет кирпича</p>
-            <div class="jp__chips" data-jp-bricks>
+            <p class="jp__label"><span class="jp__step num">{step(many ? 2 : 1)}</span>Цвет кирпича</p>
+            <div class="jp__bricks" data-jp-bricks>
               {bricks.map((b) => (
                 <button
                   type="button"
-                  class="jp__chip"
+                  class="jp__brick"
                   data-jp-brick={b.id}
                   data-factory={b.factory}
                   aria-pressed={b.id === first.id ? 'true' : 'false'}
@@ -92,17 +103,18 @@ const data = JSON.stringify(
       )}
 
       <div class="jp__group">
-        <p class="jp__label">Цвет шва</p>
+        <p class="jp__label"><span class="jp__step num">{step(many ? 3 : 2)}</span>Цвет шва</p>
         <div class="jp__seams" data-jp-seams>
           {first.seams.map((s, i) => (
             <button type="button" class="jp__seam" data-jp-seam={s.id} aria-pressed={i === 0 ? 'true' : 'false'}>
-              <span class="jp__dot" data-seam={s.id} aria-hidden="true"></span>{s.label}
+              <span class="jp__sw mortar" data-seam={s.id} aria-hidden="true"></span>
+              <span class="jp__sn">{s.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <a class="jp__link" href={`${PAGES.katalog.href}?ton=${TONE_OF_SEAM[firstSeam.id] ?? ''}`} data-jp-link>
+      <a class="jp__link arrow-link" href={`${PAGES.katalog.href}?ton=${TONE_OF_SEAM[firstSeam.id] ?? ''}`} data-jp-link>
         Смеси этого тона в каталоге <span aria-hidden="true">→</span>
       </a>
     </div>
@@ -142,6 +154,7 @@ const data = JSON.stringify(
       press('[data-jp-seam]', 'data-jp-seam', seam.id);
     };
 
+    // Плашки шва пересобираются под выбранный кирпич; разметка та же, что в серверной вёрстке выше.
     const renderSeams = () => {
       seamsBox.innerHTML = '';
       brick.seams.forEach((s) => {
@@ -150,11 +163,14 @@ const data = JSON.stringify(
         b.className = 'jp__seam';
         b.dataset.jpSeam = s.id;
         b.setAttribute('aria-pressed', String(s.id === seamId));
-        const dot = document.createElement('span');
-        dot.className = 'jp__dot';
-        dot.dataset.seam = s.id;
-        dot.setAttribute('aria-hidden', 'true');
-        b.append(dot, s.label);
+        const sw = document.createElement('span');
+        sw.className = 'jp__sw mortar';
+        sw.dataset.seam = s.id;
+        sw.setAttribute('aria-hidden', 'true');
+        const name = document.createElement('span');
+        name.className = 'jp__sn';
+        name.textContent = s.label;
+        b.append(sw, name);
         seamsBox.append(b);
       });
     };
@@ -201,78 +217,169 @@ const data = JSON.stringify(
      скоуп-атрибут Astro — скоуп-стили до них молча не доходят (тот же дефект, что 29.09
      у карточки товара ЖКЗ). Префикс .jp уникален, наружу стили не текут. -->
 <style is:global>
-  .jp { display: grid; gap: var(--space-5); }
-  .jp__stage { position: relative; margin: 0; overflow: hidden; border-radius: var(--radius); background: var(--color-bg-alt); }
+  .jp { display: grid; gap: clamp(28px, 4vw, 48px); }
+
+  /* ── Кадр: крупно, без скругления; подпись — под кадром, а не поверх ── */
+  .jp__stage { margin: 0; }
+  .jp__frame { overflow: hidden; background: var(--paper-2); }
   .jp__img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
-  .jp__cap {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
+  .jp__cap { display: grid; gap: 4px; padding-top: 14px; }
+  .jp__now { display: block; font-family: var(--font-head); font-size: clamp(22px, 2vw, 28px); font-weight: 500; line-height: 1.1; letter-spacing: -0.01em; color: var(--ink); }
+  .jp__now::first-letter { text-transform: uppercase; }
+  .jp__hint { font-size: 13px; color: var(--color-muted); }
+
+  /* ── Переключатели: группы через тонкие линии, подпись мелким капсом с номером шага ── */
+  .jp__controls { display: grid; align-content: start; border-top: 1px solid var(--hair-strong); }
+  .jp__group { display: grid; gap: 10px; padding: 16px 0 22px; border-bottom: 1px solid var(--hair); }
+  .jp__label {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
-    background: rgb(20 18 15 / 0.78);
-    color: #fff;
-    font-size: var(--fs-small);
-    font-weight: 600;
+    gap: 12px;
+    align-items: baseline;
+    margin: 0;
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-muted);
   }
-  .jp__hint { font-weight: 400; font-size: var(--fs-tiny); color: rgb(255 255 255 / 0.8); }
+  .jp__step { letter-spacing: 0.04em; color: var(--ink); }
+  .jp__step:empty { display: none; }
 
-  .jp__controls { display: grid; gap: var(--space-5); align-content: start; }
-  .jp__group { display: grid; gap: var(--space-2); }
-  .jp__label { margin: 0; font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-muted); }
-
-  .jp__tabs, .jp__chips, .jp__seams { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-  .jp__tab, .jp__chip, .jp__seam {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 40px;
-    padding: 6px 14px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-surface);
-    color: var(--color-text);
+  .jp__tab, .jp__brick, .jp__seam {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-soft);
     font: inherit;
-    font-size: var(--fs-small);
+    text-align: left;
     cursor: pointer;
-    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
   }
-  .jp__chip[hidden] { display: none; }
-  .jp__tab[aria-selected='true'], .jp__chip[aria-pressed='true'], .jp__seam[aria-pressed='true'] {
-    border-color: var(--color-text);
-    background: var(--color-text);
-    color: var(--color-bg);
+  .jp__tab:focus-visible, .jp__brick:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  /* Завод — текстовые вкладки антиквой, выбранная подчёркнута тушью */
+  .jp__tabs { display: flex; flex-wrap: wrap; gap: 2px 28px; }
+  .jp__tab {
+    padding: 4px 0 3px;
+    border-bottom: 1px solid transparent;
+    font-family: var(--font-head);
+    font-size: clamp(21px, 1.8vw, 25px);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--color-muted);
+    transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
   }
-  .jp__tab:hover, .jp__chip:hover, .jp__seam:hover { border-color: var(--color-text); }
+  .jp__tab:hover { color: var(--ink); }
+  .jp__tab[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--ink); }
 
-  .jp__dot { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25); background: #bdb6ab; }
-  /* условные оттенки точек — подсказка, не образец смеси */
-  .jp__dot[data-seam='white'] { background: #f2efe8; }
-  .jp__dot[data-seam='superwhite'] { background: #ffffff; }
-  .jp__dot[data-seam='grey'] { background: #9c9a95; }
-  .jp__dot[data-seam='darkgrey'] { background: #5d5b57; }
-  .jp__dot[data-seam='black'] { background: #232220; }
-  .jp__dot[data-seam='brown'] { background: #5a3a26; }
-  .jp__dot[data-seam='lightbrown'] { background: #a77b55; }
-  .jp__dot[data-seam='cream'] { background: #cbaca5; }
-  .jp__dot[data-seam='lightgrey'] { background: #c7c6c1; }
-  .jp__dot[data-seam='darkbrown'] { background: #5c3d2c; }
-  .jp__dot[data-seam='blackbrown'] { background: #422f28; }
-
-  .jp__link { font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
-  .jp__link:hover { text-decoration: underline; }
-
-  /* compact — первый экран главной на тёмном фоне */
-  .jp--compact .jp__label { color: rgb(255 255 255 / 0.72); }
-  .jp--compact .jp__seam { background: rgb(255 255 255 / 0.06); border-color: rgb(255 255 255 / 0.28); color: #fff; }
-  .jp--compact .jp__seam[aria-pressed='true'] { background: #fff; color: var(--color-dark); border-color: #fff; }
-  .jp--compact .jp__link { color: var(--color-brand-on-dark); }
-
-  @media (min-width: 960px) {
-    .jp--full { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(32px, 4vw, 56px); align-items: start; }
+  /* Цвет кирпича — строка слов, выбранный подчёркнут */
+  .jp__bricks { display: flex; flex-wrap: wrap; gap: 0 22px; }
+  .jp__brick {
+    padding: 8px 0 5px;
+    border-bottom: 1px solid transparent;
+    font-size: 16.5px;
+    line-height: 1.3;
+    transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
   }
+  .jp__brick[hidden] { display: none; }
+  .jp__brick:hover { color: var(--ink); border-bottom-color: var(--hair-strong); }
+  .jp__brick[aria-pressed='true'] { color: var(--ink); border-bottom-color: var(--ink); }
+
+  /* Цвет шва — квадратные плашки раствора с подписью; выбранная обведена тушью */
+  .jp__seams { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px 14px; padding-top: 4px; }
+  .jp__seam { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+  .jp__sw {
+    --c: #bdb6ab;
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    outline: 1.5px solid transparent;
+    outline-offset: 3px;
+    transition: translate 0.4s var(--ease), outline-color var(--dur) var(--ease);
+  }
+  /* светлые плашки на бумаге: кромка чуть заметнее, чем у .mortar по умолчанию */
+  html[data-site='smesi'] .jp .jp__sw { box-shadow: inset 0 0 0 1px var(--hair), inset 0 -18px 30px -24px rgb(0 0 0 / 0.25); }
+  .jp__seam:hover .jp__sw { translate: 0 -3px; }
+  .jp__seam[aria-pressed='true'] .jp__sw { outline-color: var(--ink); translate: none; }
+  .jp__seam:focus-visible { outline: none; }
+  .jp__seam:focus-visible .jp__sw { outline: 2px solid var(--ink); }
+  /* без автопереносов: «суперб-елый» читается хуже, чем перенос по дефису «светло-/коричневый» */
+  .jp__sn { font-size: 13.5px; line-height: 1.2; overflow-wrap: break-word; }
+  .jp__seam[aria-pressed='true'] .jp__sn { color: var(--ink); font-weight: 500; }
+
+  /* условные оттенки плашек — подсказка, не образец конкретной смеси */
+  .jp__sw[data-seam='white'] { --c: #f2efe8; }
+  .jp__sw[data-seam='superwhite'] { --c: #ffffff; }
+  .jp__sw[data-seam='lightgrey'] { --c: #c7c6c1; }
+  .jp__sw[data-seam='grey'] { --c: #9c9a95; }
+  .jp__sw[data-seam='darkgrey'] { --c: #5d5b57; }
+  .jp__sw[data-seam='black'] { --c: #232220; }
+  .jp__sw[data-seam='blackbrown'] { --c: #422f28; }
+  .jp__sw[data-seam='darkbrown'] { --c: #5c3d2c; }
+  .jp__sw[data-seam='brown'] { --c: #5a3a26; }
+  .jp__sw[data-seam='lightbrown'] { --c: #a77b55; }
+  .jp__sw[data-seam='cream'] { --c: #cbaca5; }
+
+  .jp__link { justify-self: start; margin-top: 22px; }
+
+  /* ── Полный вариант на узком экране: кадр 4:3 прилипает под шапкой, переключатели листаются под ним ── */
+  /* Линия под подписью отделяет прилипший кадр от листаемого под ним; у переключателей своей верхней линии тогда нет. */
+  @media (max-width: 859px) {
+    .jp--full .jp__img { aspect-ratio: 4 / 3; }
+    /* боковые «тени» той же бумагой закрывают поля страницы: иначе рамка выбранной плашки, уехавшей
+       под кадр, выглядывает слева полоской (она выходит за плашку на 4–5 px) */
+    .jp--full .jp__stage {
+      z-index: 2;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--hair-strong);
+      background: var(--paper);
+      box-shadow: -24px 0 0 var(--paper), 24px 0 0 var(--paper);
+    }
+    .jp--full .jp__controls { border-top: 0; }
+  }
+  /* планшет и невысокий телефон: кадр ниже (16:9), чтобы под ним оставалось место переключателям */
+  @media (min-width: 600px) and (max-width: 859px), (max-width: 859px) and (max-height: 719px) {
+    .jp--full .jp__img { aspect-ratio: 16 / 9; }
+  }
+  /* планшет: плашки мельче, иначе по 150 px они съедают экран под кадром. Подпись «коричневый» при 13 px
+     занимает 77 px — восемь в строку помещаются только с 760 px (замер переносов), до того по шесть. */
+  @media (min-width: 600px) and (max-width: 859px) {
+    .jp--full .jp__seams { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px 10px; }
+    .jp__sn { font-size: 13px; }
+  }
+  @media (min-width: 760px) and (max-width: 859px) {
+    .jp--full .jp__seams { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  }
+  @media (max-width: 859px) and (min-height: 600px) {
+    .jp--full .jp__stage { position: sticky; top: 72px; align-self: start; }
+  }
+  @media (max-width: 599px) {
+    .jp__seams { gap: 16px 10px; }
+    .jp__sn { font-size: 13px; }
+  }
+  /* «коричневый» — самое длинное слово без дефиса (~72 px): уже 4 плашек в ряд ему тесно */
+  @media (max-width: 379px) {
+    .jp__seams { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  /* ── Широкий экран: кадр 7 колонок из 12, переключатели 5 ── */
+  @media (min-width: 860px) {
+    .jp--full { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: clamp(32px, 4.5vw, 72px); align-items: start; }
+  }
+  /* колонка переключателей ещё узкая для четырёх подписей в строку */
+  @media (min-width: 860px) and (max-width: 999px) {
+    .jp--full .jp__seams { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  /* ── compact — первый экран на тёмном фоне (сейчас на страницах не используется) ── */
+  .jp--compact .jp__now { color: var(--paper); }
+  .jp--compact .jp__hint, .jp--compact .jp__label { color: rgb(247 244 238 / 0.7); }
+  .jp--compact .jp__controls { border-top-color: rgb(247 244 238 / 0.3); }
+  .jp--compact .jp__group { border-bottom-color: rgb(247 244 238 / 0.18); }
+  .jp--compact .jp__seam { color: rgb(247 244 238 / 0.75); }
+  .jp--compact .jp__seam[aria-pressed='true'] .jp__sn { color: var(--paper); }
+  .jp--compact .jp__seam[aria-pressed='true'] .jp__sw,
+  .jp--compact .jp__seam:focus-visible .jp__sw { outline-color: var(--paper); }
+  html[data-site='smesi'] .jp--compact .jp__link { color: var(--paper); border-bottom-color: rgb(247 244 238 / 0.4); }
+  html[data-site='smesi'] .jp--compact .jp__link:hover { border-bottom-color: var(--sand); }
 </style>

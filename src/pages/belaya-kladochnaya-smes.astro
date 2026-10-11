@@ -1,16 +1,18 @@
 ---
 // Белая кладочная смесь (план, волна 1): самый частый запрос по цвету — белый и супер-белый шов.
 // Угол страницы: какая белая смесь под какой кирпич, белый шов на готовой кладке (расшивка),
-// как белый шов выглядит на разном кирпиче и почему светлый шов пачкается.
+// все белые оттенки Perel и Основит рядом и почему светлый шов пачкается.
+//
+// Редизайн 11.10 (Влад: «шаблон не нужно использовать тот же, ещё и везде кирпич»): кадров кладки на странице
+// больше нет — цвет дают только образцы раствора. Как белый шов смотрится на кирпиче, показывает инструмент
+// /podbor-shva/ (ссылка из композиции оттенков). Блоки — линиями и колонками, без карточек-коробок.
 //
 // ФАКТЫ — только из src/data:
-//   • позиции, коды и артикулы белых цветов — catalog.ts (ассортимент дилера);
+//   • позиции, коды и артикулы белых цветов — catalog.ts (ассортимент дилера), оттенки плашек — swatches.ts;
 //   • «для какого кирпича» и назначение — ДОСЛОВНО из series-facts.ts (forBrick / purpose) со ссылкой на источник;
 //   • белый шов и загрязнение — LIGHT_JOINT_FACTS; советы при работе — шаги и оговорки серий (series-facts.ts);
 //     в тексте страницы они пересказаны короче, источник каждого — ссылкой рядом;
-//   • расход — CONSUMPTION;
-//   • кадры — визуализации кладки из материалов клиента (kladka.ts). Шов на кадре — видимый цвет,
-//     а не конкретная смесь: поэтому подпись «кирпич · шов», без бренда и артикула.
+//   • расход — CONSUMPTION.
 // Чем супер-белый отличается от белого по составу — у производителей фактов нет, на странице не пишем.
 // Цен нет намеренно (см. catalog.ts): действие позиции — окно «Узнать цену».
 import Page from '../layouts/Page.astro';
@@ -21,12 +23,13 @@ import SwatchNote from '../components/smesi/SwatchNote.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
 import FaqAccordion from '../components/content/FaqAccordion.astro';
 import SpecTable from '../components/content/SpecTable.astro';
-import { KLADKA } from '../data/kladka';
-import { BRICK_TYPES, POSITIONS, SERIES, BRANDS, seriesById, seriesFor, type BrickType, type SeriesId } from '../data/catalog';
+import { BRICK_TYPES, POSITIONS, SERIES, BRANDS, seriesById, seriesFor, type Brand, type BrickType, type Position, type SeriesId } from '../data/catalog';
+import { swatchFor } from '../data/swatches';
 import { SERIES_FACTS, LIGHT_JOINT_FACTS, CONSUMPTION } from '../data/series-facts';
 import { PAGES } from '../data/nav';
 import { localPath } from '../lib/sites';
 import { plural } from '../lib/format';
+import { nb as typo } from '../lib/typo';
 import type { FaqItem, SpecRow } from '../lib/types';
 
 /* ── Позиции ─────────────────────────────────────────────────────────────── */
@@ -36,6 +39,7 @@ const kladkaSeries = SERIES.filter((s) => s.purpose === 'kladka');
 const rasshivkaSeries = SERIES.filter((s) => s.purpose === 'rasshivka');
 const whiteKladka = kladkaSeries.flatMap((s) => isWhite(s.id));
 const whiteRasshivka = rasshivkaSeries.flatMap((s) => isWhite(s.id));
+const whites = [...whiteKladka, ...whiteRasshivka];
 
 // Лид обещает «белый и супер-белый в каждой кладочной серии» — проверяем на данных при сборке.
 for (const s of kladkaSeries) {
@@ -73,7 +77,7 @@ function srcLabel(url: string): string {
   if (name) return `${host}, ${name}`;
   return host;
 }
-const uniq = (list: string[]) => [...new Set(list)];
+const uniq = <T,>(list: T[]) => [...new Set(list)];
 
 function pick<T extends { text: string }>(list: T[] | undefined, needle: string, where: string): T {
   const f = list?.find((x) => x.text.includes(needle));
@@ -85,41 +89,67 @@ const step = (id: SeriesId, needle: string) => pick(SERIES_FACTS[id].steps, need
 const note = (id: SeriesId, needle: string) => pick(SERIES_FACTS[id].notes, needle, `${id}.notes`);
 const num = (n: number | string) => String(n).replace('.', ',');
 /** диапазон «3–4» не рвём на строки: по краям тире — невидимая «склейка» (U+2060);
- *  число не отрываем от единицы: «1,5–2 см» на телефоне переносил «см» на новую строку */
+ *  число не отрываем от единицы (то же делает typo), короткий предлог — от следующего слова;
+ *  тире (и дефис-тире в цитатах производителя «SL - для…») не начинает строку */
 const nb = (t: string) =>
-  t.replace(/(\d)–(\d)/g, '$1\u2060–\u2060$2').replace(/(\d) (?=(см|мм|кг|дн|недел|сут|минут|%))/g, '$1\u00a0');
+  typo(t.replace(/(\d)–(\d)/g, '$1\u2060–\u2060$2').replace(/ ([-–—]) /g, '\u00a0$1 '));
 const andList = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} и ${xs[xs.length - 1]}` : xs.join(''));
 const brandHref = (id: SeriesId) => `${localPath('smesi', seriesById(id).page)}#${id}`;
+const pad2 = (i: number) => String(i + 1).padStart(2, '0');
 
-/* ── 1. Галерея: белый шов на разном кирпиче ─────────────────────────────── */
+/* ── 1. Все белые оттенки: композиция образцов ───────────────────────────── */
 
-// Шесть разных кирпичей: тёмные и тёплые, на которых белый шов читается чётко, и три светлых для сравнения.
-// Красный кирпич — на первом экране; в галерее его нет, чтобы не показывать одну и ту же стену дважды подряд
-// (белый и супербелый на одном кирпиче на кадре почти не различаются).
-// Из пар с одинаковым рендером у двух заводов (KLADKA_SAME_RENDER) берём только одну сторону.
-const GALLERY: [brick: string, seam: 'white' | 'superwhite'][] = [
-  ['osmibt-terrakot', 'white'],
-  ['osmibt-korichnevyj', 'white'],
-  ['zhkz-kraft', 'superwhite'],
-  ['osmibt-soloma', 'white'],
-  ['osmibt-seryj-bezh', 'white'],
-  ['osmibt-slonovaya-kost', 'white'],
-];
-// названия-существительные пишем в кавычках: «кирпич „терракот“», а не «терракот кирпич»
-const NOUN_BRICKS = new Set(['терракот', 'крафт', 'серый беж', 'слоновая кость']);
-const brickName = (b: string) => (NOUN_BRICKS.has(b) ? `кирпич «${b}»` : `${b} кирпич`);
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// Колонка — белый цвет производителя: крупная плашка — кладочные серии этого цвета, под ней мелкая —
+// раствор для расшивки с тем же названием цвета (если он есть). Плашка — оттенок с палитры производителя
+// (swatches.ts); у расшивочных RL и ХС30 оттенок снят с фотографий образцов, поэтому своя плашка.
+// Клик по плашке — окно «Узнать цену» с названием цвета и артикулами.
+const brandOf = (p: Position) => seriesById(p.series).brand;
+const short = (id: SeriesId) => seriesById(id).name.replace(/^Perel /, '').replace(/^Основит (Брикформ )?/, '');
+const isSuper = (n: string) => n.startsWith('супер');
+/** «супер-белый» не рвём по дефису: на телефоне строка ломалась «супер-/белого» */
+const nbHyph = (t: string) => t.replace(/-/g, '\u2011');
+const GENITIVE: Record<string, string> = { 'супер-белый': 'супер-белого', супербелый: 'супербелого', белый: 'белого' };
+const RS_NAME: Partial<Record<SeriesId, string>> = { 'perel-rl': 'затирки Perel RL', 'osnovit-xc30': 'раствора Бриксэйв ХС30' };
 
-function frame(brickId: string, seamId: string) {
-  const b = KLADKA.find((x) => x.id === brickId);
-  const s = b?.seams.find((x) => x.id === seamId);
-  if (!b || !s) throw new Error(`belaya: нет кадра ${brickId} / ${seamId}`);
-  const factory = b.factoryName.match(/\(([^)]+)\)/)?.[1] ?? b.factoryName;
-  return { ...s, caption: `${cap(brickName(b.brick))} · шов ${s.label}`, factory, alt: `Визуализация кладки: ${brickName(b.brick)}, ${s.label} шов` };
+const brandOrder: Brand[] = ['perel', 'osnovit'];
+const palette = brandOrder.map((b) => {
+  const kl = whiteKladka.filter((p) => brandOf(p) === b);
+  const names = uniq(kl.map((p) => p.color.name)).sort((x, y) => Number(isSuper(y)) - Number(isSuper(x)));
+  const rsSeries = rasshivkaSeries.filter((s) => s.brand === b);
+  return {
+    b,
+    name: BRANDS[b].name,
+    cols: names.map((n) => {
+      const top = kl.filter((p) => p.color.name === n);
+      const bottom = whiteRasshivka.filter((p) => brandOf(p) === b && p.color.name === n);
+      const missing = rsSeries
+        .filter((s) => !bottom.some((p) => p.series === s.id))
+        .map((s) => {
+          if (!RS_NAME[s.id] || !GENITIVE[n]) throw new Error(`belaya: нет подписи «у ${s.name} нет ${n}»`);
+          return nb(`У ${RS_NAME[s.id]} ${nbHyph(GENITIVE[n])} нет`);
+        });
+      return {
+        n,
+        top,
+        bottom,
+        hex: swatchFor(top[0].series, top[0].color.code),
+        ask: `${BRANDS[b].name}, ${n} — ${top.map((p) => `${short(p.series)} ${p.article}`).join(', ')}`,
+        missing,
+      };
+    }),
+  };
+});
+// каждая белая позиция попадает в композицию ровно один раз — иначе цифры шапки и плашки разойдутся
+if (palette.flatMap((g) => g.cols.flatMap((c) => [...c.top, ...c.bottom])).length !== whites.length) {
+  throw new Error('belaya: не все белые позиции попали в композицию оттенков');
 }
-const gallery = GALLERY.map(([brickId, seamId]) => frame(brickId, seamId));
-// первый экран: самый частый запрос — красный кирпич с белым швом
-const heroFrame = frame('osmibt-krasnyj', 'white');
+
+// Полоса первого экрана: все разные плашки белых позиций, от самой светлой к самой тёмной.
+const lum = (hex: string) => {
+  const v = parseInt(hex.slice(1), 16);
+  return 0.2126 * ((v >> 16) & 255) + 0.7152 * ((v >> 8) & 255) + 0.0722 * (v & 255);
+};
+const heroStrip = uniq(whites.map((p) => swatchFor(p.series, p.color.code))).sort((a, b) => lum(b) - lum(a));
 
 /* ── 2. Белые смеси под кирпич ───────────────────────────────────────────── */
 
@@ -233,10 +263,8 @@ const faq: FaqItem[] = [
   },
 ];
 
-
 /* ── Микроразметка ───────────────────────────────────────────────────────── */
 
-const whites = [...whiteKladka, ...whiteRasshivka];
 const itemList = {
   '@type': 'ItemList',
   name: 'Белые кладочные смеси и растворы для расшивки швов',
@@ -260,63 +288,62 @@ const itemList = {
     trail={[{ label: PAGES.katalog.label, href: PAGES.katalog.href }]}
     lead="Белый и супербелый цвет есть в каждой кладочной серии Perel и Основит — под обычный облицовочный кирпич, ручную формовку и клинкер. Для уже уложенной кладки — белые растворы для расшивки швов."
   >
-    <ul class="bh__stats" data-reveal-stagger>
-      <li><b>{whiteKladka.length}</b><span>{plural(whiteKladka.length, 'позиция', 'позиции', 'позиций')} для кладки</span></li>
-      <li><b>{whiteRasshivka.length}</b><span>{plural(whiteRasshivka.length, 'позиция', 'позиции', 'позиций')} для расшивки</span></li>
-      <li><b>{kladkaSeries.length}</b><span>{plural(kladkaSeries.length, 'кладочная серия', 'кладочные серии', 'кладочных серий')} с белым</span></li>
-    </ul>
     <div class="bh__actions" data-reveal>
       <a class="btn btn--primary" href="#pod-kirpich">Выбрать под свой кирпич</a>
       <button class="btn btn--ghost" type="button" data-ask="Белая кладочная смесь — серию подберём под кирпич">Узнать цену</button>
     </div>
-    <figure class="bh__frame" slot="aside">
-      <img
-        src={heroFrame.src}
-        srcset={`${heroFrame.srcSm} 320w, ${heroFrame.src} ${heroFrame.w}w`}
-        sizes="(min-width: 960px) 46vw, 92vw"
-        width={heroFrame.w}
-        height={heroFrame.h}
-        fetchpriority="high"
-        alt={heroFrame.alt}
-      />
-      <figcaption><b>{heroFrame.caption}</b><span>визуализация кладки</span></figcaption>
-    </figure>
+    <div class="bh__aside" slot="aside">
+      <a class="bh__strip strip" href="#galereya" aria-label="Все белые оттенки Perel и Основит">
+        {heroStrip.map((c) => <span class="mortar" style={`--c:${c}`}></span>)}
+      </a>
+      <p class="bh__cap label">Белые оттенки Perel и Основит</p>
+      <dl class="bh__stats">
+        <div><dt>{plural(whiteKladka.length, 'позиция', 'позиции', 'позиций')} для кладки</dt><dd class="num">{whiteKladka.length}</dd></div>
+        <div><dt>{plural(whiteRasshivka.length, 'позиция', 'позиции', 'позиций')} для расшивки</dt><dd class="num">{whiteRasshivka.length}</dd></div>
+        <div><dt>{plural(kladkaSeries.length, 'кладочная серия', 'кладочные серии', 'кладочных серий')} с белым</dt><dd class="num">{kladkaSeries.length}</dd></div>
+      </dl>
+    </div>
   </PageHead>
 
   <Section
     id="galereya"
-    kicker="Как это выглядит"
-    title="Белый шов на разном кирпиче"
-    subtitle="Белый и супербелый шов на шести цветах кирпича, в дополнение к красному выше: на тёмном и тёплом кирпиче шов чётко прорисовывает кладку, на светлом выглядит мягче."
-    bg="base"
+    kicker="Все белые оттенки"
+    title="Супербелый и белый у Perel и Основит"
+    subtitle="Крупные образцы — кладочные смеси, под ними — белые растворы для расшивки готовой кладки. Нажмите на образец, чтобы узнать цену и наличие."
+    bg="dark"
   >
-    <ul class="gal" data-reveal-stagger>
-      {gallery.map((g) => (
-        <li>
-          <figure class="gal__item">
-            <img
-              src={g.src}
-              srcset={`${g.srcSm} 320w, ${g.src} ${g.w}w`}
-              sizes="(min-width: 1080px) 360px, (min-width: 640px) 46vw, 92vw"
-              width={g.w}
-              height={g.h}
-              loading="lazy"
-              decoding="async"
-              alt={g.alt}
-            />
-            <figcaption>
-              <span class="gal__cap">{g.caption}</span>
-              <span class="gal__meta">визуализация · кирпич {g.factory}</span>
-            </figcaption>
-          </figure>
-        </li>
+    <div class="wh" data-reveal>
+      {palette.map((g) => (
+        <div class:list={['wh__brand', `wh__brand--${g.b}`]} role="group" aria-label={`Белые оттенки ${g.name}`}>
+          <p class="wh__bname">{g.name}</p>
+          <ul class="wh__cols">
+            {g.cols.map((c) => (
+              <li class="wh__col">
+                <button class="wh__plate wh__plate--top mortar" type="button" style={`--c:${c.hex}`} data-ask={c.ask} aria-label={`${c.ask} — узнать цену`}></button>
+                <p class="wh__name">{nbHyph(c.n)}</p>
+                <p class="wh__codes num">
+                  {c.top.map((p) => <span>{short(p.series)} <b>{p.article}</b></span>)}
+                </p>
+                {c.bottom.map((p) => (
+                  <Fragment>
+                    <button class="wh__plate wh__plate--sub mortar" type="button" style={`--c:${swatchFor(p.series, p.color.code)}`} data-ask={p.title} aria-label={`${p.title} — узнать цену`}></button>
+                    <p class="wh__subcap"><span class="wh__kind">расшивка</span> <span class="num">{short(p.series)} <b>{p.article}</b></span></p>
+                  </Fragment>
+                ))}
+                {c.missing.map((t) => <p class="wh__miss">{t}</p>)}
+              </li>
+            ))}
+          </ul>
+        </div>
       ))}
-    </ul>
-    <p class="gal__note" data-reveal>
-      Кадры — визуализации кладки, не снимки реальных домов. Они показывают оттенок шва,
-      а не конкретную смесь, и цвет на экране передают приблизительно.
-      <a href={PAGES.podbor.href}>Все сочетания кирпича и шва{'\u00a0'}<span aria-hidden="true">→</span></a>
-    </p>
+    </div>
+    <div class="wh__foot">
+      <div class="wh__podbor" data-reveal>
+        <p>{nb('Как белый шов выглядит в кладке из разного кирпича — в подборе шва.')}</p>
+        <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
+      </div>
+      <SwatchNote />
+    </div>
   </Section>
 
   <Section
@@ -331,36 +358,42 @@ const itemList = {
       <a class="src-link" href={pickRule.src} rel="nofollow noopener" target="_blank">{srcLabel(pickRule.src)}</a>
     </p>
 
-    <div class="bw-list">
+    <ol class="bw-list">
       {byBrick.map((row, i) => (
-        <article class="bw" id={`belaya-${row.t}`} data-reveal>
+        <li class="bw" id={`belaya-${row.t}`} data-reveal>
           <header class="bw__head">
-            <span class="bw__num" aria-hidden="true">0{i + 1}</span>
-            <h3 class="bw__title">{row.info.label}</h3>
-            <p class="bw__abs">{cap(row.info.note)}: <b>{nb(row.info.absorption)}</b></p>
-            <a class="bw__more" href={`${PAGES.katalog.href}?kirpich=${row.t}`}>Все цвета для этого кирпича{'\u00a0'}<span aria-hidden="true">→</span></a>
-            {row.t === 'klinker' && (
-              <a class="bw__more" href={PAGES.klinker.href}>Смеси для клинкера подробно{'\u00a0'}<span aria-hidden="true">→</span></a>
-            )}
+            <p class="bw__num label num">{pad2(i)}</p>
+            <h3 class="bw__title">{nb(row.info.label)}</h3>
+            <p class="bw__abs">
+              <span class="bw__range num">{nb(row.info.absorption)}</span>
+              <span class="label">{row.info.note}</span>
+            </p>
+            <div class="bw__links">
+              <a class="arrow-link" href={`${PAGES.katalog.href}?kirpich=${row.t}`}>Все цвета для этого кирпича <span aria-hidden="true">→</span></a>
+              {row.t === 'klinker' && (
+                <a class="arrow-link" href={PAGES.klinker.href}>Смеси для клинкера подробно <span aria-hidden="true">→</span></a>
+              )}
+            </div>
           </header>
           <div class="bw__series">
             {row.series.map(({ s, f }) => (
               <div class="bw__ser">
+                <div class="bw__shead">
+                  <h4 class="bw__sname">{s.name}</h4>
+                  <p class="bw__pack label num">мешок {s.packKg}{'\u00a0'}кг</p>
+                </div>
                 <SwatchGrid series={s.id} tones={['white']} showSeries />
-                <blockquote class="bw__quote">
-                  <p>«{f.forBrick}»</p>
-                </blockquote>
-                <p class="bw__foot">
-                  <span>Мешок {s.packKg} кг</span>
-                  <span class="src">По данным производителя: <a href={f.forBrickSrc} rel="nofollow noopener" target="_blank">{srcLabel(f.forBrickSrc)}</a></span>
-                  <a class="bw__spec" href={brandHref(s.id)}>Характеристики {s.name}{'\u00a0'}<span aria-hidden="true">→</span></a>
-                </p>
+                <figure class="bw__quote">
+                  <blockquote><p>«{nb(f.forBrick)}»</p></blockquote>
+                  <figcaption class="src">По данным производителя: <a href={f.forBrickSrc} rel="nofollow noopener" target="_blank">{srcLabel(f.forBrickSrc)}</a></figcaption>
+                </figure>
+                <p class="bw__specp"><a class="arrow-link bw__spec" href={brandHref(s.id)}>Характеристики {s.name}{'\u00a0'}<span aria-hidden="true">→</span></a></p>
               </div>
             ))}
           </div>
-        </article>
+        </li>
       ))}
-    </div>
+    </ol>
     <SwatchNote />
   </Section>
 
@@ -371,12 +404,12 @@ const itemList = {
     subtitle="Если кирпич уже уложен или старые швы пора обновить, белый шов делают раствором для расшивки: швы расчищают и заполняют заново."
     bg="base"
   >
-    <div class="rs" data-reveal-stagger>
+    <div class="rs">
       {rasshivka.map(({ s, f, rows, srcs }) => (
-        <article class="rs__card">
-          <p class="rs__kind">Для расшивки швов · {BRANDS[s.brand].name}</p>
+        <article class="rs__col" data-reveal>
+          <p class="label">Для расшивки швов · {BRANDS[s.brand].name}</p>
           <h3 class="rs__title"><a href={brandHref(s.id)}>{s.name}</a></h3>
-          <blockquote class="rs__quote"><p>{f.purpose}</p></blockquote>
+          <blockquote class="rs__quote"><p>«{nb(f.purpose)}»</p></blockquote>
           <SwatchGrid series={s.id} tones={['white']} showSeries />
           <SpecTable rows={rows} class="rs__specs" />
           <p class="src">
@@ -388,26 +421,32 @@ const itemList = {
         </article>
       ))}
     </div>
-    <SwatchNote />
 
     <div class="how" data-reveal>
-      <h3 class="how__title">Как делают белый шов на готовой кладке</h3>
-      <p class="how__lead">
-        Порядок — по технической карте Основит Бриксэйв ХС30. Производитель пишет, что этот раствор подходит
-        и для нового строительства, и для обновления швов кладки.
-      </p>
-      <ol class="how__list">
-        {howTo.map((t) => <li>{nb(t)}</li>)}
-      </ol>
-      <p class="how__note">
-        {nb('У затирки Perel RL свой порядок: её подают в шов пистолетом или из пакета, а рельеф шва формируют через 30–60 минут, когда затирка станет похожа на мокрый песок.')}
-      </p>
-      <p class="src">
-        По данным производителей:{' '}
-        {uniq([...howToSrc, xc.renew.src, rlShape.src]).map((u, k) => (
-          <Fragment>{k > 0 && ' · '}<a href={u} rel="nofollow noopener" target="_blank">{srcLabel(u)}</a></Fragment>
-        ))}
-      </p>
+      <div class="how__head">
+        <p class="label">Порядок работ</p>
+        <h3 class="how__title">{nb('Как делают белый шов на готовой кладке')}</h3>
+        <p class="how__lead">
+          Порядок — по технической карте Основит Бриксэйв ХС30. Производитель пишет, что этот раствор подходит
+          и для нового строительства, и для обновления швов кладки.
+        </p>
+      </div>
+      <div class="how__body">
+        <ol class="how__list">
+          {howTo.map((t, i) => (
+            <li><span class="how__n num" aria-hidden="true">{pad2(i)}</span><p>{nb(t)}</p></li>
+          ))}
+        </ol>
+        <p class="how__note">
+          {nb('У затирки Perel RL свой порядок: её подают в шов пистолетом или из пакета, а рельеф шва формируют через 30–60 минут, когда затирка станет похожа на мокрый песок.')}
+        </p>
+        <p class="src">
+          По данным производителей:{' '}
+          {uniq([...howToSrc, xc.renew.src, rlShape.src]).map((u, k) => (
+            <Fragment>{k > 0 && ' · '}<a href={u} rel="nofollow noopener" target="_blank">{srcLabel(u)}</a></Fragment>
+          ))}
+        </p>
+      </div>
     </div>
   </Section>
 
@@ -419,44 +458,53 @@ const itemList = {
     bg="alt"
   >
     <div class="cl">
-      <div class="cl__col">
+      <div class="cl__group" data-reveal>
         <h3 class="cl__h">Что портит цвет шва</h3>
-        <ul class="cl__why" data-reveal-stagger>
-          {why.map((w) => (
-            <li class="cl__card">
-              <b>{w.title}</b>
-              <p>{nb(w.text)}</p>
-              <p class="src">
-                Источник:{' '}
-                {w.srcs.map((u, k) => (
-                  <Fragment>{k > 0 && ' · '}<a href={u} rel="nofollow noopener" target="_blank">{srcLabel(u)}</a></Fragment>
-                ))}
+        <ol class="cl__list">
+          {why.map((w, i) => (
+            <li>
+              <span class="cl__n num" aria-hidden="true">{pad2(i)}</span>
+              <div>
+                <p class="cl__t">{nb(w.title)}</p>
+                <p>{nb(w.text)}</p>
+                <p class="src">
+                  Источник:{' '}
+                  {w.srcs.map((u, k) => (
+                    <Fragment>{k > 0 && ' · '}<a href={u} rel="nofollow noopener" target="_blank">{srcLabel(u)}</a></Fragment>
+                  ))}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div class="cl__group" data-reveal>
+        <h3 class="cl__h">Какую смесь выбрать</h3>
+        <ol class="cl__list">
+          {choose.map((c, i) => (
+            <li>
+              <span class="cl__n num" aria-hidden="true">{pad2(i)}</span>
+              <p>
+                {nb(c.text)}{' '}
+                <a class="src-link" href={c.src} rel="nofollow noopener" target="_blank">{srcLabel(c.src)}</a>
               </p>
             </li>
           ))}
-        </ul>
+        </ol>
       </div>
-      <div class="cl__col">
-        <h3 class="cl__h">Какую смесь выбрать</h3>
-        <ul class="cl__list" data-reveal-stagger>
-          {choose.map((c) => (
-            <li>
-              {nb(c.text)}{' '}
-              <a class="src-link" href={c.src} rel="nofollow noopener" target="_blank">{srcLabel(c.src)}</a>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div class="cl__col">
+      <div class="cl__group" data-reveal>
         <h3 class="cl__h">Как работать</h3>
-        <ul class="cl__list" data-reveal-stagger>
-          {work.map((c) => (
+        <ol class="cl__list">
+          {work.map((c, i) => (
             <li>
-              {nb(c.text)}{' '}
-              <a class="src-link" href={c.src} rel="nofollow noopener" target="_blank">{srcLabel(c.src)}</a>
+              <span class="cl__n num" aria-hidden="true">{pad2(i)}</span>
+              <p>
+                {nb(c.text)}{' '}
+                <a class="src-link" href={c.src} rel="nofollow noopener" target="_blank">{srcLabel(c.src)}</a>
+              </p>
             </li>
           ))}
-        </ul>
+        </ol>
       </div>
     </div>
   </Section>
@@ -467,166 +515,184 @@ const itemList = {
 
   <CtaBand
     source="belaya"
-    title="Подберём белую смесь под ваш кирпич"
-    text="Назовите свой кирпич и метраж стены — подберём серию, белый или супербелый тон и посчитаем мешки."
+    title={nb('Подберём белую смесь под ваш кирпич')}
+    text={nb('Назовите свой кирпич и метраж стены — подберём серию, белый или супербелый тон и посчитаем мешки.')}
   />
 </Page>
 
-<style>
-  /* ── шапка: цифры и действия ── */
-  .bh__stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, max-content));
-    gap: var(--space-4);
-    margin: var(--space-6) 0 0;
-    padding: var(--space-5) 0 0;
-    list-style: none;
-    border-top: 1px solid var(--color-border);
-  }
-  .bh__stats li { display: flex; flex-direction: column; }
-  .bh__stats b { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-stat); line-height: 1.1; }
-  .bh__stats span { font-size: var(--fs-small); color: var(--color-text-soft); }
-  .bh__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
-  @media (min-width: 640px) { .bh__stats { column-gap: var(--space-7); } }
+<style is:global>
+  /* Только эта страница. H1 «…для облицовочного кирпича»: PageHead склеивает «для облицовочного»
+     неразрывным пробелом, фраза ≈ 7,3 em — на 116 px она не влезала в колонку 7/12 на десктопе
+     и в 288 px на телефоне 320 (страница была шире экрана: 353 px). Кегль — от ширины колонки текста. */
+  html[data-site='smesi'] .mh__text { container-type: inline-size; }
+  html[data-site='smesi'] .mh__title { max-width: none; font-size: min(var(--fs-h1), 12.6cqi); }
+</style>
 
-  .bh__frame { margin: 0; }
-  .bh__frame img { display: block; width: 100%; height: auto; aspect-ratio: 5 / 4; object-fit: cover; border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
-  .bh__frame figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-4); margin-top: var(--space-3); font-size: var(--fs-small); }
-  .bh__frame figcaption b { font-weight: 700; }
-  .bh__frame figcaption span { color: var(--color-muted); }
+<style>
+  /* ── шапка: действия, полоса белых оттенков, цифры ── */
+  .bh__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin-top: var(--space-7); }
+
+  .bh__aside { min-width: 0; }
+  .bh__strip { display: flex; height: clamp(120px, 13vw, 190px); }
+  .bh__strip span { transition: flex-grow 0.5s var(--ease); }
+  .bh__strip:hover span:hover { flex-grow: 2.2; }
+  .bh__cap { margin: var(--space-3) 0 0; }
+  .bh__stats { margin: var(--space-6) 0 0; border-top: 1px solid var(--hair-strong); }
+  .bh__stats div { display: grid; grid-template-columns: minmax(64px, auto) minmax(0, 1fr); align-items: baseline; gap: var(--space-4); padding: 12px 0; border-bottom: 1px solid var(--hair); }
+  .bh__stats dd { order: -1; margin: 0; font-family: var(--font-head); font-size: clamp(44px, 4.2vw, 64px); line-height: 1; letter-spacing: -0.02em; }
+  .bh__stats dt { font-size: var(--fs-small); color: var(--color-text-soft); }
 
   /* ── ссылки на источники ── */
-  .src { margin: 0; font-size: var(--fs-tiny); color: var(--color-muted); }
+  .src { margin: 0; font-size: var(--fs-tiny); line-height: 1.5; color: var(--color-muted); }
   .src a,
-  .src-link { color: var(--color-muted); text-decoration: underline; text-underline-offset: 2px; font-size: var(--fs-tiny); white-space: nowrap; }
+  .src-link { color: var(--color-muted); text-decoration: underline; text-underline-offset: 2px; font-size: var(--fs-tiny); overflow-wrap: anywhere; }
   .src a:hover,
-  .src-link:hover { color: var(--color-accent-text); }
+  .src-link:hover { color: var(--ink); }
 
-  /* ── 1. галерея ── */
-  .gal { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-  @media (min-width: 1080px) { .gal { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-5); } }
-  .gal__item { margin: 0; }
-  .gal__item img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius); }
-  .gal__item figcaption { display: flex; flex-direction: column; gap: 2px; margin-top: var(--space-2); }
-  .gal__cap { font-weight: 700; line-height: 1.3; }
-  .gal__meta { font-size: var(--fs-tiny); color: var(--color-muted); }
-  .gal__note { max-width: 68ch; margin: var(--space-6) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
-  .gal__note a { color: var(--color-accent-text); font-weight: 600; white-space: nowrap; }
+  /* ── 1. композиция белых оттенков (тушь) ──
+     Одна сетка на оба бренда: через subgrid плашки, названия и расшивка встают на одни линии.
+     Телефон: Perel над Основит, по две колонки 4:3. Десктоп: 4:3 | 3:2 — асимметрия 7/5. */
+  .wh { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 3fr); column-gap: 10px; row-gap: 0; }
+  .wh__brand { grid-column: 1 / -1; grid-row: span 6; display: grid; grid-template-columns: subgrid; grid-template-rows: subgrid; min-width: 0; }
+  .wh__bname {
+    grid-column: 1 / -1;
+    margin: 0 0 var(--space-4);
+    padding-top: var(--space-3);
+    border-top: 1px solid rgb(247 244 238 / 0.28);
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--sand);
+  }
+  .wh__brand--osnovit .wh__bname { margin-top: var(--space-8); }
+  .wh__cols { grid-column: 1 / -1; grid-row: 2 / span 5; display: grid; grid-template-columns: subgrid; grid-template-rows: subgrid; margin: 0; padding: 0; list-style: none; }
+  .wh__col { grid-row: span 5; display: grid; grid-template-rows: subgrid; min-width: 0; }
 
-  /* ── 2. под кирпич ── */
-  .rule { max-width: 68ch; margin: 0 0 var(--space-6); color: var(--color-text-soft); }
+  .wh__plate { display: block; width: 100%; padding: 0; border: 0; border-radius: 0; cursor: pointer; transition: translate 0.5s var(--ease); }
+  .wh__plate--top { height: clamp(190px, 25vw, 360px); }
+  .wh__plate--sub { align-self: end; height: clamp(64px, 7vw, 104px); margin-top: var(--space-6); }
+  .wh__plate:hover, .wh__plate:focus-visible { translate: 0 -6px; }
+  .wh__plate:focus-visible { outline: 2px solid var(--paper); outline-offset: 4px; }
+
+  .wh__name { margin: var(--space-4) 0 0; font-family: var(--font-head); font-size: clamp(25px, 2.5vw, 36px); line-height: 1; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+  .wh__codes { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: var(--space-2) 0 0; font-size: 13px; letter-spacing: 0.02em; color: rgb(247 244 238 / 0.66); }
+  .wh__codes b, .wh__subcap b { font-weight: 500; color: var(--paper); }
+  .wh__subcap { margin: var(--space-2) 0 0; font-size: 13px; color: rgb(247 244 238 / 0.66); }
+  .wh__kind { display: block; margin-bottom: 2px; font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sand); }
+  .wh__miss {
+    align-self: end;
+    margin: var(--space-6) 0 0;
+    padding-top: var(--space-3);
+    border-top: 1px solid rgb(247 244 238 / 0.2);
+    max-width: 24ch;
+    font-family: var(--font-head);
+    font-style: italic;
+    font-size: clamp(17px, 1.5vw, 20px);
+    line-height: 1.2;
+    color: rgb(247 244 238 / 0.72);
+  }
+
+  @media (min-width: 900px) {
+    .wh { grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) clamp(12px, 2.4vw, 40px) minmax(0, 3fr) minmax(0, 2fr); column-gap: 14px; }
+    .wh__brand--perel { grid-column: 1 / span 2; grid-row: 1 / span 6; }
+    .wh__brand--osnovit { grid-column: 4 / span 2; grid-row: 1 / span 6; }
+    .wh__brand--osnovit .wh__bname { margin-top: 0; }
+  }
+
+  .wh__foot { display: grid; gap: var(--space-6); margin-top: clamp(48px, 6vw, 88px); padding-top: var(--space-5); border-top: 1px solid rgb(247 244 238 / 0.28); }
+  .wh__podbor p { max-width: 30ch; margin: 0 0 var(--space-5); font-family: var(--font-head); font-size: clamp(24px, 2.3vw, 32px); line-height: 1.12; letter-spacing: -0.01em; }
+  .wh__podbor .arrow-link { color: var(--paper); border-bottom-color: rgb(247 244 238 / 0.45); font-size: 17px; }
+  .wh__podbor .arrow-link:hover { border-bottom-color: var(--paper); }
+  .wh__foot :global(.note) { margin: 0; padding-top: 0; border-top: 0; color: rgb(247 244 238 / 0.7); }
+  .wh__foot :global(.note .label) { color: var(--sand); }
+  @media (min-width: 1000px) {
+    .wh__foot { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: clamp(40px, 5vw, 80px); align-items: start; }
+  }
+
+  /* ── 2. под кирпич: строки через линии, слева тип кирпича, справа серии ── */
+  .rule { max-width: 68ch; margin: 0 0 clamp(36px, 4vw, 56px); font-size: var(--fs-lead); color: var(--color-text-soft); }
   .rule .src-link { margin-left: var(--space-1); }
 
-  .bw-list { display: grid; gap: var(--space-5); }
-  .bw {
-    display: grid;
-    gap: var(--space-5);
-    padding: var(--space-6) var(--space-5);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    background: var(--color-surface);
-    scroll-margin-top: var(--space-9);
-  }
-  .bw__head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
-  .bw__num { font-family: var(--font-head); font-weight: 800; font-size: var(--fs-small); color: var(--color-accent-text); }
-  .bw__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); line-height: 1.15; }
-  .bw__abs { margin: 0; color: var(--color-text-soft); }
-  .bw__abs b { color: var(--color-text); }
-  .bw__more { font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
-  .bw__more:first-of-type { margin-top: var(--space-2); }
-  .bw__more:hover { text-decoration: underline; }
+  .bw-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .bw { display: grid; gap: var(--space-6); padding: clamp(32px, 4vw, 56px) 0; border-bottom: 1px solid var(--hair); scroll-margin-top: var(--space-9); }
+  .bw__head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+  .bw__num { margin: 0; }
+  .bw__title { margin: 0; font-size: var(--fs-h3); line-height: 1.05; letter-spacing: -0.01em; }
+  .bw__abs { display: flex; flex-direction: column; gap: 4px; margin: var(--space-4) 0 0; }
+  .bw__range { font-family: var(--font-head); font-size: clamp(54px, 6vw, 92px); line-height: 0.9; letter-spacing: -0.03em; white-space: nowrap; }
+  .bw__links { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); margin-top: var(--space-5); }
 
-  .bw__series { display: grid; gap: var(--space-6); }
-  .bw__ser { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-  .bw__ser + .bw__ser { padding-top: var(--space-5); border-top: 1px solid var(--color-border-soft); }
-  .bw__ser :global(.sw-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .bw__quote {
-    margin: 0;
-    padding: var(--space-1) 0 var(--space-1) var(--space-4);
-    border-left: 3px solid var(--color-brand);
-    font-size: var(--fs-small);
-    color: var(--color-text-soft);
-  }
-  .bw__quote p { margin: 0; }
-  .bw__foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-4); margin: 0; font-size: var(--fs-small); }
-  .bw__spec { font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
-  .bw__spec:hover { text-decoration: underline; }
+  .bw__series { display: grid; gap: var(--space-7); min-width: 0; }
+  .bw__ser { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+  .bw__shead { padding-bottom: var(--space-3); border-bottom: 1px solid var(--hair); }
+  .bw__sname { margin: 0; font-family: var(--font-head); font-weight: 500; font-size: clamp(24px, 2vw, 30px); line-height: 1.05; letter-spacing: -0.01em; }
+  .bw__pack { margin: 6px 0 0; }
+  .bw-list + :global(.note) { border-top: 0; padding-top: 0; }
+  .bw__ser :global(.chips) { grid-template-columns: repeat(2, minmax(0, 150px)); gap: 14px; }
+  .bw__quote { margin: 0; }
+  .bw__quote blockquote { margin: 0; }
+  .bw__quote blockquote p { margin: 0 0 var(--space-2); font-family: var(--font-head); font-style: italic; font-size: clamp(19px, 1.6vw, 22px); line-height: 1.3; color: var(--color-text-soft); }
+  .bw__specp { margin: auto 0 0; padding-top: var(--space-2); }
+  .bw__specp .bw__spec { display: inline; padding-bottom: 2px; line-height: 1.6; }
 
   @media (min-width: 760px) {
-    .bw__series { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .bw__ser + .bw__ser { padding-top: 0; border-top: 0; }
+    .bw__series { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+    .bw__ser { padding-right: clamp(20px, 2.5vw, 40px); }
+    .bw__ser + .bw__ser { padding-right: 0; padding-left: clamp(20px, 2.5vw, 40px); border-left: 1px solid var(--hair); }
   }
-  @media (min-width: 1080px) {
-    .bw { grid-template-columns: 260px minmax(0, 1fr); gap: var(--space-7); padding: var(--space-7) var(--space-6); }
+  @media (min-width: 1000px) {
+    .bw { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: clamp(32px, 4vw, 64px); }
   }
 
-  /* ── 3. расшивка ── */
-  .rs { display: grid; gap: var(--space-5); }
-  @media (min-width: 860px) { .rs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .rs__card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    min-width: 0;
-    padding: var(--space-6) var(--space-5);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    background: var(--color-surface);
-  }
-  .rs__kind { margin: 0; font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-muted); }
-  .rs__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); line-height: 1.15; }
+  /* ── 3. расшивка: две колонки через линию, порядок работ — нумерованный список ── */
+  .rs { display: grid; border-top: 1px solid var(--hair-strong); }
+  .rs__col { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; padding: var(--space-6) 0 var(--space-7); }
+  .rs__col + .rs__col { border-top: 1px solid var(--hair); }
+  .rs__col .label { margin: 0; }
+  .rs__title { margin: 0; font-size: clamp(32px, 3vw, 46px); line-height: 1; letter-spacing: -0.015em; }
   .rs__title a { color: inherit; text-decoration: none; }
-  .rs__title a:hover { color: var(--color-accent-text); }
-  .rs__quote { margin: 0; padding-left: var(--space-4); border-left: 3px solid var(--color-brand); font-size: var(--fs-small); color: var(--color-text-soft); }
-  .rs__quote p { margin: 0; }
-  .rs__card :global(.sw-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 360px; }
+  .rs__title a:hover { font-style: italic; }
+  .rs__quote { margin: 0; }
+  .rs__quote p { margin: 0; max-width: 46ch; font-family: var(--font-head); font-style: italic; font-size: clamp(19px, 1.6vw, 22px); line-height: 1.3; color: var(--color-text-soft); }
+  .rs__col :global(.chips) { grid-template-columns: repeat(3, minmax(0, 120px)); gap: 14px; }
+  @media (min-width: 860px) {
+    .rs { grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 1px solid var(--hair); }
+    .rs__col { padding-right: clamp(24px, 3vw, 48px); }
+    .rs__col + .rs__col { border-top: 0; border-left: 1px solid var(--hair); padding-right: 0; padding-left: clamp(24px, 3vw, 48px); }
+  }
 
-  .how {
-    margin-top: var(--space-7);
-    padding: var(--space-6) var(--space-5);
-    border-radius: var(--radius);
-    background: var(--color-bg-alt);
+  .how { display: grid; gap: var(--space-6); margin-top: clamp(56px, 7vw, 104px); padding-top: var(--space-5); border-top: 1px solid var(--hair-strong); }
+  .how__head .label { margin: 0 0 var(--space-3); }
+  .how__title { margin: 0; font-size: clamp(30px, 3vw, 44px); line-height: 1.02; letter-spacing: -0.015em; max-width: 16ch; }
+  .how__lead { max-width: 44ch; margin: var(--space-4) 0 0; color: var(--color-text-soft); }
+  .how__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair); }
+  .how__list li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-4) 0; border-bottom: 1px solid var(--hair); }
+  .how__list p { margin: 0; color: var(--color-text-soft); }
+  .how__n { padding-top: 0.3em; font-size: 12px; letter-spacing: 0.08em; color: var(--color-muted); }
+  .how__note { max-width: 64ch; margin: var(--space-5) 0 var(--space-4); padding-left: 56px; color: var(--color-text-soft); }
+  .how .src { padding-left: 56px; }
+  @media (max-width: 599px) {
+    .how__note, .how .src { padding-left: 0; }
   }
-  .how__title { margin: 0 0 var(--space-3); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .how__lead { max-width: 76ch; margin: 0 0 var(--space-4); color: var(--color-text-soft); }
-  .how .src { margin-top: var(--space-4); }
-  .how__list { display: grid; gap: var(--space-3); max-width: 76ch; margin: 0; padding: 0; list-style: none; counter-reset: how; color: var(--color-text-soft); }
-  .how__list li { position: relative; padding-left: var(--space-6); counter-increment: how; }
-  .how__list li::before { content: counter(how); position: absolute; left: 0; top: 0; font-family: var(--font-head); font-weight: 800; color: var(--color-accent-text); }
-  .how__note { max-width: 76ch; margin: var(--space-5) 0 0; color: var(--color-text-soft); }
+  @media (min-width: 1000px) {
+    .how { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: clamp(40px, 5vw, 80px); }
+  }
 
-  /* ── 4. чистый шов ── */
-  .cl { display: grid; gap: var(--space-7); }
-  @media (min-width: 1000px) { .cl { grid-template-columns: 1.05fr 1fr 1fr; gap: var(--space-6); } }
-  .cl__col { min-width: 0; }
-  .cl__h { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .cl__why { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
-  .cl__card {
-    display: grid;
-    gap: var(--space-2);
-    padding: var(--space-5);
-    border-radius: var(--radius);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-  }
-  .cl__card b { font-family: var(--font-head); font-weight: 800; }
-  .cl__card p { margin: 0; color: var(--color-text-soft); }
-  .cl__card .src { color: var(--color-muted); }
-  .cl__list { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-  .cl__list li {
-    position: relative;
-    padding-left: var(--space-5);
-    color: var(--color-text-soft);
-  }
-  .cl__list li::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.55em;
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
-    background: var(--color-surface);
-    box-shadow: inset 0 0 0 2px var(--color-brand);
+  /* ── 4. чистый шов: три группы строками, заголовок слева, список справа ── */
+  .cl { display: grid; gap: clamp(40px, 5vw, 64px); }
+  .cl__group { display: grid; gap: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--hair-strong); }
+  .cl__h { margin: 0; font-size: clamp(28px, 2.6vw, 38px); line-height: 1.02; letter-spacing: -0.015em; }
+  .cl__list { margin: 0; padding: 0; list-style: none; }
+  .cl__list li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-4) 0; border-bottom: 1px solid var(--hair); }
+  .cl__list li:first-child { padding-top: 0; }
+  .cl__list p { margin: 0; color: var(--color-text-soft); }
+  .cl__list .src { margin-top: var(--space-2); }
+  .cl__list .src-link { margin-left: 2px; }
+  .cl__n { padding-top: 0.3em; font-size: 12px; letter-spacing: 0.08em; color: var(--color-muted); }
+  .cl__list .cl__t { margin: 0 0 var(--space-1); font-family: var(--font-head); font-size: clamp(22px, 1.9vw, 27px); line-height: 1.1; color: var(--ink); }
+  @media (min-width: 1000px) {
+    .cl__group { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); column-gap: clamp(32px, 4vw, 64px); padding-top: var(--space-5); }
+    .cl__list li:first-child { padding-top: var(--space-1); }
   }
 </style>

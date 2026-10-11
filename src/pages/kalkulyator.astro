@@ -3,6 +3,8 @@
 // по нормам производителей, без смешения методик и без своих коэффициентов.
 // Все числа — из src/data/series-facts.ts → CONSUMPTION (у каждой нормы URL источника)
 // и фасовки дилера src/data/catalog.ts → packKg. «Запаса на бой» в данных нет — его нет и здесь.
+// Вид (редизайн 11.10): калькулятор — «бланк» (Calculator.astro), нормы — записи через линии в сетке 5/7
+// вместо карточек с рамкой; кирпича на странице нет, цвет дают только полосы оттенков у смесей.
 import Page from '../layouts/Page.astro';
 import PageHead from '../components/smesi/PageHead.astro';
 import Section from '../components/layout/Section.astro';
@@ -14,6 +16,7 @@ import { seriesById } from '../data/catalog';
 import { PAGES } from '../data/nav';
 import { liveUrl } from '../lib/sites';
 import { plural } from '../lib/format';
+import { nb as typo } from '../lib/typo';
 import type { FaqItem } from '../lib/types';
 
 const H1 = 'Калькулятор расхода цветной кладочной смеси';
@@ -100,6 +103,14 @@ const pageLd = {
 };
 
 const src = { rel: 'nofollow noopener', target: '_blank' } as const;
+
+// Нормы коротко — для первого экрана: те же числа, что в таблицах ниже и в вопросах.
+const glance = [
+  { name: 'Perel SL, VL, NL', per: 'на 1 кирпич, по формату', value: keep(range1(perelMin, perelMax)) },
+  { name: 'Основит Брикформ МС11, МС11/1', per: 'на 1 м² кладки', value: num(O.kgPerM2) },
+  { name: 'Perel RL', per: 'на 1 м², затирка швов', value: keep(range(R.kgPerM2Min, R.kgPerM2Max)) },
+  { name: 'Основит Бриксэйв ХС30', per: 'на 1 м², расшивка швов', value: one(X.kgPerM2) },
+].map((g) => ({ ...g, name: nb(g.name), per: nb(g.per) }));
 ---
 
 <Page title={TITLE} description={DESCRIPTION} slug="kalkulyator" current="kalkulyator" source="kalkulyator" jsonLd={[pageLd]}>
@@ -108,9 +119,22 @@ const src = { rel: 'nofollow noopener', target: '_blank' } as const;
     h1={H1}
     crumb="Калькулятор расхода"
     lead="Сколько мешков смеси нужно на вашу кладку — по нормам Perel и Основит. Каждую смесь считаем по методике её производителя: кладочные Perel — на кирпич по формату, Основит Брикформ — на квадратный метр кладки, затирку и расшивку швов — на квадратный метр."
-  />
+  >
+    <div class="hn" slot="aside">
+      <p class="hn__cap">Расход по нормам производителей</p>
+      <dl class="hn__list">
+        {glance.map((g) => (
+          <div class="hn__row">
+            <dt>{g.name}<span>{g.per}</span></dt>
+            <dd><b class="num">{g.value}</b>&nbsp;кг</dd>
+          </div>
+        ))}
+      </dl>
+      <a class="arrow-link hn__go" href="#raschet">Посчитать мешки <span aria-hidden="true">↓</span></a>
+    </div>
+  </PageHead>
 
-  <Section id="raschet" bg="base" aria-label="Расчёт">
+  <Section id="raschet" bg="base" pad="sm" aria-label="Расчёт">
     <Calculator id="calc" />
   </Section>
 
@@ -121,102 +145,119 @@ const src = { rel: 'nofollow noopener', target: '_blank' } as const;
     subtitle="Нормы — из документов Perel и Основит, у каждой ссылка на источник."
     bg="alt"
   >
-    <div class="methods" data-reveal-stagger>
-      <article class="method">
-        <p class="method__tag">Perel SL, VL, NL&nbsp;·&nbsp;кладка</p>
-        <h3 class="method__title">На кирпич — по формату</h3>
-        <p class="method__text">
-          Расход сухой смеси на один кирпич. Норма одна для трёх серий; толщину шва производитель в таблице
-          не указывает.
-        </p>
-        <div class="tbl-wrap">
-          <table class="tbl">
-            <caption class="vh">Расход сухой смеси Perel на 1 кирпич по формату</caption>
-            <thead>
-              <tr><th scope="col">Формат</th><th scope="col">Размер, мм</th><th scope="col">Смеси на 1 кирпич, кг</th></tr>
-            </thead>
-            <tbody>
-              {P.perBrick.map((f) => (
-                <tr><th scope="row">{f.format}</th><td>{f.size}</td><td class="tbl__num">{keep(range1(f.kgMin, f.kgMax))}</td></tr>
-              ))}
-            </tbody>
-          </table>
+    <ol class="norms">
+      <li class="norm" data-reveal>
+        <div class="norm__head">
+          <p class="norm__tag"><span class="norm__n num" aria-hidden="true">01</span>Perel SL, VL, NL&nbsp;·&nbsp;кладка</p>
+          <h3 class="norm__title">{typo('На кирпич — по формату')}</h3>
+          <p class="norm__text">
+            {typo('Расход сухой смеси на один кирпич. Норма одна для трёх серий; толщину шва производитель в таблице не указывает.')}
+          </p>
         </div>
-        <p class="method__example">
-          Пример: {num(EX_N)}&nbsp;кирпичей {keep(ex.format)} — {keep(range(exKgMin, exKgMax))}&nbsp;кг, это {keep(exBags)} по {perelPack}&nbsp;кг.
-        </p>
-        <p class="srcline">По данным производителя: <a href={P.src} {...src}>каталог Perel, стр. 7</a></p>
-        <p class="method__links">
-          Цвета в каталоге:
-          <a href={`${PAGES.katalog.href}#perel-sl`}>SL</a>,
-          <a href={`${PAGES.katalog.href}#perel-vl`}>VL</a>,
-          <a href={`${PAGES.katalog.href}#perel-nl`}>NL</a>
-        </p>
-      </article>
+        <div class="norm__body">
+          <div class="tbl-wrap">
+            <table class="tbl tbl--brick">
+              <caption class="vh">Расход сухой смеси Perel на 1 кирпич по формату</caption>
+              <thead>
+                <tr><th scope="col">Формат</th><th scope="col">Размер, мм</th><th scope="col" class="tbl__r">Смеси на 1&nbsp;кирпич, кг</th></tr>
+              </thead>
+              <tbody>
+                {P.perBrick.map((f) => (
+                  <tr><th scope="row">{keep(f.format)}</th><td class="num">{f.size}</td><td class="tbl__num tbl__r num">{keep(range1(f.kgMin, f.kgMax))}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="norm__foot">
+          <p class="norm__example">
+            <span class="norm__ex-label">Пример</span>
+            {num(EX_N)}&nbsp;кирпичей {keep(ex.format)} — {keep(range(exKgMin, exKgMax))}&nbsp;кг, это {keep(exBags)} по {perelPack}&nbsp;кг.
+          </p>
+          <p class="srcline">По данным производителя: <a href={P.src} {...src}>каталог Perel, стр. 7</a></p>
+          <p class="norm__links">
+            Цвета в каталоге:
+            <a href={`${PAGES.katalog.href}#perel-sl`}>SL</a>,
+            <a href={`${PAGES.katalog.href}#perel-vl`}>VL</a>,
+            <a href={`${PAGES.katalog.href}#perel-nl`}>NL</a>
+          </p>
+        </div>
+      </li>
 
-      <div class="methods__col">
-        <article class="method">
-          <p class="method__tag">Основит Брикформ МС11, МС11/1&nbsp;·&nbsp;кладка</p>
-          <h3 class="method__title">На квадратный метр кладки</h3>
-          <p class="method__big"><b>{num(O.kgPerM2)}</b> кг смеси на 1&nbsp;м²</p>
-          <ul class="method__cond" aria-label="Условия нормы">
+      <li class="norm" data-reveal>
+        <div class="norm__head">
+          <p class="norm__tag"><span class="norm__n num" aria-hidden="true">02</span>Основит Брикформ МС11, МС11/1&nbsp;·&nbsp;кладка</p>
+          <h3 class="norm__title">{typo('На квадратный метр кладки')}</h3>
+        </div>
+        <div class="norm__body">
+          <p class="norm__big"><b class="num">{num(O.kgPerM2)}</b><span>кг смеси на 1&nbsp;м²</span></p>
+          <ul class="norm__cond" aria-label="Условия нормы">
             <li>{nb(O.joint)}</li>
             <li>{nb(osWall)}</li>
           </ul>
-          <p class="method__text">
-            Норма одна для МС11 и МС11/1. Мешок — {osPack}&nbsp;кг, то есть {num(osBagsPerM2)}&nbsp;{osBagsWord} на квадратный
+        </div>
+        <div class="norm__foot">
+          <p class="norm__text">
+            Норма одна для МС11 и&nbsp;МС11/1. Мешок — {osPack}&nbsp;кг, то есть {num(osBagsPerM2)}&nbsp;{osBagsWord} на&nbsp;квадратный
             метр при этих условиях.
           </p>
-          <p class="method__example">
-            Пример: {OS_EX}&nbsp;м² кладки — {num(osExKg)}&nbsp;кг, это {osExBags}&nbsp;{plural(osExBags, 'мешок', 'мешка', 'мешков')} по {osPack}&nbsp;кг.
+          <p class="norm__example">
+            <span class="norm__ex-label">Пример</span>
+            {OS_EX}&nbsp;м² кладки — {num(osExKg)}&nbsp;кг, это {osExBags}&nbsp;{plural(osExBags, 'мешок', 'мешка', 'мешков')} по {osPack}&nbsp;кг.
           </p>
           <p class="srcline">По данным производителя: <a href={O.src} {...src}>страница Брикформ МС11, osnovit.ru</a></p>
-          <p class="method__links">
+          <p class="norm__links">
             Цвета в каталоге:
             <a href={`${PAGES.katalog.href}#osnovit-mc11`}>МС11</a>,
             <a href={`${PAGES.katalog.href}#osnovit-mc11-1`}>МС11/1</a>
           </p>
-        </article>
-        <aside class="why">
-          <h3 class="why__title">Почему без общей формулы</h3>
-          <p>
-            В норме Perel нет толщины шва, в норме Основит — формата кирпича. Чтобы перевести одну в другую,
-            пришлось бы досчитывать то, чего производитель не указал. Поэтому калькулятор считает каждую смесь
-            только по норме её производителя — без своих коэффициентов и надбавок, а мешки округляет вверх
-            до целого.
+        </div>
+      </li>
+
+      <li class="norm" data-reveal>
+        <div class="norm__head">
+          <p class="norm__tag"><span class="norm__n num" aria-hidden="true">03</span>Perel RL&nbsp;·&nbsp;Основит Бриксэйв ХС30</p>
+          <h3 class="norm__title">{typo('Затирка и расшивка швов — на 1 м²')}</h3>
+        </div>
+        <div class="norm__body">
+          <div class="tbl-wrap">
+            <table class="tbl tbl--joints">
+              <caption class="vh">Расход растворов для затирки и расшивки швов на 1 м²</caption>
+              <thead>
+                <tr><th scope="col">Смесь</th><th scope="col">Расход на 1&nbsp;м²</th><th scope="col">Условие нормы</th><th scope="col">Мешок</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row"><a href={`${PAGES.katalog.href}#perel-rl`}>Perel RL</a> <span class="tbl__use">затирка</span></th>
+                  <td data-label="Расход на 1 м²" class="tbl__num num">{range(R.kgPerM2Min, R.kgPerM2Max)}&nbsp;кг</td>
+                  <td data-label="Условие нормы">{nb(rlCond)}</td>
+                  <td data-label="Мешок" class="tbl__num num">{rlPack}&nbsp;кг</td>
+                </tr>
+                <tr>
+                  <th scope="row"><a href={`${PAGES.katalog.href}#osnovit-xc30`}>Основит Бриксэйв ХС30</a> <span class="tbl__use">расшивка</span></th>
+                  <td data-label="Расход на 1 м²" class="tbl__num num">{one(X.kgPerM2)}&nbsp;кг</td>
+                  <td data-label="Условие нормы">{nb(X.condition)}</td>
+                  <td data-label="Мешок" class="tbl__num num">{xcPack}&nbsp;кг</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="norm__foot">
+          <p class="srcline">
+            По данным производителей: <a href={R.src} {...src}>{keep('карточка Perel RL, td-perel.ru')}</a> ·
+            <a href={X.src} {...src}>страница Бриксэйв ХС30, osnovit.ru</a>
           </p>
-        </aside>
-      </div>
-    </div>
+        </div>
+      </li>
+    </ol>
 
-    <h3 class="sub" data-reveal>Затирка и расшивка швов — на 1&nbsp;м²</h3>
-    <div class="tbl-wrap" data-reveal>
-      <table class="tbl tbl--joints">
-        <caption class="vh">Расход растворов для затирки и расшивки швов на 1 м²</caption>
-        <thead>
-          <tr><th scope="col">Смесь</th><th scope="col">Расход на 1 м²</th><th scope="col">Условие нормы</th><th scope="col">Мешок</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th scope="row"><a href={`${PAGES.katalog.href}#perel-rl`}>Perel RL</a> <span class="tbl__use">затирка</span></th>
-            <td data-label="Расход на 1 м²" class="tbl__num">{range(R.kgPerM2Min, R.kgPerM2Max)} кг</td>
-            <td data-label="Условие нормы">{nb(rlCond)}</td>
-            <td data-label="Мешок" class="tbl__num">{rlPack} кг</td>
-          </tr>
-          <tr>
-            <th scope="row"><a href={`${PAGES.katalog.href}#osnovit-xc30`}>Основит Бриксэйв ХС30</a> <span class="tbl__use">расшивка</span></th>
-            <td data-label="Расход на 1 м²" class="tbl__num">{one(X.kgPerM2)} кг</td>
-            <td data-label="Условие нормы">{nb(X.condition)}</td>
-            <td data-label="Мешок" class="tbl__num">{xcPack} кг</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="why" data-reveal>
+      <h3 class="why__title">{typo('Почему без общей формулы')}</h3>
+      <p>
+        {typo('В норме Perel нет толщины шва, в норме Основит — формата кирпича. Чтобы перевести одну в другую, пришлось бы досчитывать то, чего производитель не указал. Поэтому калькулятор считает каждую смесь только по норме её производителя — без своих коэффициентов и надбавок, а мешки округляет вверх до целого.')}
+      </p>
     </div>
-    <p class="srcline">
-      По данным производителей: <a href={R.src} {...src}>карточка Perel RL, td-perel.ru</a> ·
-      <a href={X.src} {...src}>страница Бриксэйв ХС30, osnovit.ru</a>
-    </p>
-
   </Section>
 
   <Section id="voprosy" kicker="Вопросы" title="Частые вопросы о расходе" bg="base">
@@ -225,68 +266,144 @@ const src = { rel: 'nofollow noopener', target: '_blank' } as const;
 
   <CtaBand
     source="kalkulyator"
-    title="Посчитаем мешки под ваш проект"
-    text="Назовите кирпич, его количество или площадь кладки — подскажем серию и цвет шва, назовём цену и наличие."
+    title={typo('Посчитаем мешки под ваш проект')}
+    text={typo('Назовите кирпич, его количество или площадь кладки — подскажем серию и цвет шва, назовём цену и наличие.').replace(/ — /g, '\u00a0— ')}
   />
 </Page>
 
+<style is:global>
+  /* Сквозная проверка дизайна 11.10: итог калькулятора стоял залитой плашкой (--paper-2) — единственный
+     «короб» на сайте, где всё разделяют линии. Итог — третий шаг бланка: без заливки и отступов коробки,
+     его отделяет та же линия под подписью «03 Понадобится», что и шаги 01–02. */
+  html[data-site='smesi'] #raschet .calc__out { padding: 0; background: none; }
+</style>
+
 <style>
-  .methods { display: grid; gap: var(--space-4); }
-  @media (min-width: 960px) { .methods { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); align-items: start; } }
-  .methods__col { display: grid; gap: var(--space-4); }
-
-  .method {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-6) var(--space-5);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    background: var(--color-surface);
+  /* Нормы (редизайн 11.10): не карточки, а записи через линии — слева номер, подпись и пояснение,
+     справа таблица или крупная цифра. Сетка 5/7. */
+  .norms { margin: 0; padding: 0; list-style: none; }
+  /* Запись: шапка (номер, подпись, заголовок) → норма (таблица или цифра) → пояснение и источник.
+     На десктопе норма справа во всю высоту записи, пояснение — под шапкой слева. */
+  .norm {
+    display: grid;
+    grid-template-areas: 'head' 'body' 'foot';
+    gap: var(--space-5);
+    padding: clamp(32px, 4vw, 56px) 0;
+    border-top: 1px solid var(--hair-strong);
   }
-  .method__tag { margin: 0; font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-accent-text); }
-  .method__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
-  .method__text { margin: 0; color: var(--color-text-soft); }
-  .method__big { margin: var(--space-2) 0 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
-  .method__big b { margin-right: var(--space-1); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h1); line-height: 1; color: var(--color-text); }
-  .method__cond { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-  .method__cond li { padding: 6px 14px; border-radius: var(--radius-pill); background: var(--color-brand-soft); font-size: var(--fs-small); font-weight: 600; }
-  .method__example { margin: 0; font-weight: 600; }
-  .method__links { margin: auto 0 0; padding-top: var(--space-2); font-size: var(--fs-small); color: var(--color-text-soft); }
-  .method__links a, .srcline a, .tbl a { color: var(--color-accent-text); font-weight: 600; }
+  .norm:first-child { padding-top: clamp(24px, 3vw, 40px); }
+  .norm:last-child { padding-bottom: 0; }
+  @media (min-width: 960px) {
+    .norm {
+      grid-template-areas: 'head body' 'foot body';
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      grid-template-rows: auto 1fr;
+      gap: var(--space-5) clamp(40px, 5vw, 88px);
+      align-items: start;
+    }
+  }
+  .norm__head { grid-area: head; display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+  .norm__foot { grid-area: foot; display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+  .norm__body { grid-area: body; min-width: 0; }
+  .norm__tag {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin: 0;
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .norm__n { letter-spacing: 0.04em; color: var(--ink); }
+  .norm__title {
+    margin: var(--space-2) 0 var(--space-1);
+    font-size: clamp(30px, 3vw, 44px);
+    line-height: 1;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  .norm__text { margin: 0; max-width: 46ch; color: var(--color-text-soft); }
+  .norm__example { margin: 0; padding-top: var(--space-3); border-top: 1px solid var(--hair); max-width: 46ch; }
+  /* На телефоне пример идёт сразу под таблицей — её нижняя линия уже отделяет его */
+  @media (max-width: 959px) { .norm__foot > .norm__example:first-child { padding-top: 0; border-top: 0; } }
+  .norm__ex-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .norm__links { margin: 0; font-size: var(--fs-small); color: var(--color-text-soft); }
+  .norm__links a, .srcline a, .tbl a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--hair-strong); }
+  .norm__links a:hover, .srcline a:hover, .tbl a:hover { text-decoration-color: var(--ink); }
 
-  .srcline { margin: var(--space-3) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
-  .method .srcline { margin: 0; }
+  .srcline { margin: 0; font-size: 14px; color: var(--color-muted); }
 
+  /* Основит: крупная цифра нормы и условия строками через линии */
+  .norm__big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px; margin: 0; }
+  .norm__big b { font-family: var(--font-head); font-weight: 500; font-size: clamp(96px, 12vw, 176px); line-height: 0.8; letter-spacing: -0.04em; }
+  .norm__big span { font-size: var(--fs-lead); color: var(--color-text-soft); }
+  .norm__cond { margin: clamp(24px, 3vw, 40px) 0 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .norm__cond li { padding: 14px 0; border-bottom: 1px solid var(--hair); font-family: var(--font-head); font-size: clamp(22px, 2vw, 28px); line-height: 1.1; }
+
+  /* Таблицы — строки через линии, номер формата антиквой */
   .tbl-wrap { max-width: 100%; }
   .tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
-  .tbl th, .tbl td { padding: var(--space-3) var(--space-3) var(--space-3) 0; border-bottom: 1px solid var(--color-border-soft); text-align: left; vertical-align: top; }
-  .tbl thead th { font-size: var(--fs-tiny); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-muted); border-bottom-color: var(--color-border); }
-  .tbl tbody th { font-weight: 700; }
-  .tbl__num { white-space: nowrap; font-weight: 700; }
-  .tbl__use { display: block; font-weight: 400; color: var(--color-muted); font-size: var(--fs-tiny); }
+  .tbl th, .tbl td { padding: 14px var(--space-4) 14px 0; border-bottom: 1px solid var(--hair); text-align: left; vertical-align: baseline; }
+  .tbl th:last-child, .tbl td:last-child { padding-right: 0; }
+  .tbl thead th { padding-top: 0; font-size: var(--fs-tiny); font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-muted); border-bottom-color: var(--hair-strong); }
+  .tbl tbody th { font-weight: 500; }
+  .tbl__num { white-space: nowrap; font-weight: 500; }
+  .tbl .tbl__r { text-align: right; }
+  .tbl__use { display: block; margin-top: 2px; font-weight: 400; color: var(--color-muted); font-size: var(--fs-tiny); letter-spacing: 0.12em; text-transform: uppercase; }
+  .tbl--brick tbody th { font-family: var(--font-head); font-size: clamp(22px, 2vw, 27px); line-height: 1; }
+  .tbl--brick tbody td { color: var(--color-text-soft); }
+  .tbl--brick tbody .tbl__num { font-family: var(--font-head); font-size: clamp(22px, 2vw, 27px); line-height: 1; color: var(--ink); }
+  .tbl--joints tbody th { font-family: var(--font-head); font-size: clamp(20px, 1.6vw, 23px); line-height: 1.1; }
+  .tbl--joints tbody th .tbl__use { font-family: var(--font-body); }
+  .tbl--joints tbody td { color: var(--color-text-soft); }
+  .tbl--joints tbody .tbl__num { color: var(--ink); }
 
-  .sub { margin: var(--space-8) 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
+  /* Заголовки таблицы форматов на десктопе не переносятся; на телефоне — переносятся, иначе таблица
+     шире экрана 320–390 px. В таблице растворов место отдаём столбцу «Условие нормы», названия смесей — в строку. */
+  @media (min-width: 640px) {
+    .tbl thead th { white-space: nowrap; }
+    .tbl--joints thead th { white-space: normal; }
+    .tbl--joints tbody th a { white-space: nowrap; }
+  }
 
-  .tbl--joints { background: var(--color-surface); border-radius: var(--radius); }
-  .tbl--joints th, .tbl--joints td { padding-inline: var(--space-4); }
-
-  /* Таблица растворов на телефоне — строка становится карточкой с подписями */
+  /* Таблица растворов на телефоне — строка разворачивается в столбик с подписями, разделитель — линия */
   @media (max-width: 639px) {
     .tbl--joints thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
     .tbl--joints, .tbl--joints tbody, .tbl--joints tr, .tbl--joints th, .tbl--joints td { display: block; }
-    .tbl--joints tr { padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border); }
-    .tbl--joints th, .tbl--joints td { padding: var(--space-1) var(--space-4); border: 0; }
+    .tbl--joints tbody { border-top: 1px solid var(--hair-strong); }
+    .tbl--joints tr { padding: var(--space-4) 0; border-bottom: 1px solid var(--hair); }
+    .tbl--joints th, .tbl--joints td { padding: 3px 0; border: 0; }
+    .tbl--joints th { padding-bottom: var(--space-2); }
     .tbl--joints td::before { content: attr(data-label) ': '; color: var(--color-muted); font-weight: 400; }
     .tbl--joints .tbl__num { white-space: normal; }
   }
 
-  .why {
-    padding: var(--space-6) var(--space-5);
-    border-left: 4px solid var(--color-brand);
-    border-radius: 0 var(--radius) var(--radius) 0;
-    background: var(--color-surface);
+  /* Почему без общей формулы — запись в той же сетке 5/7, без плашки и цветной полосы */
+  .why { display: grid; gap: var(--space-4); margin-top: clamp(48px, 6vw, 88px); padding-top: var(--space-4); border-top: 1px solid var(--hair-strong); }
+  @media (min-width: 960px) {
+    .why { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(40px, 5vw, 88px); }
   }
-  .why__title { margin: 0 0 var(--space-3); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .why p { margin: 0; max-width: 68ch; color: var(--color-text-soft); }
+  .why__title { margin: 0; font-size: clamp(26px, 2.4vw, 34px); line-height: 1.05; letter-spacing: -0.01em; }
+  .why p { margin: 0; max-width: 60ch; font-size: var(--fs-lead); color: var(--color-text-soft); }
+
+  /* Первый экран, правая колонка: нормы коротко — строки через линии, цифры антиквой */
+  .hn { display: grid; gap: var(--space-5); }
+  .hn__cap { margin: 0; font-size: var(--fs-tiny); font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); }
+  .hn__list { margin: 0; border-top: 1px solid var(--hair-strong); }
+  .hn__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 20px; align-items: baseline; padding: 14px 0; border-bottom: 1px solid var(--hair); }
+  .hn__row dt { font-size: var(--fs-small); line-height: 1.3; color: var(--ink); }
+  .hn__row dt span { display: block; margin-top: 2px; font-size: 13.5px; color: var(--color-muted); }
+  .hn__row dd { margin: 0; white-space: nowrap; font-size: var(--fs-small); color: var(--color-text-soft); }
+  .hn__row dd b { font-family: var(--font-head); font-weight: 500; font-size: clamp(30px, 2.6vw, 40px); line-height: 1; letter-spacing: -0.01em; color: var(--ink); }
+  .hn__go { justify-self: start; }
 </style>

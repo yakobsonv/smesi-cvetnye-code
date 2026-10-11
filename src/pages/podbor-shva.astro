@@ -3,25 +3,48 @@
 // с белым швом», «тёмный кирпич белый или тёмный раствор» (Вебмастер сайтов дилера, подсказки Яндекса).
 // Наше отличие от конкурентов — настоящие сочетания кирпича и шва на кадрах кладки из материалов
 // клиента (визуализации заводов ОСМиБТ и ЖКЗ, Яндекс.Диск «Текстуры (кладки)»).
+// Единственная страница сайта, где кирпич уместен: это инструмент (редизайн 11.10).
 //
 // Правила «в тон / контраст» — по смыслу из текстов самого дилера на его сайтах кирпича
 // (вопрос «Зачем класть облицовочный кирпич на цветную кладочную смесь?» и блок «Как подобрать
 // оттенок»: гармония — оттенок смеси близок к кирпичу; контраст — белые швы с красным и коричневым,
 // тёмные с белым и серым; для тёмного кирпича — тёмный раствор, для светлого — светлый или
 // нейтральный; контрастный шов требует ровной кладки). Пересказано своими словами, без копирования.
+//
+// Полоса у каждого подхода — оттенки той группы каталога, куда ведёт ссылка «Подходящие смеси»
+// (плашки с палитр производителей, src/data/swatches.ts; у кладочных серий приоритет, как на главной).
 import Page from '../layouts/Page.astro';
 import PageHead from '../components/smesi/PageHead.astro';
 import Section from '../components/layout/Section.astro';
 import JointPicker from '../components/smesi/JointPicker.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
 import { KLADKA_UNIQUE as KLADKA } from '../data/kladka';
+import { POSITIONS, TONES, seriesById, type Tone } from '../data/catalog';
+import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
+import { nb as typoNb } from '../lib/typo';
+// Пробел перед «—» — неразрывный: тире не начинает строку (сквозная проверка дизайна 11.10).
+const nb = (t: string) => typoNb(t).replace(/ — /g, '\u00a0— ');
 
 const start = KLADKA.find((b) => b.id === 'osmibt-krasnyj')?.id ?? KLADKA[0]?.id;
 const bricksCount = KLADKA.length;
 const framesCount = KLADKA.reduce((n, b) => n + b.seams.length, 0);
 
-const rules = [
+// «супер-белый» (Perel) и «супербелый» (Основит) — один оттенок.
+const sameName = (n: string) => n.replace('супер-', 'супер');
+const toneColors = (t: Tone) => {
+  const byName = new Map<string, string>();
+  const ps = POSITIONS.filter((p) => p.color.tone === t).sort(
+    (a, b) => Number(seriesById(a.series).purpose === 'rasshivka') - Number(seriesById(b.series).purpose === 'rasshivka'),
+  );
+  for (const p of ps) {
+    const n = sameName(p.color.name);
+    if (!byName.has(n)) byName.set(n, swatchFor(p.series, p.color.code));
+  }
+  return [...byName.values()];
+};
+
+const rules: { title: string; text: string; ton: Tone }[] = [
   {
     title: 'В тон кирпичу',
     text: 'Шов близок по цвету к кирпичу — например, бежевый к соломенному или светлый к слоновой кости. Стена читается одной спокойной плоскостью.',
@@ -38,6 +61,7 @@ const rules = [
     ton: 'black',
   },
 ];
+const ways = rules.map((r) => ({ ...r, colors: toneColors(r.ton) }));
 ---
 
 <Page
@@ -60,18 +84,23 @@ const rules = [
     <JointPicker variant="full" start={start} id="podbor-jp" />
   </Section>
 
-  <Section kicker="Как выбирать" title="Три подхода к цвету шва" bg="alt">
-    <ul class="rules" data-reveal-stagger>
-      {rules.map((r, i) => (
-        <li class="rule">
-          <span class="rule__num" aria-hidden="true">0{i + 1}</span>
-          <h3 class="rule__title">{r.title}</h3>
-          <p>{r.text}</p>
-          <a class="rule__link" href={`${PAGES.katalog.href}?ton=${r.ton}`}>Подходящие смеси <span aria-hidden="true">→</span></a>
+  <Section kicker="Как выбирать" title={nb('Три подхода к цвету шва')} bg="alt">
+    <ol class="ways" data-reveal-stagger>
+      {ways.map((r, i) => (
+        <li class="way">
+          <span class="way__n num" aria-hidden="true">0{i + 1}</span>
+          <h3 class="way__t">{nb(r.title)}</h3>
+          <p class="way__x">{nb(r.text)}</p>
+          <div class="way__mix">
+            <span class="way__strip strip" aria-hidden="true">{r.colors.map((c) => <span class="mortar" style={`--c:${c}`}></span>)}</span>
+            <span class="way__tone">{TONES[r.ton]}</span>
+            <a class="arrow-link" href={`${PAGES.katalog.href}?ton=${r.ton}`}>Подходящие смеси <span aria-hidden="true">→</span></a>
+          </div>
         </li>
       ))}
-    </ul>
-    <p class="rules__note">
+    </ol>
+    <p class="ways__note">
+      <span class="label">О кадрах</span>
       Кадры — визуализации кладки, а не фотографии: цвет на экране приблизительный. Оттенок готового шва
       зависит от количества воды и способа расшивки, поэтому перед заказом партии стоит сделать пробную кладку.
     </p>
@@ -79,19 +108,40 @@ const rules = [
 
   <CtaBand
     source="podbor"
-    title="Сомневаетесь в цвете шва?"
-    text="Назовите кирпич — подскажем, какой шов к нему подойдёт, и подберём смесь нужной серии."
+    title={nb('Сомневаетесь в цвете шва?')}
+    text={nb('Назовите кирпич — подскажем, какой шов к нему подойдёт, и подберём смесь нужной серии.')}
   />
 </Page>
 
 <style>
-  .rules { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-  @media (min-width: 860px) { .rules { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  .rule { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); }
-  .rule p { margin: 0; color: var(--color-text-soft); }
-  .rule__num { font-family: var(--font-head); font-weight: 800; color: var(--color-accent-text); }
-  .rule__title { margin: 0; font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h3); }
-  .rule__link { margin-top: auto; font-weight: 700; color: var(--color-accent-text); text-decoration: none; }
-  .rule__link:hover { text-decoration: underline; }
-  .rules__note { max-width: 68ch; margin: var(--space-6) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
+  /* Три подхода — список через линии с номером, без карточек; цвет дают только полосы раствора */
+  .ways { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .way {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 10px 14px;
+    align-items: baseline;
+    padding: 24px 0 30px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .way__n { font-size: 12px; letter-spacing: 0.04em; color: var(--color-muted); }
+  .way__t { margin: 0; font-size: clamp(28px, 2.6vw, 40px); line-height: 1.02; letter-spacing: -0.015em; }
+  .way__x { grid-column: 2; max-width: 52ch; margin: 0; color: var(--color-text-soft); }
+  .way__mix { grid-column: 2; display: grid; gap: 10px; align-self: start; margin-top: 6px; }
+  .way__strip { height: 40px; }
+  .way__tone { font-size: 13px; color: var(--color-muted); }
+  .way__mix .arrow-link { justify-self: start; }
+
+  @media (min-width: 900px) {
+    .way {
+      grid-template-columns: 60px minmax(0, 3fr) minmax(0, 5fr) minmax(0, 3fr);
+      gap: 0 clamp(24px, 3vw, 44px);
+      padding: 32px 0 36px;
+    }
+    .way__x { grid-column: 3; padding-top: 6px; }
+    .way__mix { grid-column: 4; margin-top: 0; padding-top: 8px; }
+    .way__strip { height: 48px; }
+  }
+
+  .ways__note { display: grid; gap: 6px; max-width: 62ch; margin: var(--space-7) 0 0; font-size: var(--fs-small); color: var(--color-muted); }
 </style>

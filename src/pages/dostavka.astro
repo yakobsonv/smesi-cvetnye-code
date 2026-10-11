@@ -10,17 +10,76 @@
 //     пакета документов» (для организаций), расчёт потребности в материалах, подбор материалов.
 // ⚠️ Условий доставки (стоимость, минимальная партия, срок) у клиента в открытом доступе НЕТ —
 // не выдумываем: стоимость и срок называет менеджер. Вопрос Владу (план, вопрос 7).
-// Фасовка — из ассортимента дилера (src/data/catalog.ts).
+// Фасовка — из ассортимента дилера (src/data/catalog.ts): серия, назначение, мешок; полоса
+// оттенков серии — те же плашки, что в каталоге. Клик по полосе или «Узнать цену» — окно
+// «Узнать цену» с названием серии (тот же текст, что у карточки серии на главной).
+//
+// Редизайн 11.10 («палитра шва»): офисы — две колонки через линию, телефоны крупной антиквой,
+// часы и фасовка — таблицами через линии, шаги заказа — нумерованным списком без карточек.
 import Page from '../layouts/Page.astro';
 import PageHead from '../components/smesi/PageHead.astro';
 import Section from '../components/layout/Section.astro';
+import Container from '../components/layout/Container.astro';
+import SwatchNote from '../components/smesi/SwatchNote.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
-import { OFFICES, HOURS_FULL, getSite } from '../lib/sites';
+import { OFFICES, HOURS_FULL, getSite, localPath } from '../lib/sites';
 import { SERIES } from '../data/catalog';
+import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
+import { nb } from '../lib/typo';
 
 const seller = getSite('smesi');
-const packs = [...new Map(SERIES.map((s) => [`${s.name}`, s.packKg])).entries()];
+// Тире не должно начинать строку: пробел перед ним — неразрывный (текст не меняется).
+const dash = (t: string) => nb(t).replace(/ — /g, '\u00a0— ');
+
+const plural = (n: number, one: string, few: string, many: string) => {
+  const a = n % 10;
+  const b = n % 100;
+  if (a === 1 && b !== 11) return one;
+  if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return few;
+  return many;
+};
+
+const packGroups = [
+  { title: 'Кладочные смеси', items: SERIES.filter((s) => s.purpose === 'kladka') },
+  { title: 'Для расшивки швов готовой кладки', items: SERIES.filter((s) => s.purpose === 'rasshivka') },
+].map((g) => ({
+  ...g,
+  items: g.items.map((s) => ({
+    id: s.id,
+    name: s.name,
+    short: s.short,
+    kg: s.packKg,
+    href: `${localPath('smesi', s.page)}#${s.id}`,
+    ask: `${s.name} — цвет подберём`,
+    colors: s.colors.map((c) => swatchFor(s.id, c.code)),
+    count: s.colors.length,
+  })),
+}));
+
+const steps = [
+  {
+    t: 'Позвоните или оставьте заявку',
+    d: 'Назовите кирпич, цвет шва и объём кладки — подскажем серию и посчитаем количество мешков.',
+    link: { href: '#zayavka', label: 'Оставить заявку' },
+  },
+  {
+    t: 'Согласуем позиции и доставку',
+    d: 'Менеджер назовёт цену, наличие, стоимость и срок доставки на ваш адрес.',
+  },
+  {
+    t: 'Оплата',
+    d: 'Организациям — безналичный расчёт с полным пакетом документов. Способы оплаты для частных покупателей уточняйте у менеджера.',
+  },
+];
+
+// Указатель по странице — в правой колонке шапки (на десктопе там иначе пусто).
+const toc = [
+  { href: '#ofisy', label: 'Офисы и часы работы' },
+  { href: '#zakaz', label: 'Как оформить заказ' },
+  { href: '#fasovka', label: 'Фасовка' },
+  { href: '#zayavka', label: 'Заявка на доставку' },
+];
 
 const contactJson = {
   '@type': 'ContactPage',
@@ -35,97 +94,297 @@ const contactJson = {
   slug="dostavka"
   current="dostavka"
   source="dostavka"
-  priceModal={false}
   jsonLd={[contactJson]}
 >
   <PageHead
     kicker="Покупателю"
     h1="Доставка и контакты"
-    lead="Привезём смесь на объект по Москве и Московской области или поможем с выбором в офисе. Стоимость и срок доставки менеджер назовёт, когда будут известны адрес и объём заказа."
-  />
+    lead={dash('Привезём смесь на объект по Москве и Московской области или поможем с выбором в офисе. Стоимость и срок доставки менеджер назовёт, когда будут известны адрес и объём заказа.')}
+  >
+    <nav slot="aside" class="dv-toc" aria-label="Разделы страницы">
+      <p class="label dv-toc__label">На этой странице</p>
+      <ol class="dv-toc__list">
+        {toc.map((t, i) => (
+          <li>
+            <a href={t.href}>
+              <span class="dv-toc__n num">0{i + 1}</span>
+              <span class="dv-toc__t">{t.label}</span>
+              <span class="dv-toc__arrow" aria-hidden="true">↓</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  </PageHead>
 
-  <Section kicker="Офисы продаж" title="Где нас найти" bg="base">
-    <ul class="offices" data-reveal-stagger>
-      {OFFICES.map((o) => (
-        <li class="office">
-          <h3 class="office__name">{o.name}</h3>
-          <p class="office__addr">{o.address}</p>
-          <p class="office__metro">{o.metro}</p>
-          <a class="office__phone" href={o.phone.href}>{o.phone.display}</a>
+  <Section id="ofisy" kicker="Офисы продаж" title="Где нас найти" bg="base">
+    <ul class="dv-of" data-reveal-stagger>
+      {OFFICES.map((o, i) => (
+        <li class="dv-of__item">
+          <p class="dv-of__top label"><span class="num">0{i + 1}</span><span>{o.metro}</span></p>
+          <h3 class="dv-of__name">{nb(o.name)}</h3>
+          <p class="dv-of__addr">{o.address}</p>
+          <a class="dv-of__phone num" href={o.phone.href}>{o.phone.display}</a>
         </li>
       ))}
     </ul>
-    <div class="hours" data-reveal>
-      <h3 class="hours__title">Часы работы</h3>
-      <dl class="hours__list">
-        {HOURS_FULL.map((h) => (
-          <div><dt>{h.days}</dt><dd>{h.time}</dd></div>
-        ))}
-      </dl>
-      <p class="hours__note">
-        Перед визитом, пожалуйста, позвоните: менеджер согласует время и закажет гостевой пропуск.
-        Если задерживаетесь — предупредите, дождёмся.
-      </p>
+
+    <div class="dv-hr" data-reveal>
+      <div class="dv-hr__main">
+        <h3 class="dv-hr__title">Часы работы</h3>
+        <table class="dv-hr__table">
+          <tbody>
+            {HOURS_FULL.map((h) => (
+              <tr>
+                <th scope="row">{h.days}</th>
+                <td class="num">{nb(h.time)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div class="dv-hr__aside">
+        <p class="label">Визит в офис</p>
+        <p class="dv-hr__note">
+          {dash('Перед визитом, пожалуйста, позвоните: менеджер согласует время и закажет гостевой пропуск. Если задерживаетесь — предупредите, дождёмся.')}
+        </p>
+      </div>
     </div>
   </Section>
 
-  <Section kicker="Заказ" title="Как оформить заказ" bg="alt">
-    <ol class="steps" data-reveal-stagger>
-      <li><b>Позвоните или оставьте заявку.</b> Назовите кирпич, цвет шва и объём кладки — подскажем серию и посчитаем количество мешков.</li>
-      <li><b>Согласуем позиции и доставку.</b> Менеджер назовёт цену, наличие, стоимость и срок доставки на ваш адрес.</li>
-      <li><b>Оплата.</b> Организациям — безналичный расчёт с полным пакетом документов. Способы оплаты для частных покупателей уточняйте у менеджера.</li>
+  <Section id="zakaz" kicker="Заказ" title="Как оформить заказ" bg="alt">
+    <ol class="dv-st" data-reveal-stagger>
+      {steps.map((s, i) => (
+        <li class="dv-st__item">
+          <span class="dv-st__n num">0{i + 1}</span>
+          <h3 class="dv-st__t">{nb(s.t)}</h3>
+          <div class="dv-st__d">
+            <p>{dash(s.d)}</p>
+            {s.link && <a class="arrow-link" href={s.link.href}>{s.link.label} <span aria-hidden="true">→</span></a>}
+          </div>
+        </li>
+      ))}
     </ol>
   </Section>
 
-  <Section kicker="Фасовка" title="В чём приезжает смесь" bg="base">
-    <ul class="packs" data-reveal-stagger>
-      {packs.map(([name, kg]) => (
-        <li><span>{name}</span><b>мешок {kg} кг</b></li>
+  <Section id="fasovka" kicker="Фасовка" title="В чём приезжает смесь" bg="base">
+    <table class="dv-pk" data-reveal>
+      <caption class="vh">Фасовка цветных смесей Perel и Основит: серия, назначение, оттенки, мешок</caption>
+      <thead>
+        <tr>
+          <th scope="col">Серия</th>
+          <th scope="col">Для чего</th>
+          <th scope="col">Оттенки</th>
+          <th scope="col" class="dv-pk__kg">Мешок</th>
+          <th scope="col"><span class="vh">Цена</span></th>
+        </tr>
+      </thead>
+      {packGroups.map((g) => (
+        <tbody>
+          <tr class="dv-pk__group"><th colspan="5" scope="colgroup">{g.title}</th></tr>
+          {g.items.map((s) => (
+            <tr class="dv-pk__row">
+              <th scope="row" class="dv-pk__name"><a href={s.href}>{s.name}</a></th>
+              <td class="dv-pk__for">{nb(s.short)}</td>
+              <td class="dv-pk__tones">
+                <button class="dv-pk__strip strip" type="button" data-ask={s.ask} tabindex="-1" aria-hidden="true">
+                  {s.colors.map((c) => <span class="mortar" style={`--c:${c}`}></span>)}
+                </button>
+                <span class="dv-pk__count num">{s.count}&nbsp;{plural(s.count, 'оттенок', 'оттенка', 'оттенков')}</span>
+              </td>
+              <td class="dv-pk__kg num">{s.kg}&nbsp;кг</td>
+              <td class="dv-pk__ask"><button type="button" data-ask={s.ask} aria-label={`${s.name} — узнать цену`}>Узнать цену</button></td>
+            </tr>
+          ))}
+        </tbody>
       ))}
-    </ul>
-    <p class="packs__note">Сколько мешков нужно на вашу кладку — посчитает <a href={PAGES.kalkulyator.href}>калькулятор расхода</a>.</p>
+    </table>
+    <div class="dv-pk__after">
+      <p class="dv-pk__calc">
+        {dash('Сколько мешков нужно на вашу кладку — посчитает')}
+        <a class="arrow-link" href={PAGES.kalkulyator.href}>калькулятор расхода <span aria-hidden="true">→</span></a>
+      </p>
+      <SwatchNote class="dv-pk__note" />
+    </div>
   </Section>
 
-  <section class="req">
-    <div class="container">
-      <p class="req__line">{seller.legal.name} · ИНН {seller.legal.inn} · ОГРН {seller.legal.ogrn}</p>
-    </div>
+  <section class="dv-req">
+    <Container>
+      <div class="dv-req__grid">
+        <p class="label">Реквизиты</p>
+        <p class="dv-req__line num">{seller.legal.name} · ИНН {seller.legal.inn} · ОГРН {seller.legal.ogrn}</p>
+      </div>
+    </Container>
   </section>
 
-  <CtaBand source="dostavka" title="Рассчитаем доставку" text="Оставьте телефон и адрес объекта — назовём стоимость и срок доставки и посчитаем количество мешков." />
+  <CtaBand source="dostavka" title="Рассчитаем доставку" text={dash('Оставьте телефон и адрес объекта — назовём стоимость и срок доставки и посчитаем количество мешков.')} />
 </Page>
 
 <style>
-  .offices { display: grid; gap: var(--space-4); margin: 0 0 var(--space-6); padding: 0; list-style: none; }
-  @media (min-width: 760px) { .offices { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .office { padding: var(--space-6) var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius); }
-  .office__name { margin: 0 0 var(--space-3); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .office__addr { margin: 0; font-size: var(--fs-lead); }
-  .office__metro { margin: var(--space-1) 0 var(--space-4); color: var(--color-muted); }
-  .office__phone { font-family: var(--font-head); font-weight: 800; font-size: clamp(20px, 2vw, 26px); color: var(--color-text); text-decoration: none; }
-  .office__phone:hover { color: var(--color-accent-text); }
+  /* ── Указатель по странице (правая колонка шапки) ────────────────────────── */
+  .dv-toc__label { margin: 0 0 var(--space-3); }
+  .dv-toc__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .dv-toc__list a {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: 12px 0;
+    border-bottom: 1px solid var(--hair);
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .dv-toc__n { font-size: 12px; color: var(--color-muted); }
+  .dv-toc__t { font-family: var(--font-head); font-size: clamp(21px, 1.7vw, 25px); line-height: 1.1; }
+  .dv-toc__arrow { color: var(--color-muted); transition: translate 0.4s var(--ease); }
+  .dv-toc__list a:hover .dv-toc__t { font-style: italic; }
+  .dv-toc__list a:hover .dv-toc__arrow { color: var(--ink); translate: 0 3px; }
 
-  .hours { padding: var(--space-6) var(--space-5); border-radius: var(--radius); background: var(--color-bg-alt); }
-  .hours__title { margin: 0 0 var(--space-4); font-family: var(--font-head); font-weight: 800; font-size: var(--fs-h4); }
-  .hours__list { display: grid; gap: var(--space-3); margin: 0; }
-  .hours__list div { display: grid; gap: 2px; }
-  @media (min-width: 700px) { .hours__list div { grid-template-columns: 240px 1fr; gap: var(--space-4); } }
-  .hours__list dt { font-weight: 700; }
-  .hours__list dd { margin: 0; color: var(--color-text-soft); }
-  .hours__note { margin: var(--space-5) 0 0; color: var(--color-text-soft); max-width: 62ch; }
+  /* ── Офисы: две колонки через вертикальную линию ─────────────────────────── */
+  .dv-of { display: grid; margin: 0; padding: 0; list-style: none; }
+  .dv-of__item { display: flex; flex-direction: column; padding: var(--space-6) 0; }
+  .dv-of__item:first-child { padding-top: 0; }
+  .dv-of__item + .dv-of__item { border-top: 1px solid var(--hair); }
+  .dv-of__top { display: flex; gap: var(--space-4); margin: 0 0 var(--space-4); }
+  .dv-of__name { margin: 0; font-size: var(--fs-h3); line-height: 1.05; letter-spacing: -0.01em; text-wrap: balance; }
+  .dv-of__addr { margin: var(--space-3) 0 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
+  .dv-of__phone {
+    align-self: flex-start;
+    margin-top: clamp(28px, 3.4vw, 48px);
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: clamp(32px, 9vw, 52px);
+    line-height: 1;
+    letter-spacing: -0.015em;
+    white-space: nowrap;
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--dur) var(--ease);
+  }
+  .dv-of__phone:hover { border-bottom-color: var(--ink); }
+  @media (min-width: 760px) {
+    .dv-of { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dv-of__phone { font-size: clamp(32px, 4.6vw, 64px); }
+    .dv-of__item { padding: 0 0 0 clamp(24px, 4vw, 64px); }
+    .dv-of__item:first-child { padding: 0 clamp(24px, 4vw, 64px) 0 0; }
+    .dv-of__item + .dv-of__item { border-top: 0; border-left: 1px solid var(--hair-strong); }
+  }
 
-  .steps { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; counter-reset: st; }
-  @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  .steps li { position: relative; padding: var(--space-6) var(--space-5) var(--space-5); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-soft); counter-increment: st; }
-  .steps li::before { content: '0' counter(st); display: block; margin-bottom: var(--space-3); font-family: var(--font-head); font-weight: 800; color: var(--color-accent-text); }
-  .steps b { display: block; margin-bottom: var(--space-2); color: var(--color-text); }
+  /* ── Часы: таблица через линии + примечание справа (7/5) ─────────────────── */
+  .dv-hr { display: grid; gap: var(--space-6); margin-top: clamp(56px, 7vw, 104px); }
+  .dv-hr__title { margin: 0 0 var(--space-5); font-size: var(--fs-h3); line-height: 1.05; }
+  .dv-hr__table { width: 100%; border-collapse: collapse; border-top: 1px solid var(--hair-strong); }
+  .dv-hr__table tr { border-bottom: 1px solid var(--hair); }
+  .dv-hr__table th, .dv-hr__table td { padding: 16px 0; text-align: left; vertical-align: baseline; }
+  .dv-hr__table th { width: 42%; padding-right: var(--space-5); font-weight: 500; color: var(--ink); }
+  .dv-hr__table td { color: var(--color-text-soft); }
+  .dv-hr__aside { display: grid; gap: var(--space-3); align-content: start; }
+  .dv-hr__aside .label { margin: 0; }
+  .dv-hr__note { margin: 0; max-width: 40ch; color: var(--color-text-soft); }
+  @media (max-width: 599px) {
+    .dv-hr__table tr { display: grid; gap: 2px; padding: 14px 0; }
+    .dv-hr__table th, .dv-hr__table td { width: auto; padding: 0; }
+  }
+  @media (min-width: 1000px) {
+    .dv-hr { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: clamp(40px, 6vw, 96px); }
+    .dv-hr__aside { padding-top: calc(var(--fs-h3) * 1.05 + var(--space-5) + 16px); }
+  }
 
-  .packs { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--color-border); max-width: 720px; }
-  .packs li { display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border); }
-  .packs b { white-space: nowrap; }
-  .packs__note { margin: var(--space-5) 0 0; color: var(--color-text-soft); }
-  .packs__note a { color: var(--color-accent-text); font-weight: 600; }
+  /* ── Шаги заказа: нумерованный список через линии ────────────────────────── */
+  .dv-st { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .dv-st__item {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: var(--space-3) var(--space-4);
+    align-items: baseline;
+    padding: clamp(22px, 2.6vw, 34px) 0;
+    border-bottom: 1px solid var(--hair);
+  }
+  .dv-st__n { font-size: 12.5px; letter-spacing: 0.08em; color: var(--color-muted); }
+  .dv-st__t { margin: 0; font-size: clamp(28px, 2.8vw, 42px); line-height: 1.02; letter-spacing: -0.015em; }
+  .dv-st__d { grid-column: 2; display: grid; gap: var(--space-4); justify-items: start; }
+  .dv-st__d p { margin: 0; max-width: 52ch; color: var(--color-text-soft); }
+  @media (min-width: 900px) {
+    .dv-st__item { grid-template-columns: 60px minmax(0, 5fr) minmax(0, 6fr); column-gap: clamp(24px, 3vw, 48px); }
+    .dv-st__d { grid-column: 3; }
+  }
 
-  .req { padding: var(--space-5) 0; border-top: 1px solid var(--color-border-soft); }
-  .req__line { margin: 0; font-size: var(--fs-small); color: var(--color-muted); }
+  /* ── Фасовка: таблица через линии, полоса оттенков серии ─────────────────── */
+  .dv-pk { width: 100%; border-collapse: collapse; }
+  .dv-pk thead th {
+    padding: 0 var(--space-4) 12px 0;
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-align: left;
+    color: var(--color-muted);
+    border-bottom: 1px solid var(--hair-strong);
+  }
+  .dv-pk__group th {
+    padding: 32px 0 10px;
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-align: left;
+    color: var(--ink);
+    border-bottom: 1px solid var(--hair);
+  }
+  .dv-pk__row { border-bottom: 1px solid var(--hair); }
+  .dv-pk__row > * { padding: 18px var(--space-4) 18px 0; text-align: left; vertical-align: middle; }
+  .dv-pk__name { font-family: var(--font-head); font-weight: 500; font-size: clamp(24px, 2.2vw, 32px); line-height: 1.05; letter-spacing: -0.01em; white-space: nowrap; }
+  .dv-pk__name a { color: var(--ink); text-decoration: none; }
+  .dv-pk__name a:hover { font-style: italic; }
+  .dv-pk__for { color: var(--color-text-soft); font-size: var(--fs-small); max-width: 30ch; }
+  .dv-pk__tones { width: 30%; }
+  .dv-pk__strip { display: flex; width: 100%; height: 34px; padding: 0; border: 0; background: none; cursor: pointer; }
+  .dv-pk__strip span { transition: flex-grow 0.5s var(--ease); }
+  .dv-pk__strip:hover span:hover { flex-grow: 2.4; }
+  .dv-pk__count { display: block; margin-top: 6px; font-size: 12.5px; color: var(--color-muted); }
+  .dv-pk thead .dv-pk__kg, .dv-pk__row .dv-pk__kg { text-align: right; white-space: nowrap; }
+  .dv-pk__row .dv-pk__kg { font-family: var(--font-head); font-size: clamp(24px, 2.2vw, 32px); line-height: 1; }
+  .dv-pk__row .dv-pk__ask { width: 1%; padding-right: 0; text-align: right; white-space: nowrap; }
+  .dv-pk__ask button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-muted);
+    font: inherit;
+    font-size: var(--fs-small);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+  }
+  .dv-pk__ask button:hover { color: var(--ink); }
+
+  .dv-pk__after { display: grid; gap: var(--space-6); margin-top: var(--space-7); }
+  .dv-pk__calc { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin: 0; color: var(--color-text-soft); }
+  .dv-pk__after :global(.dv-pk__note) { margin: 0; }
+  @media (min-width: 1000px) {
+    .dv-pk__after { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: clamp(40px, 6vw, 96px); align-items: start; }
+  }
+
+  /* Телефон и планшет: строка таблицы — сетка «серия · мешок / назначение / полоса / цена» */
+  @media (max-width: 899px) {
+    .dv-pk thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .dv-pk tbody:first-of-type .dv-pk__group th { border-top: 1px solid var(--hair-strong); padding-top: 14px; }
+    .dv-pk__group th { display: block; }
+    .dv-pk__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px var(--space-4); padding: 18px 0; }
+    .dv-pk__row > * { display: block; padding: 0; }
+    .dv-pk__name { grid-column: 1; white-space: normal; }
+    .dv-pk__row .dv-pk__kg { grid-column: 2; grid-row: 1; align-self: baseline; }
+    .dv-pk__for { grid-column: 1 / -1; max-width: none; }
+    .dv-pk__tones { grid-column: 1 / -1; width: auto; margin-top: 6px; }
+    .dv-pk__strip { height: 40px; }
+    .dv-pk__row .dv-pk__ask { grid-column: 1 / -1; width: auto; text-align: left; }
+  }
+
+  /* ── Реквизиты: одна строка через линию ──────────────────────────────────── */
+  .dv-req { padding: var(--space-6) 0; border-top: 1px solid var(--hair); }
+  .dv-req__grid { display: grid; gap: var(--space-2) var(--space-6); align-items: baseline; }
+  .dv-req__grid .label { margin: 0; }
+  .dv-req__line { margin: 0; font-size: var(--fs-small); color: var(--color-text-soft); }
+  @media (min-width: 760px) { .dv-req__grid { grid-template-columns: minmax(0, 3fr) minmax(0, 9fr); } }
 </style>

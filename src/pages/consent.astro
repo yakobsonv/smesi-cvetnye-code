@@ -23,3 +23,24 @@ const blocks = fillLegal(CONSENT_BLOCKS, PREVIEW_ORIGIN);
   </Container>
   <LegalDoc blocks={blocks} />
 </Page>
+
+<style is:global>
+  /* Сквозная проверка дизайна 11.10. Правовая страница была единственной, где колонка стояла по центру,
+     а строки «Оператор…» и «Утверждено…» шли над заголовком обычным текстом. Теперь — как на остальных:
+     левый край сетки, служебные строки мелко и приглушённо, линия под шапкой документа.
+     Длинный адрес (https://yandex.ru/legal/confidential/) на 320 px давал прокрутку вбок — переносим его. */
+  html[data-site='smesi'] .legal { padding-block: clamp(28px, 5vw, 72px) clamp(64px, 8.5vw, 136px); }
+  html[data-site='smesi'] .legal > .container { max-width: calc(var(--container) + var(--gutter) * 2); }
+  html[data-site='smesi'] .legal__p:has(~ .legal__h1) { max-width: 60ch; margin-bottom: var(--space-2); font-size: var(--fs-small); color: var(--color-muted); }
+  html[data-site='smesi'] .legal__h1 {
+    max-width: 13ch;
+    margin: var(--space-6) 0 0;
+    padding-bottom: clamp(32px, 4vw, 56px);
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  html[data-site='smesi'] .legal__h1 + * { margin-top: 0; padding-top: clamp(32px, 4vw, 56px); border-top: 1px solid var(--hair); }
+  html[data-site='smesi'] .legal__p,
+  html[data-site='smesi'] .legal__list li { overflow-wrap: anywhere; }
+</style>

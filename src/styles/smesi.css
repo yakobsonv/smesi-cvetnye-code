@@ -208,3 +208,55 @@ html[data-site='smesi'] .section__subtitle { max-width: 56ch; margin: 0; color: 
 html[data-site='smesi'] h1, html[data-site='smesi'] h2, html[data-site='smesi'] h3 { font-family: var(--font-head); font-weight: 500; }
 /* Cormorant по умолчанию рисует старостильные цифры: «ХС30» читалось как «ХС3o». Везде — прописные. */
 html[data-site='smesi'] { font-variant-numeric: lining-nums; }
+
+/* ── Сквозная проверка дизайна 11.10 (review): правки общих компонентов, которые со страниц не достать ──
+   1) Форма в тёмной полосе заявки (CtaBand): правило .lead-form .field__label выше красит подписи полей
+      в --color-muted, и на туши «ВАШЕ ИМЯ / ТЕЛЕФОН» читались с контрастом 2,54:1 при норме 4,5 —
+      на всех 10 страницах с заявкой. Возвращаем светлый тон, который задумывал CtaBand. */
+html[data-site='smesi'] .cta .lead-form .field__label { color: rgb(247 244 238 / 0.72); }
+
+/* 2) «Все характеристики» / «Все шаги» / «Все инструменты» (Collapse, обрезка на телефоне):
+      по умолчанию — серая кнопка-плашка по центру, остаток шаблона. На /perel/ её уже переделали локально,
+      на /osnovit/ и в секциях с clamp она оставалась плашкой. Делаем одинаково на всём сайте:
+      текстовая ссылка тушью с линией снизу, по левому краю. */
+html[data-site='smesi'] .clp__foot { text-align: left; }
+html[data-site='smesi'] .clp__btn {
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid var(--hair-strong);
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  font-weight: 500;
+  cursor: pointer;
+}
+html[data-site='smesi'] .clp__btn:hover { border-bottom-color: var(--ink); }
+
+/* 3) Окно «Узнать цену» (PriceModal): название позиции стояло в серой плашке со скруглением.
+      В языке сайта — строка между двумя линиями, название антиквой. */
+html[data-site='smesi'] .ask__product {
+  margin: 0 0 var(--space-4);
+  padding: 12px 0;
+  border-top: 1px solid var(--hair-strong);
+  border-bottom: 1px solid var(--hair);
+  border-radius: 0;
+  background: none;
+  font-family: var(--font-head);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--ink);
+}
+/* заголовок окна не оставляет «и» в конце строки («Узнать цену и / наличие») */
+html[data-site='smesi'] .modal__title { text-wrap: balance; }
+
+/* 4) Полоса заявки (тушь) и подвал (тушь) сливались в один тёмный блок без границы — ~240 px пустой
+      туши между формой и «Цвет шва — часть фасада». Ставим между ними тонкую линию по ширине сетки,
+      как над заголовками секций. Только там, где перед подвалом стоит заявка. */
+html[data-site='smesi'] main:has(.cta) + .ft { padding-top: 0; }
+html[data-site='smesi'] main:has(.cta) + .ft > .container::before {
+  content: '';
+  display: block;
+  margin-bottom: clamp(56px, 8vw, 112px);
+  border-top: 1px solid rgb(247 244 238 / 0.16);
+}
