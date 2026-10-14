@@ -6,7 +6,7 @@
 Механика (компоненты, формы, правовые страницы) взята из `~/recke-code`.
 
 - Стек: Astro 6, статическая сборка, без UI-фреймворков. `npm run build`, `npm run check`.
-- Превью: https://smesi-cvetnye-code.vercel.app — отдельный проект Vercel. Выкладка: `vercel deploy --prod --yes` из корня.
+- Превью: https://smesi-cvetnye-code.vercel.app — отдельный проект Vercel. Выкладка — пуш в `main` (см. «Как работать»).
 - Домена нет: noindex на всех страницах, `X-Robots-Tag` в `vercel.json`, `Disallow: /` в `robots.txt`, canonical на превью.
 - Приём заявок НЕ подключён (слово Влада): у проекта нет переменных окружения, `api/lead.js` отвечает 503, форма показывает телефон.
 - Цен на сайте нет: цены производителей не ставим, дилерские — только по слову Влада.
@@ -21,5 +21,5 @@
 ## Как работать (с 14.10.2026 — ведёт Паша)
 - Код: https://github.com/yakobsonv/smesi-cvetnye-code (открытый — так Vercel выкладывает пуши всех, у кого есть доступ на запись; секретов в репозитории нет и не класть).
 - **Пуш в `main` = выкладка на https://smesi-cvetnye-code.vercel.app** (Vercel подключён к репозиторию). Другие ветки дают превью-деплои Vercel — они закрыты авторизацией Vercel; проверять лучше на `main` после выкладки или локально (`npm run dev`).
-- Перед пушем: `npm run build` и `npm run check` — 0 ошибок; после выкладки — рендер 1440 / 390 / 320 с `?v=<случайное>`.
+- Перед пушем: `npm ci`, `npm run build` и `npm run check` — 0 ошибок; после выкладки — статус Vercel у коммита на GitHub и `python3 scripts/check_site.py https://smesi-cvetnye-code.vercel.app` (1440 / 768 / 390 / 320) плюс клики глазами.
 - Правила для Claude — [CLAUDE.md](CLAUDE.md); передача и открытые вопросы — [docs/01-передача-14.10.md](docs/01-передача-14.10.md). Дизайн — `.impeccable.md`.
