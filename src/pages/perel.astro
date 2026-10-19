@@ -796,7 +796,6 @@ const bgOf = (i: number) => (i % 2 === 0 ? 'alt' : 'base') as 'base' | 'alt';
   .ps__colors-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2) var(--space-6); margin-bottom: var(--space-5); }
   .ps__colors-head .ps__sub { margin: 0; }
   .ps__hint { margin: 0; font-size: var(--fs-small); color: var(--color-muted); }
-  .ps__colors :global(.chip__swatch) { aspect-ratio: 4 / 3; }
   /* на десктопе ровно в два ряда (Perel 14 → по 7, RL 12 → по 6) */
   @media (min-width: 900px) {
     .ps__colors :global(.chips) { grid-template-columns: repeat(var(--cols, 7), minmax(0, 1fr)); gap: 26px 14px; }
