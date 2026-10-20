@@ -202,7 +202,7 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
   if (plates.instanceColor) plates.instanceColor.needsUpdate = true;
   group.add(plates);
 
-  // Стартовый разброс — небольшой: лента «складывается» из сжатой стопки, без взрыва
+  // Стартовый разброс — небольшой: лента «садится» на место без взрыва
   const startPose: Array<{ x: number; y: number; z: number; rx: number; ry: number; rz: number }> = [];
   let seed = 11;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
@@ -251,12 +251,13 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
     const w = hoverW[i];
     y += C.hover.lift * w;
     z += C.hover.push * w;
-    // сборка из сжатой стопки
+    // сборка из лёгкого разброса
     let px = x;
     const k = easeOutCubic(MathUtils.clamp((assembleT - i * C.assemble.stagger) / C.assemble.duration, 0, 1));
     if (k < 1) {
       const s = startPose[i];
-      px = MathUtils.lerp(x * 0.35 + s.x, x, k);
+      // без сжатия по x: стартовая поза близка к статичной CSS-раскладке — при подмене слоёв форма не прыгает
+      px = MathUtils.lerp(x + s.x, x, k);
       y = MathUtils.lerp(s.y, y, k);
       z = MathUtils.lerp(s.z, z, k);
       rx = MathUtils.lerp(rx + s.rx, rx, k);
@@ -468,7 +469,7 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
   resize();
   if (reduced) still();
   else {
-    // первый кадр сразу — пластины сжатой стопкой, сборка идёт со следующего
+    // первый кадр сразу — пластины в лёгком разбросе, сборка идёт со следующего
     update(0);
     render();
     ready();

@@ -229,7 +229,9 @@ const tags = WAVE_PALETTE.map((c, i) => ({
     top: var(--y);
     width: 9.5%;
     height: 36%;
-    transform: translate(-50%, -50%) rotateY(39deg) rotateZ(var(--r)) rotateX(var(--t));
+    /* оси сцены → CSS: закрутка вокруг оси ленты (в сцене — вокруг нормали пластины) = rotateZ в плоскости плашки,
+       наклон по касательной = rotateX, разворот к зрителю = rotateY */
+    transform: translate(-50%, -50%) rotateY(39deg) rotateX(var(--r)) rotateZ(calc(-1 * var(--t)));
   }
 
   /* коды оттенков — под лентой и приглушённые; код выбранного — тушью */
