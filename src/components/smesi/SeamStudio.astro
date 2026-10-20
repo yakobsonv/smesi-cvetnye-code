@@ -308,7 +308,7 @@ const compareLabel = (id: string) => (WHITE_SEAMS.includes(id) ? 'Сравнит
   .ss__chip:hover .mortar { translate: 0 -3px; }
   .ss__chip[aria-pressed='true'] .mortar { outline-color: var(--ink); translate: none; }
   /* выбор — тонкая рамка вплотную к плашке; фокус с клавиатуры — отдельное кольцо по краю кнопки */
-  .ss__chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .ss__chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
   .ss__match { margin: 0; font-size: var(--fs-small); color: var(--color-text-soft); }
   .ss__match::first-letter { text-transform: uppercase; }
   /* ссылка тонкая, но зона нажатия не меньше 44 px: запас сверху, линия остаётся под текстом */
