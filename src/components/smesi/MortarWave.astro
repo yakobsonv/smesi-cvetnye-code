@@ -28,7 +28,7 @@ const halfL = ((N - 1) * C.spacing) / 2;
 const halfH = C.view.halfHeight; // видимая половина высоты сцены в её единицах
 // x в % ширины сцены, как в resize(): компьютер/планшет (сдвиг вправо) и телефон до 600 px (почти по центру, запас 0,15)
 const xPct = (i: number, phone = false) =>
-  50 + ((i * C.spacing - halfL + (phone ? C.view.offsetXPhone : C.view.offsetX)) / (halfL + (phone ? 0.15 : C.view.marginX))) * 50;
+  50 + ((i * C.spacing - halfL + (phone ? C.view.offsetXPhone : C.view.offsetX)) / (halfL + (phone ? C.view.marginXPhone : C.view.marginX))) * 50;
 const plates = Array.from({ length: N }, (_, i) => {
   const u = i / (N - 1) - 0.5;
   const phase = i * C.wave.phaseStep;

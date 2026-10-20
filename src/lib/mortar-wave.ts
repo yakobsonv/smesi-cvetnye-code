@@ -358,8 +358,8 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const tan = Math.tan(MathUtils.degToRad(C.fov / 2));
-    const mx = camera.aspect < 1.7 ? 0.15 : C.view.marginX;
-    // лента целиком в кадре на всех ширинах — видны все 8 оттенков; на телефоне свой сдвиг (запас по ширине там 0,15)
+    const mx = camera.aspect < 1.7 ? C.view.marginXPhone : C.view.marginX;
+    // лента целиком в кадре на всех ширинах — видны все 8 оттенков; на телефоне свой сдвиг и свой запас
     group.position.x = w < 600 ? C.view.offsetXPhone : C.view.offsetX;
     const needW = halfL + mx;
     const needH = C.view.halfHeight;
