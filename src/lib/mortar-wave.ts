@@ -21,7 +21,7 @@ import {
   Mesh,
   MeshStandardMaterial,
   NoColorSpace,
-  PCFSoftShadowMap,
+  PCFShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
   Points,
@@ -103,7 +103,7 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
+  renderer.shadowMap.type = PCFShadowMap;
   renderer.setClearColor(0x000000, 0);
 
   const scene = new Scene();
@@ -129,13 +129,14 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
   scene.add(sun);
 
   const group = new Group();
+  group.position.x = C.view.offsetX;
   scene.add(group);
 
   // «Пол» только принимает тень — фон остаётся бумагой страницы (canvas прозрачный)
-  const floorMat = new ShadowMaterial({ opacity: 0.1 });
+  const floorMat = new ShadowMaterial({ opacity: 0.07 });
   const floor = new Mesh(new PlaneGeometry(14, 8), floorMat);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -1.32;
+  floor.position.y = -1.08;
   floor.receiveShadow = true;
   group.add(floor);
 
@@ -342,8 +343,8 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const tan = Math.tan(MathUtils.degToRad(C.fov / 2));
-    const needW = halfL + 0.55;
-    const needH = 1.45;
+    const needW = halfL + C.view.marginX;
+    const needH = C.view.halfHeight;
     const dist = Math.max(needH / tan, needW / (tan * camera.aspect));
     camera.position.set(0, dist * 0.07, dist);
     camera.lookAt(0, -0.05, 0);

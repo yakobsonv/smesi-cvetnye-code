@@ -229,6 +229,21 @@ const katalog = PAGES.katalog.href;
   .ss__frame { overflow: hidden; background: var(--paper-3); }
   .ss__img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
   @media (max-width: 899px) and (min-width: 600px) { .ss__img { aspect-ratio: 16 / 10; } }
+  /* Узкий экран (как у JointPicker): кадр 4:3 прилипает под шапкой — переключаешь оттенок и сразу видишь кладку */
+  @media (max-width: 599px) { .ss__img { aspect-ratio: 4 / 3; } }
+  @media (max-width: 899px) {
+    .ss__stage {
+      z-index: 2;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--hair-strong);
+      background: var(--paper-2);
+      box-shadow: -24px 0 0 var(--paper-2), 24px 0 0 var(--paper-2);
+    }
+    .ss__grid > .ss__controls { border-top: 0; }
+  }
+  @media (max-width: 899px) and (min-height: 600px) {
+    .ss__stage { position: sticky; top: 72px; align-self: start; }
+  }
   .ss__cap { display: grid; gap: 4px; padding-top: 14px; }
   .ss__now { font-family: var(--font-head); font-size: clamp(22px, 2vw, 28px); font-weight: 500; line-height: 1.1; letter-spacing: -0.01em; }
   .ss__now::first-letter { text-transform: uppercase; }
@@ -239,7 +254,7 @@ const katalog = PAGES.katalog.href;
   .ss__group--row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; border-bottom: 0; }
   .ss__label { margin: 0; font-size: var(--fs-tiny); font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); }
 
-  .ss__bricks { display: flex; flex-wrap: wrap; gap: 0 26px; }
+  .ss__bricks { display: flex; flex-wrap: wrap; gap: 0 clamp(16px, 2vw, 26px); }
   .ss__brick {
     min-height: 44px;
     margin: 0;
@@ -249,7 +264,7 @@ const katalog = PAGES.katalog.href;
     background: none;
     color: var(--color-muted);
     font-family: var(--font-head);
-    font-size: clamp(22px, 1.9vw, 26px);
+    font-size: clamp(20px, 1.9vw, 26px);
     font-weight: 500;
     line-height: 1.1;
     cursor: pointer;
@@ -260,6 +275,7 @@ const katalog = PAGES.katalog.href;
   .ss__brick:focus-visible, .ss__compare:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 
   .ss__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  @media (max-width: 439px) { .ss__chips { display: grid; grid-template-columns: repeat(4, 44px); gap: 6px 10px; } }
   .ss__chip { display: block; width: 44px; height: 44px; margin: 0; padding: 4px; border: 0; background: none; cursor: pointer; }
   .ss__chip .mortar { display: block; width: 100%; height: 100%; outline: 1.5px solid transparent; outline-offset: 2px; transition: translate 0.35s var(--ease), outline-color var(--dur) var(--ease); }
   .ss__chip:hover .mortar { translate: 0 -3px; }
