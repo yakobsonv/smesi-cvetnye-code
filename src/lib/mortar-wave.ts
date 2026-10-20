@@ -237,7 +237,7 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
   // ── поза пластины i во «времени ленты» t с прогрессом сборки ──
   function pose(i: number, t: number, assembleT: number) {
     const u = i / (N - 1) - 0.5; // −0,5…0,5
-    const phase = i * C.wave.phaseStep - t * C.wave.speed;
+    const phase = i * C.wave.phaseStep - C.wave.direction * t * C.wave.speed;
     const x = i * C.spacing - halfL;
     let y = C.curve.rise * Math.sin(u * Math.PI * 1.8) + C.wave.amplitude * Math.sin(phase);
     let z = C.curve.depth * Math.cos(u * Math.PI) - C.curve.depth * 0.6;
@@ -359,7 +359,7 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
     camera.aspect = w / h;
     const tan = Math.tan(MathUtils.degToRad(C.fov / 2));
     const mx = camera.aspect < 1.7 ? 0.15 : C.view.marginX;
-    // на телефоне лента целиком в кадре (иначе последний оттенок уходит за край); с 600 px — уходит вправо «через экран»
+    // лента целиком в кадре на всех ширинах — видны все 8 оттенков; на телефоне свой сдвиг (запас по ширине там 0,15)
     group.position.x = w < 600 ? C.view.offsetXPhone : C.view.offsetX;
     const needW = halfL + mx;
     const needH = C.view.halfHeight;
