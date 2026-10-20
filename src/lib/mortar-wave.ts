@@ -320,6 +320,7 @@ export function mountWave(canvas: HTMLCanvasElement, opts: WaveOptions): WaveHan
       // старт — по кромке пластины, разлёт мягко в стороны и вверх
       tmp.set(0, (Math.random() - 0.5) * C.plate.height, (Math.random() - 0.5) * C.plate.width);
       tmp.applyEuler(m.rotation).add(m.position);
+      tmp.z += 0.45; // перед пластинами, иначе шлейф прячется внутри волны
       pPos[j] = tmp.x; pPos[j + 1] = tmp.y; pPos[j + 2] = tmp.z;
       const ang = Math.random() * Math.PI * 2;
       const sp = C.particles.speed * (0.3 + Math.random() * 0.7);

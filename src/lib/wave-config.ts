@@ -25,7 +25,7 @@ export const WAVE_CONFIG = {
   /** наклон всей сцены за курсором (градусы) и инерция */
   pointer: { tiltDeg: 3, ease: 3.2 },
   /** шлейф частиц при смене оттенка */
-  particles: { count: 64, lifeMin: 0.6, lifeMax: 0.9, speed: 0.75, size: 0.04 },
+  particles: { count: 64, lifeMin: 0.6, lifeMax: 0.9, speed: 0.75, size: 0.11 },
   /** материал раствора: шероховатость лица и торца, насколько торец темнее лица */
   material: { roughness: 0.9, edgeRoughness: 0.97, edgeShade: 0.82, bump: 1.2 },
   /** предел плотности пикселей (бриф: min(devicePixelRatio, 2)) */
