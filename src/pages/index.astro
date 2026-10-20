@@ -164,6 +164,8 @@ const index = [
   .hero__head { grid-area: head; }
   .hero__wave { grid-area: wave; min-width: 0; }
   .hero__body { grid-area: body; }
+  /* ссылка под кнопкой — зона нажатия 44 px без сдвига линии: поле сверху компенсировано отступом (QA 20.10) */
+  .hero__actions .arrow-link { padding-top: 16px; margin-top: -16px; padding-bottom: 6px; margin-bottom: -3px; }
   .hero__facts { grid-area: facts; }
   @media (max-width: 999px) {
     .hero__wave, .hero__wave :global(.mw) { display: contents; }

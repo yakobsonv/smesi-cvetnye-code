@@ -101,7 +101,9 @@ const compareLabel = (id: string) => (WHITE_SEAMS.includes(id) ? 'Сравнит
         </div>
 
         <div class="ss__group ss__group--row">
-          <button type="button" class="ss__compare" data-ss-compare aria-pressed="false">{compareLabel(firstSeam.id)}</button>
+          <!-- состояние сравнения передаёт сама подпись («Сравнить…» / «Вернуть шов…»); aria-pressed не ставим,
+               иначе читалка говорила бы «Вернуть шов белый, нажата» — два противоречащих сигнала (QA 20.10) -->
+          <button type="button" class="ss__compare" data-ss-compare>{compareLabel(firstSeam.id)}</button>
           <a class="ss__link arrow-link" href={`${katalog}?ton=${WAVE_PALETTE[0].tone}`} data-ss-link>
             Смеси этого тона в каталоге <span aria-hidden="true">→</span>
           </a>
@@ -167,7 +169,7 @@ const compareLabel = (id: string) => (WHITE_SEAMS.includes(id) ? 'Сравнит
       const other = b.seams.find((x) => x.id === (isWhite ? 'darkgrey' : 'white'));
       if (!other) comparing = false;
       compare.disabled = !other;
-      compare.setAttribute('aria-pressed', String(comparing));
+      compare.classList.toggle('is-on', comparing);
       compare.textContent = comparing ? `Вернуть шов ${seam.label}` : `Сравнить с ${isWhite ? 'тёмно-серым' : 'белым'} швом`;
       if (comparing && other) setImg(other, b, ` — для сравнения; выбран ${seam.label}`);
       else setImg(seam, b);
@@ -327,6 +329,6 @@ const compareLabel = (id: string) => (WHITE_SEAMS.includes(id) ? 'Сравнит
     cursor: pointer;
     transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
   }
-  .ss__compare:hover, .ss__compare[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
+  .ss__compare:hover, .ss__compare.is-on { background: var(--ink); color: var(--paper); }
   .ss__compare:disabled { border-color: var(--hair-strong); background: transparent; color: var(--color-muted); cursor: default; }
 </style>
