@@ -66,7 +66,6 @@ const index = [
           <p class="label" data-reveal>Москва и Московская область</p>
           <h1 class="hero__title" data-reveal="head">Цвет шва меняет всё</h1>
         </div>
-        <div class="hero__wave"><MortarWave /></div>
         <div class="hero__body">
           <p class="hero__lead" data-reveal>
             Цветные кладочные смеси Perel и Основит — для клинкера, обычного кирпича и кирпича ручной формовки,
@@ -74,14 +73,16 @@ const index = [
           </p>
           <div class="hero__actions" data-reveal>
             <a class="btn btn--primary btn--lg" href={PAGES.katalog.href}>Подобрать оттенок</a>
-            <a class="arrow-link" href={PAGES.podbor.href}>Шов на вашем кирпиче <span aria-hidden="true">→</span></a>
+            <a class="arrow-link" href="#shov-na-kladke">Посмотреть на кладке <span aria-hidden="true">↓</span></a>
           </div>
-          <dl class="hero__facts num" data-reveal>
-            <div><dt>позиций</dt><dd>{POSITIONS.length}</dd></div>
-            <div><dt>оттенков шва</dt><dd>{uniqueColors}</dd></div>
-            <div><dt>офиса в Москве</dt><dd>{OFFICES.length}</dd></div>
-          </dl>
         </div>
+        {/* волна после текста в DOM: порядок Tab и чтения совпадает с видимым и на телефоне, и на компьютере */}
+        <div class="hero__wave"><MortarWave /></div>
+        <dl class="hero__facts num" data-reveal>
+          <div><dt>позиций</dt><dd>{POSITIONS.length}</dd></div>
+          <div><dt>оттенков шва</dt><dd>{uniqueColors}</dd></div>
+          <div><dt>офиса в Москве</dt><dd>{OFFICES.length}</dd></div>
+        </dl>
       </div>
     </Container>
   </section>
@@ -156,10 +157,19 @@ const index = [
 
 <style>
   .hero { padding: clamp(28px, 4vw, 56px) 0 clamp(56px, 7vw, 112px); overflow-x: clip; }
-  .hero__grid { display: grid; grid-template-areas: 'head' 'wave' 'body'; gap: clamp(24px, 4vw, 40px); }
+  /* Узкий экран (до 999 px): заголовок → сцена → пояснение и кнопка каталога → панель волны → факты.
+     Обёртки волны «растворяются» (display: contents), сцена и панель встают в свои области сетки;
+     корень [data-mw] остаётся в DOM — его скрипт работает как обычно. */
+  .hero__grid { display: grid; grid-template-areas: 'head' 'wave' 'body' 'panel' 'facts'; gap: clamp(20px, 4vw, 36px); }
   .hero__head { grid-area: head; }
   .hero__wave { grid-area: wave; min-width: 0; }
   .hero__body { grid-area: body; }
+  .hero__facts { grid-area: facts; }
+  @media (max-width: 999px) {
+    .hero__wave, .hero__wave :global(.mw) { display: contents; }
+    .hero__wave :global(.mw__stage) { grid-area: wave; }
+    .hero__wave :global(.mw__panel) { grid-area: panel; }
+  }
   .hero__title {
     margin: var(--space-4) 0 0;
     font-size: clamp(50px, 7.2vw, 112px);
@@ -168,21 +178,22 @@ const index = [
     max-width: 9ch;
   }
   .hero__lead { max-width: 44ch; margin: 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
-  .hero__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5) var(--space-6); margin-top: var(--space-7); }
-  .hero__facts { display: flex; gap: clamp(24px, 4vw, 56px); margin: clamp(40px, 5vw, 64px) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--hair); }
+  .hero__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-6); margin-top: clamp(20px, 3vw, 48px); }
+  .hero__facts { display: flex; flex-wrap: wrap; gap: 16px clamp(24px, 4vw, 56px); margin: 0; padding-top: var(--space-4); border-top: 1px solid var(--hair); }
   .hero__facts div { display: flex; flex-direction: column-reverse; justify-content: flex-end; }
   .hero__facts dd { margin: 0; font-family: var(--font-head); font-size: clamp(40px, 4vw, 60px); line-height: 1; }
   .hero__facts dt { font-size: var(--fs-tiny); letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-muted); }
   @media (min-width: 1000px) {
     .hero__grid {
       grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-      grid-template-areas: 'head wave' 'body wave';
-      grid-template-rows: auto 1fr;
+      grid-template-areas: 'head wave' 'body wave' 'facts wave';
+      grid-template-rows: auto auto 1fr;
       column-gap: clamp(32px, 4vw, 64px);
       row-gap: var(--space-6);
       align-items: start;
     }
     .hero__head { align-self: end; }
+    .hero__facts { align-self: start; margin-top: clamp(8px, 2vw, 28px); }
   }
 
   .claim { padding: clamp(56px, 8vw, 128px) 0; background: var(--ink); color: var(--paper); }
