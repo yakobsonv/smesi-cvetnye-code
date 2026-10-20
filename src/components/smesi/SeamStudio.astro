@@ -30,7 +30,7 @@ const firstSeam =
 const data = JSON.stringify({
   order: SEAM_ORDER,
   tones: TONE_OF_SEAM,
-  palette: WAVE_PALETTE.map((c) => ({ name: c.name, label: `${c.series} ${c.article}`, seams: c.seams })),
+  palette: WAVE_PALETTE.map((c) => ({ name: c.name, label: `${c.series} ${c.article}`, seams: c.seams, tone: c.tone })),
   bricks: bricks.map((b) => ({
     id: b.id,
     label: brickLabel(b.brick),
@@ -38,11 +38,14 @@ const data = JSON.stringify({
   })),
 });
 const katalog = PAGES.katalog.href;
+// Сравнение: с белым швом, а если выбран белый (супербелый) — с тёмно-серым, иначе сравнивать не с чем.
+const WHITE_SEAMS = ['white', 'superwhite'];
+const compareLabel = (id: string) => (WHITE_SEAMS.includes(id) ? 'Сравнить с тёмно-серым швом' : 'Сравнить с белым швом');
 ---
 
 <section class="ss" id="shov-na-kladke" aria-labelledby="ss-title">
   <Container>
-    <div class="ss__head">
+    <div class="ss__head" data-reveal>
       <p class="ss__kicker">Оттенок на кладке</p>
       <h2 class="ss__title" id="ss-title">Тот же оттенок — швом на&nbsp;кирпиче</h2>
       <p class="ss__sub">Выберите оттенок в волне или здесь, затем кирпич — кадр покажет ближайший по тону шов.</p>
@@ -55,7 +58,7 @@ const katalog = PAGES.katalog.href;
             class="ss__img"
             src={firstSeam.src}
             srcset={`${firstSeam.srcSm} 320w, ${firstSeam.src} ${firstSeam.w}w`}
-            sizes="(min-width: 900px) 56vw, 92vw"
+            sizes="(min-width: 900px) 56vw, 100vw"
             width={firstSeam.w}
             height={firstSeam.h}
             alt={`Визуализация кладки: ${brickLabel(firstBrick.brick)}, шов ${firstSeam.label}`}
@@ -98,8 +101,8 @@ const katalog = PAGES.katalog.href;
         </div>
 
         <div class="ss__group ss__group--row">
-          <button type="button" class="ss__compare" data-ss-compare aria-pressed="false">Сравнить с белым швом</button>
-          <a class="ss__link arrow-link" href={`${katalog}?ton=${TONE_OF_SEAM[firstSeam.id] ?? ''}`} data-ss-link>
+          <button type="button" class="ss__compare" data-ss-compare aria-pressed="false">{compareLabel(firstSeam.id)}</button>
+          <a class="ss__link arrow-link" href={`${katalog}?ton=${WAVE_PALETTE[0].tone}`} data-ss-link>
             Смеси этого тона в каталоге <span aria-hidden="true">→</span>
           </a>
         </div>
@@ -113,7 +116,8 @@ const katalog = PAGES.katalog.href;
 
   type Seam = { id: string; label: string; src: string; srcSm: string };
   type Brick = { id: string; label: string; seams: Seam[] };
-  type Data = { order: string[]; tones: Record<string, string>; palette: { name: string; label: string; seams: string[] }[]; bricks: Brick[] };
+  type Data = { order: string[]; tones: Record<string, string>; palette: { name: string; label: string; seams: string[]; tone: string }[]; bricks: Brick[] };
+  const WHITE_SEAMS = ['white', 'superwhite'];
 
   const root = document.querySelector<HTMLElement>('[data-ss]');
   if (root) {
@@ -158,12 +162,14 @@ const katalog = PAGES.katalog.href;
       const st = getSeamState();
       const b = brickOf(st.brick);
       const seam = seamFor(st, b);
-      const white = b.seams.find((x) => x.id === 'white');
-      const canCompare = !!white && seam.id !== 'white';
-      if (!canCompare) comparing = false;
-      compare.disabled = !canCompare;
+      // сравниваем с белым швом; если выбран белый или супербелый — с тёмно-серым
+      const isWhite = WHITE_SEAMS.includes(seam.id);
+      const other = b.seams.find((x) => x.id === (isWhite ? 'darkgrey' : 'white'));
+      if (!other) comparing = false;
+      compare.disabled = !other;
       compare.setAttribute('aria-pressed', String(comparing));
-      if (comparing && white) setImg(white, b, ` — для сравнения; выбран ${seam.label}`);
+      compare.textContent = comparing ? `Вернуть шов ${seam.label}` : `Сравнить с ${isWhite ? 'тёмно-серым' : 'белым'} швом`;
+      if (comparing && other) setImg(other, b, ` — для сравнения; выбран ${seam.label}`);
       else setImg(seam, b);
       brickBtns.forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.ssBrick === b.id)));
       chips.forEach((x, i) => x.setAttribute('aria-pressed', String(!st.seam && i === st.color)));
@@ -171,12 +177,31 @@ const katalog = PAGES.katalog.href;
       match.textContent = st.seam
         ? `Сочетание из подборки: шов ${seam.label}`
         : `${c.name} (${c.label}) — ближайший по тону шов на кадре: ${seam.label}`;
-      link.href = `${katalog}?ton=${d.tones[seam.id] ?? ''}`;
+      // тон ссылки — от выбранной позиции (она точно будет в списке); у сочетания из карусели позиции нет — от шва
+      link.href = `${katalog}?ton=${st.seam ? (d.tones[seam.id] ?? '') : (c?.tone ?? '')}`;
     };
 
     setSeamState({ brick: d.bricks[0].id, from: 'init' });
-    subscribeSeamState(() => render());
+    // любое изменение выбора (оттенок, кирпич, сочетание) выключает сравнение — иначе смена не видна
+    subscribeSeamState(() => {
+      comparing = false;
+      render();
+    });
     render();
+
+    // Узкий экран: кадр прилипает под шапкой и может закрыть элемент с фокусом (Shift+Tab, переход по Tab
+    // назад вверх). После прокрутки браузера проверяем и, если элемент под кадром, сдвигаем страницу.
+    const stage = root.querySelector<HTMLElement>('.ss__stage')!;
+    root.querySelector('.ss__controls')!.addEventListener('focusin', (e) => {
+      const el = e.target as HTMLElement;
+      requestAnimationFrame(() => {
+        if (getComputedStyle(stage).position !== 'sticky') return;
+        const covered = stage.getBoundingClientRect().bottom + 12;
+        const r = el.getBoundingClientRect();
+        if (r.top < covered) window.scrollBy({ top: r.top - covered, behavior: 'auto' });
+        else if (r.bottom > window.innerHeight - 8) window.scrollBy({ top: r.bottom - window.innerHeight + 16, behavior: 'auto' });
+      });
+    });
 
     brickBtns.forEach((x) => x.addEventListener('click', () => setSeamState({ brick: x.dataset.ssBrick!, from: 'studio' })));
     chips.forEach((x) => x.addEventListener('click', () => setSeamState({ color: Number(x.dataset.ssColor), seam: null, from: 'studio' })));
@@ -203,7 +228,8 @@ const katalog = PAGES.katalog.href;
 </script>
 
 <style>
-  .ss { padding-block: clamp(64px, 8.5vw, 136px); background: var(--paper-2); }
+  /* scroll-margin: переход по ссылке первого экрана «Посмотреть на кладке» не прячет заголовок под шапку */
+  .ss { padding-block: clamp(64px, 8.5vw, 136px); background: var(--paper-2); scroll-margin-top: 56px; }
   .ss__head {
     display: grid;
     gap: var(--space-4) var(--space-7);
@@ -227,7 +253,8 @@ const katalog = PAGES.katalog.href;
 
   .ss__stage { margin: 0; }
   .ss__frame { overflow: hidden; background: var(--paper-3); }
-  .ss__img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
+  /* компьютер — 4:3 (квадрат 645 px с подписью не помещался в экран 1440 × 900) */
+  .ss__img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; }
   @media (max-width: 899px) and (min-width: 600px) { .ss__img { aspect-ratio: 16 / 10; } }
   /* Узкий экран (как у JointPicker): кадр 4:3 прилипает под шапкой — переключаешь оттенок и сразу видишь кладку */
   @media (max-width: 599px) { .ss__img { aspect-ratio: 4 / 3; } }
@@ -280,9 +307,12 @@ const katalog = PAGES.katalog.href;
   .ss__chip .mortar { display: block; width: 100%; height: 100%; outline: 1.5px solid transparent; outline-offset: 2px; transition: translate 0.35s var(--ease), outline-color var(--dur) var(--ease); }
   .ss__chip:hover .mortar { translate: 0 -3px; }
   .ss__chip[aria-pressed='true'] .mortar { outline-color: var(--ink); translate: none; }
-  .ss__chip:focus-visible { outline: none; }
-  .ss__chip:focus-visible .mortar { outline: 2px solid var(--ink); }
+  /* выбор — тонкая рамка вплотную к плашке; фокус с клавиатуры — отдельное кольцо по краю кнопки */
+  .ss__chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .ss__match { margin: 0; font-size: var(--fs-small); color: var(--color-text-soft); }
+  .ss__match::first-letter { text-transform: uppercase; }
+  /* ссылка тонкая, но зона нажатия не меньше 44 px: запас сверху, линия остаётся под текстом */
+  .ss__group .ss__link { min-height: 44px; padding-top: 14px; box-sizing: border-box; }
 
   .ss__compare {
     min-height: 44px;

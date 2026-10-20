@@ -35,6 +35,8 @@ export interface WaveColor {
   title: string;
   /** HEX плашки (приближение) */
   hex: string;
+  /** группа оттенка позиции в каталоге — для ссылки «смеси этого тона» (/katalog/?ton=…) */
+  tone: string;
   /** швы кадра кладки по близости тона, см. таблицу выше */
   seams: string[];
 }
@@ -60,6 +62,7 @@ export const WAVE_PALETTE: WaveColor[] = PICK.map(([id, seams]) => {
     series: seriesById(p.series).name,
     title: p.title,
     hex: swatchFor(p.series, p.color.code),
+    tone: p.color.tone,
     seams,
   };
 });
