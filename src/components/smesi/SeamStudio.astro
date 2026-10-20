@@ -1,0 +1,286 @@
+---
+// Секция под первым экраном главной: оттенок, выбранный в волне образцов, — швом на кадре кладки.
+// ⚠️ Кирпич вне /podbor-shva/ — по брифу 20.10, решение Влада — ожидается (правило дизайна: кирпич только на подборе шва).
+//
+// Кадры — визуализации кладки клиента (src/data/kladka.ts), процедурно кирпич не рисуем. Кадр — готовая картинка
+// «кирпич × шов» без привязки к позиции, поэтому оттенку волны сопоставлен ближайший по тону шов
+// (таблица в src/lib/wave-palette.ts) и это подписано под кадром — как в JointPicker.
+// Три кирпича: терракот, соломенный, коричневый (ОСМиБТ). У кадров одного кирпича раскладка одна и та же —
+// при смене шва кирпичи не «прыгают».
+//
+// Состояние общее с волной и каруселью сочетаний (src/lib/seam-state.ts). Без JS виден стартовый кадр
+// и ссылка в каталог.
+import Container from '../layout/Container.astro';
+import { KLADKA_UNIQUE } from '../../data/kladka';
+import { PAGES } from '../../data/nav';
+import { WAVE_PALETTE } from '../../lib/wave-palette';
+import { HOME_BRICKS, SEAM_ORDER, TONE_OF_SEAM, brickLabel } from '../../lib/seams';
+
+const bricks = HOME_BRICKS.map((id) => {
+  const b = KLADKA_UNIQUE.find((x) => x.id === id);
+  if (!b) throw new Error(`Нет кадров кирпича ${id}`);
+  return b;
+});
+
+// Тот же выбор шва, что в скрипте ниже: первый из списка оттенка, который есть у кирпича.
+const firstBrick = bricks[0];
+const firstSeam =
+  WAVE_PALETTE[0].seams.map((s) => firstBrick.seams.find((x) => x.id === s)).find(Boolean) ?? firstBrick.seams[0];
+
+const data = JSON.stringify({
+  order: SEAM_ORDER,
+  tones: TONE_OF_SEAM,
+  palette: WAVE_PALETTE.map((c) => ({ name: c.name, label: `${c.series} ${c.article}`, seams: c.seams })),
+  bricks: bricks.map((b) => ({
+    id: b.id,
+    label: brickLabel(b.brick),
+    seams: b.seams.map((s) => ({ id: s.id, label: s.label, src: s.src, srcSm: s.srcSm })),
+  })),
+});
+const katalog = PAGES.katalog.href;
+---
+
+<section class="ss" id="shov-na-kladke" aria-labelledby="ss-title">
+  <Container>
+    <div class="ss__head">
+      <p class="ss__kicker">Оттенок на кладке</p>
+      <h2 class="ss__title" id="ss-title">Тот же оттенок — швом на&nbsp;кирпиче</h2>
+      <p class="ss__sub">Выберите оттенок в волне или здесь, затем кирпич — кадр покажет ближайший по тону шов.</p>
+    </div>
+
+    <div class="ss__grid" data-ss={data} data-katalog={katalog}>
+      <figure class="ss__stage">
+        <div class="ss__frame">
+          <img
+            class="ss__img"
+            src={firstSeam.src}
+            srcset={`${firstSeam.srcSm} 320w, ${firstSeam.src} ${firstSeam.w}w`}
+            sizes="(min-width: 900px) 56vw, 92vw"
+            width={firstSeam.w}
+            height={firstSeam.h}
+            alt={`Визуализация кладки: ${brickLabel(firstBrick.brick)}, шов ${firstSeam.label}`}
+            loading="lazy"
+            decoding="async"
+            data-ss-img
+          />
+        </div>
+        <figcaption class="ss__cap">
+          <span class="ss__now" data-ss-caption>{brickLabel(firstBrick.brick)} · шов {firstSeam.label}</span>
+          <span class="ss__hint">Визуализация кладки. Кадр показывает оттенок шва, а не конкретную позицию; цвет на экране приблизительный.</span>
+        </figcaption>
+      </figure>
+
+      <div class="ss__controls">
+        <div class="ss__group">
+          <p class="ss__label">Кирпич</p>
+          <div class="ss__bricks">
+            {bricks.map((b, i) => (
+              <button type="button" class="ss__brick" data-ss-brick={b.id} aria-pressed={i === 0 ? 'true' : 'false'}>{b.brick}</button>
+            ))}
+          </div>
+        </div>
+
+        <div class="ss__group">
+          <p class="ss__label">Оттенок смеси</p>
+          <div class="ss__chips" role="group" aria-label="Оттенок смеси">
+            {WAVE_PALETTE.map((c, i) => (
+              <button
+                type="button"
+                class="ss__chip"
+                data-ss-color={i}
+                aria-pressed={i === 0 ? 'true' : 'false'}
+                aria-label={`${c.name}, ${c.series} ${c.article}`}
+                title={`${c.name} · ${c.series} ${c.article}`}
+              ><span class="mortar" style={`--c:${c.hex}`} aria-hidden="true"></span></button>
+            ))}
+          </div>
+          <p class="ss__match" data-ss-match aria-live="polite">{WAVE_PALETTE[0].name} ({WAVE_PALETTE[0].series} {WAVE_PALETTE[0].article}) — ближайший по тону шов на кадре: {firstSeam.label}</p>
+        </div>
+
+        <div class="ss__group ss__group--row">
+          <button type="button" class="ss__compare" data-ss-compare aria-pressed="false">Сравнить с белым швом</button>
+          <a class="ss__link arrow-link" href={`${katalog}?ton=${TONE_OF_SEAM[firstSeam.id] ?? ''}`} data-ss-link>
+            Смеси этого тона в каталоге <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </Container>
+</section>
+
+<script>
+  import { getSeamState, setSeamState, subscribeSeamState, type SeamState } from '../../lib/seam-state';
+
+  type Seam = { id: string; label: string; src: string; srcSm: string };
+  type Brick = { id: string; label: string; seams: Seam[] };
+  type Data = { order: string[]; tones: Record<string, string>; palette: { name: string; label: string; seams: string[] }[]; bricks: Brick[] };
+
+  const root = document.querySelector<HTMLElement>('[data-ss]');
+  if (root) {
+    const d: Data = JSON.parse(root.dataset.ss || '{}');
+    const katalog = root.dataset.katalog || '/katalog/';
+    const img = root.querySelector<HTMLImageElement>('[data-ss-img]')!;
+    const caption = root.querySelector<HTMLElement>('[data-ss-caption]')!;
+    const match = root.querySelector<HTMLElement>('[data-ss-match]')!;
+    const compare = root.querySelector<HTMLButtonElement>('[data-ss-compare]')!;
+    const link = root.querySelector<HTMLAnchorElement>('[data-ss-link]')!;
+    const brickBtns = [...root.querySelectorAll<HTMLButtonElement>('[data-ss-brick]')];
+    const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-ss-color]')];
+    let comparing = false;
+
+    const brickOf = (id: string) => d.bricks.find((b) => b.id === id) ?? d.bricks[0];
+
+    /** шов у кирпича: нужный id, а если его нет — ближайший по порядку тонов (kladka.ts: соседний id = близкий цвет) */
+    const nearest = (b: Brick, want: string): Seam => {
+      const exact = b.seams.find((s) => s.id === want);
+      if (exact) return exact;
+      const w = d.order.indexOf(want);
+      return [...b.seams].sort((x, y) => Math.abs(d.order.indexOf(x.id) - w) - Math.abs(d.order.indexOf(y.id) - w))[0];
+    };
+    const seamFor = (s: SeamState, b: Brick): Seam => {
+      if (s.seam) return nearest(b, s.seam);
+      const prefs = d.palette[s.color]?.seams ?? [];
+      for (const id of prefs) {
+        const hit = b.seams.find((x) => x.id === id);
+        if (hit) return hit;
+      }
+      return nearest(b, prefs[0] ?? 'white');
+    };
+
+    const setImg = (s: Seam, b: Brick, note = '') => {
+      img.srcset = `${s.srcSm} 320w, ${s.src} 1000w`;
+      img.src = s.src;
+      img.alt = `Визуализация кладки: ${b.label}, шов ${s.label}`;
+      caption.textContent = `${b.label} · шов ${s.label}${note}`;
+    };
+
+    const render = () => {
+      const st = getSeamState();
+      const b = brickOf(st.brick);
+      const seam = seamFor(st, b);
+      const white = b.seams.find((x) => x.id === 'white');
+      const canCompare = !!white && seam.id !== 'white';
+      if (!canCompare) comparing = false;
+      compare.disabled = !canCompare;
+      compare.setAttribute('aria-pressed', String(comparing));
+      if (comparing && white) setImg(white, b, ` — для сравнения; выбран ${seam.label}`);
+      else setImg(seam, b);
+      brickBtns.forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.ssBrick === b.id)));
+      chips.forEach((x, i) => x.setAttribute('aria-pressed', String(!st.seam && i === st.color)));
+      const c = d.palette[st.color];
+      match.textContent = st.seam
+        ? `Сочетание из подборки: шов ${seam.label}`
+        : `${c.name} (${c.label}) — ближайший по тону шов на кадре: ${seam.label}`;
+      link.href = `${katalog}?ton=${d.tones[seam.id] ?? ''}`;
+    };
+
+    setSeamState({ brick: d.bricks[0].id, from: 'init' });
+    subscribeSeamState(() => render());
+    render();
+
+    brickBtns.forEach((x) => x.addEventListener('click', () => setSeamState({ brick: x.dataset.ssBrick!, from: 'studio' })));
+    chips.forEach((x) => x.addEventListener('click', () => setSeamState({ color: Number(x.dataset.ssColor), seam: null, from: 'studio' })));
+    compare.addEventListener('click', () => {
+      comparing = !comparing;
+      render();
+    });
+
+    // Кадры текущего кирпича — заранее, когда секция близко: переключение шва без пустой паузы.
+    const warmed = new Set<string>();
+    const warm = () => {
+      const b = brickOf(getSeamState().brick);
+      if (warmed.has(b.id)) return;
+      warmed.add(b.id);
+      const small = window.innerWidth < 400 && window.devicePixelRatio < 2;
+      b.seams.forEach((s) => { const i = new Image(); i.src = small ? s.srcSm : s.src; });
+    };
+    let near = false;
+    new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) { near = true; warm(); }
+    }, { rootMargin: '300px 0px' }).observe(root);
+    subscribeSeamState((n, p) => { if (near && n.brick !== p.brick) warm(); });
+  }
+</script>
+
+<style>
+  .ss { padding-block: clamp(64px, 8.5vw, 136px); background: var(--paper-2); }
+  .ss__head {
+    display: grid;
+    gap: var(--space-4) var(--space-7);
+    margin-bottom: clamp(36px, 4.5vw, 64px);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--hair-strong);
+  }
+  .ss__kicker { margin: 0; font-size: var(--fs-tiny); font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); }
+  .ss__title { margin: 0; font-size: var(--fs-h2); line-height: 1; letter-spacing: -0.02em; max-width: 16ch; text-wrap: balance; }
+  .ss__sub { max-width: 46ch; margin: 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
+  @media (min-width: 1000px) {
+    .ss__head { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); align-items: end; }
+    .ss__kicker { grid-column: 1 / -1; }
+    .ss__sub { justify-self: end; }
+  }
+
+  .ss__grid { display: grid; gap: clamp(28px, 4vw, 48px); }
+  @media (min-width: 900px) {
+    .ss__grid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: clamp(32px, 4.5vw, 72px); align-items: start; }
+  }
+
+  .ss__stage { margin: 0; }
+  .ss__frame { overflow: hidden; background: var(--paper-3); }
+  .ss__img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
+  @media (max-width: 899px) and (min-width: 600px) { .ss__img { aspect-ratio: 16 / 10; } }
+  .ss__cap { display: grid; gap: 4px; padding-top: 14px; }
+  .ss__now { font-family: var(--font-head); font-size: clamp(22px, 2vw, 28px); font-weight: 500; line-height: 1.1; letter-spacing: -0.01em; }
+  .ss__now::first-letter { text-transform: uppercase; }
+  .ss__hint { font-size: 13px; color: var(--color-muted); }
+
+  .ss__controls { display: grid; align-content: start; border-top: 1px solid var(--hair-strong); }
+  .ss__group { display: grid; gap: 10px; padding: 16px 0 22px; border-bottom: 1px solid var(--hair); }
+  .ss__group--row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; border-bottom: 0; }
+  .ss__label { margin: 0; font-size: var(--fs-tiny); font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); }
+
+  .ss__bricks { display: flex; flex-wrap: wrap; gap: 0 26px; }
+  .ss__brick {
+    min-height: 44px;
+    margin: 0;
+    padding: 6px 0 4px;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    background: none;
+    color: var(--color-muted);
+    font-family: var(--font-head);
+    font-size: clamp(22px, 1.9vw, 26px);
+    font-weight: 500;
+    line-height: 1.1;
+    cursor: pointer;
+    transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .ss__brick:hover { color: var(--ink); }
+  .ss__brick[aria-pressed='true'] { color: var(--ink); border-bottom-color: var(--ink); }
+  .ss__brick:focus-visible, .ss__compare:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  .ss__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ss__chip { display: block; width: 44px; height: 44px; margin: 0; padding: 4px; border: 0; background: none; cursor: pointer; }
+  .ss__chip .mortar { display: block; width: 100%; height: 100%; outline: 1.5px solid transparent; outline-offset: 2px; transition: translate 0.35s var(--ease), outline-color var(--dur) var(--ease); }
+  .ss__chip:hover .mortar { translate: 0 -3px; }
+  .ss__chip[aria-pressed='true'] .mortar { outline-color: var(--ink); translate: none; }
+  .ss__chip:focus-visible { outline: none; }
+  .ss__chip:focus-visible .mortar { outline: 2px solid var(--ink); }
+  .ss__match { margin: 0; font-size: var(--fs-small); color: var(--color-text-soft); }
+
+  .ss__compare {
+    min-height: 44px;
+    margin: 0;
+    padding: 0 16px;
+    border: 1px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--fs-small);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+  .ss__compare:hover, .ss__compare[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
+  .ss__compare:disabled { border-color: var(--hair-strong); background: transparent; color: var(--color-muted); cursor: default; }
+</style>

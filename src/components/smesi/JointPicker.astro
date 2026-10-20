@@ -14,6 +14,7 @@
 // меняется на месте, загружаются только выбранные кадры (атрибут data-src, не src).
 import { KLADKA_UNIQUE as KLADKA, KLADKA_TONE_ON_TONE } from '../../data/kladka';
 import { PAGES } from '../../data/nav';
+import { TONE_OF_SEAM, brickLabel } from '../../lib/seams';
 
 interface Props {
   /** compact — для первого экрана главной: один кирпич, только швы */
@@ -33,17 +34,9 @@ const full = variant === 'full';
 const many = factories.length > 1;
 const step = (n: number) => (full ? `0${n}` : '');
 
-// Связь видимого оттенка шва с группой оттенка каталога — для ссылки «смеси этого тона».
-const TONE_OF_SEAM: Record<string, string> = {
-  white: 'white', superwhite: 'white', lightgrey: 'grey', grey: 'grey', darkgrey: 'grey', black: 'black',
-  brown: 'brown', lightbrown: 'brown', darkbrown: 'brown', blackbrown: 'brown', cream: 'beige',
-};
 // Кадры, где шов почти в цвет кирпича (ΔE < 10, замер агента данных): подписываем, чтобы
 // человек не решил, что шва «нет».
 const toneOnTone = new Set(KLADKA_TONE_ON_TONE.map(([b, s]) => `${b}|${s}`));
-// «красный кирпич», но «кирпич «крафт»», «кирпич «слоновая кость»»: прилагательное ставим перед
-// словом «кирпич», название-существительное — после, в кавычках.
-const brickLabel = (name: string) => (/(ый|ий|ой)$/.test(name) ? `${name} кирпич` : `кирпич «${name}»`);
 const data = JSON.stringify(
   bricks.map((b) => ({ id: b.id, factory: b.factory, brick: b.brick, label: brickLabel(b.brick), seams: b.seams.map((s) => ({ id: s.id, label: s.label, src: s.src, srcSm: s.srcSm, tone: TONE_OF_SEAM[s.id] ?? '', same: toneOnTone.has(`${b.id}|${s.id}`) })) })),
 );

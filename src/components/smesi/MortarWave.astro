@@ -1,0 +1,277 @@
+---
+// Объёмная волна образцов раствора — правая половина первого экрана главной (бриф 20.10, ориентир — ролик
+// с волной тонких пластин). Пластины — реальные позиции каталога (src/lib/wave-palette.ts), цвет — приближение
+// swatchFor, рядом оговорка о цвете на экране.
+//
+// Слои: статичная CSS-раскладка тех же цветов (видна сразу; она же — вариант без WebGL) и canvas,
+// куда после первой отрисовки страницы динамическим import() грузится сцена Three.js (src/lib/mortar-wave.ts).
+// Как только сцена нарисовала первый кадр — раскладка плавно уходит. Без «загрузочного экрана».
+//
+// Выбор оттенка — обычные кнопки под сценой (aria-pressed, клавиатура) или клик по пластине. Выбор не открывает
+// окно цены: для этого — отдельная кнопка «Узнать цену» с data-ask выбранной позиции (механика PriceModal).
+// Выбранный оттенок уходит в общее состояние (src/lib/seam-state.ts) — по нему меняется шов на кадре кладки ниже.
+import { WAVE_PALETTE } from '../../lib/wave-palette';
+import { WAVE_CONFIG as C } from '../../lib/wave-config';
+
+const first = WAVE_PALETTE[0];
+const data = JSON.stringify(WAVE_PALETTE.map(({ name, article, series, title, hex }) => ({ name, article, series, title, hex })));
+
+// Статичная раскладка: те же формулы кривой, что у сцены (без бегущей волны в момент t = 0), в процентах сцены.
+const N = C.count;
+const halfH = 1.45; // видимая половина высоты сцены в её единицах (как в resize() сцены)
+const plates = Array.from({ length: N }, (_, i) => {
+  const u = i / (N - 1) - 0.5;
+  const phase = i * C.wave.phaseStep;
+  const y = C.curve.rise * Math.sin(u * Math.PI * 1.8) + C.wave.amplitude * Math.sin(phase);
+  const slope = (C.wave.amplitude * Math.cos(phase) * C.wave.phaseStep) / C.spacing;
+  return {
+    hex: WAVE_PALETTE[i % WAVE_PALETTE.length].hex,
+    x: (6 + (88 * i) / (N - 1)).toFixed(2),
+    y: (50 - (y / halfH) * 50).toFixed(2),
+    r: ((Math.atan(slope) * C.wave.tilt * 180) / Math.PI).toFixed(1),
+    t: ((C.curve.twist * Math.sin(u * Math.PI * 1.6) * 180) / Math.PI).toFixed(1),
+  };
+});
+
+// Мелкие подписи-числа вокруг волны, как в ролике: коды оттенков палитры (декор, дублируют подпись ниже).
+const tags = [
+  [8, 14], [27, 9], [49, 16], [71, 8], [88, 18], [17, 84], [58, 90], [83, 82],
+].map(([x, y], i) => ({ x, y, text: WAVE_PALETTE[i % WAVE_PALETTE.length].article }));
+---
+
+<div class="mw" data-mw={data}>
+  <div class="mw__stage" role="img" aria-label={`Волна из ${N} образцов цветного раствора, ${WAVE_PALETTE.length} оттенков Perel и Основит`}>
+    <div class="mw__static" aria-hidden="true">
+      {plates.map((p) => (
+        <span class="mw__plate mortar" style={`--c:${p.hex};--x:${p.x}%;--y:${p.y}%;--r:${p.r}deg;--t:${p.t}deg`}></span>
+      ))}
+    </div>
+    <canvas class="mw__canvas" aria-hidden="true" data-mw-canvas></canvas>
+    {tags.map((t) => <span class="mw__tag num" aria-hidden="true" style={`left:${t.x}%;top:${t.y}%`}>{t.text}</span>)}
+  </div>
+
+  <div class="mw__bar">
+    <p class="mw__now" aria-live="polite">
+      <span class="mw__series" data-mw-series>{first.series} · {first.article}</span>
+      <span class="mw__name" data-mw-name>{first.name}</span>
+    </p>
+    <button type="button" class="mw__ask btn btn--ghost btn--sm" data-ask={first.title} data-mw-ask>Узнать цену</button>
+  </div>
+
+  <div class="mw__controls">
+    <div class="mw__palette" role="group" aria-label="Оттенок смеси">
+      {WAVE_PALETTE.map((c, i) => (
+        <button
+          type="button"
+          class="mw__chip"
+          data-mw-color={i}
+          aria-pressed={i === 0 ? 'true' : 'false'}
+          aria-label={`${c.name}, ${c.series} ${c.article}`}
+          title={`${c.name} · ${c.series} ${c.article}`}
+        ><span class="mortar" style={`--c:${c.hex}`} aria-hidden="true"></span></button>
+      ))}
+    </div>
+    <button type="button" class="mw__pause" aria-pressed="false" data-mw-pause hidden>Остановить анимацию</button>
+  </div>
+  <p class="mw__note">Цвет на экране приблизительный: плашки сняты с палитр производителей.</p>
+</div>
+
+<script>
+  import { getSeamState, setSeamState, subscribeSeamState } from '../../lib/seam-state';
+  import type { WaveHandle } from '../../lib/mortar-wave';
+
+  type Item = { name: string; article: string; series: string; title: string; hex: string };
+
+  const root = document.querySelector<HTMLElement>('[data-mw]');
+  if (root) {
+    const items: Item[] = JSON.parse(root.dataset.mw || '[]');
+    const canvas = root.querySelector<HTMLCanvasElement>('[data-mw-canvas]')!;
+    const series = root.querySelector<HTMLElement>('[data-mw-series]')!;
+    const name = root.querySelector<HTMLElement>('[data-mw-name]')!;
+    const ask = root.querySelector<HTMLElement>('[data-mw-ask]')!;
+    const pause = root.querySelector<HTMLButtonElement>('[data-mw-pause]')!;
+    const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-mw-color]')];
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let wave: WaveHandle | null = null;
+
+    const show = (i: number) => {
+      const c = items[i];
+      if (!c) return;
+      series.textContent = `${c.series} · ${c.article}`;
+      name.textContent = c.name;
+      ask.dataset.ask = c.title;
+      chips.forEach((b, j) => b.setAttribute('aria-pressed', String(j === i)));
+    };
+
+    chips.forEach((b) =>
+      b.addEventListener('click', () => {
+        const i = Number(b.dataset.mwColor);
+        setSeamState({ color: i, seam: null, from: 'wave' });
+      }),
+    );
+
+    subscribeSeamState((next, prev) => {
+      if (next.color === prev.color) return;
+      show(next.color);
+      wave?.select(next.color, next.from === 'wave');
+    });
+    show(getSeamState().color);
+
+    // WebGL есть? Проверка на отдельном canvas, контекст сразу освобождаем.
+    const hasWebGL = (() => {
+      try {
+        const test = document.createElement('canvas');
+        const gl = (test.getContext('webgl2') || test.getContext('webgl')) as WebGLRenderingContext | null;
+        gl?.getExtension('WEBGL_lose_context')?.loseContext();
+        return !!gl;
+      } catch {
+        return false;
+      }
+    })();
+
+    if (!hasWebGL) {
+      root.classList.add('mw--static');
+    } else {
+      const start = async () => {
+        try {
+          const { mountWave } = await import('../../lib/mortar-wave');
+          wave = mountWave(canvas, {
+            colors: items.map((c) => c.hex),
+            reduced,
+            onPick: (i) => setSeamState({ color: i, seam: null, from: 'wave' }),
+            onReady: () => root.classList.add('mw--live'),
+          });
+          wave.select(getSeamState().color, false);
+          if (!reduced) pause.hidden = false;
+        } catch {
+          // сцена не поднялась (нет памяти под контекст и т. п.) — остаётся статичная раскладка
+          root.classList.add('mw--static');
+        }
+      };
+      // после первой отрисовки страницы, чтобы не задерживать отрисовку заголовка
+      requestAnimationFrame(() => setTimeout(start, 0));
+    }
+
+    pause.addEventListener('click', () => {
+      const stopped = pause.getAttribute('aria-pressed') !== 'true';
+      pause.setAttribute('aria-pressed', String(stopped));
+      pause.textContent = stopped ? 'Запустить анимацию' : 'Остановить анимацию';
+      wave?.setPaused(stopped);
+    });
+  }
+</script>
+
+<style>
+  .mw { display: grid; gap: 14px; }
+
+  .mw__stage {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    /* вертикальная прокрутка страницы пальцем по сцене не блокируется */
+    touch-action: pan-y;
+  }
+  .mw__canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    touch-action: pan-y;
+    transition: opacity 0.45s var(--ease);
+  }
+  .mw--live .mw__canvas { opacity: 1; }
+  .mw--static .mw__canvas { display: none; }
+
+  /* Статичная раскладка (до сцены, без WebGL, при reduced-motion до старта): пластины вдоль той же кривой */
+  .mw__static {
+    position: absolute;
+    inset: 0;
+    perspective: 900px;
+    transition: opacity 0.45s var(--ease);
+  }
+  .mw--live .mw__static { opacity: 0; visibility: hidden; transition: opacity 0.45s var(--ease), visibility 0s 0.45s; }
+  .mw__static > .mw__plate.mortar {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: 9.5%;
+    height: 36%;
+    transform: translate(-50%, -50%) rotateY(-56deg) rotateZ(var(--r)) rotateX(var(--t));
+  }
+
+  .mw__tag {
+    position: absolute;
+    z-index: 1;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--color-muted);
+    pointer-events: none;
+  }
+
+  .mw__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px 24px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hair-strong);
+  }
+  .mw__now { display: grid; gap: 4px; margin: 0; min-width: 0; }
+  .mw__series { font-size: var(--fs-tiny); font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-muted); }
+  .mw__name { font-family: var(--font-head); font-size: clamp(26px, 2.4vw, 34px); font-weight: 500; line-height: 1; letter-spacing: -0.01em; }
+  .mw__name::first-letter { text-transform: uppercase; }
+  .mw__ask { min-height: 44px; }
+
+  .mw__controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+  .mw__palette { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mw__chip {
+    display: block;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    padding: 4px;
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+  .mw__chip .mortar {
+    display: block;
+    width: 100%;
+    height: 100%;
+    outline: 1.5px solid transparent;
+    outline-offset: 2px;
+    transition: translate 0.35s var(--ease), outline-color var(--dur) var(--ease);
+  }
+  .mw__chip:hover .mortar { translate: 0 -3px; }
+  .mw__chip[aria-pressed='true'] .mortar { outline-color: var(--ink); translate: none; }
+  .mw__chip:focus-visible { outline: none; }
+  .mw__chip:focus-visible .mortar { outline: 2px solid var(--ink); }
+
+  .mw__pause {
+    min-height: 44px;
+    margin: 0;
+    padding: 0 0 2px;
+    border: 0;
+    border-bottom: 1px solid var(--hair-strong);
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--fs-small);
+    cursor: pointer;
+  }
+  .mw__pause:hover { border-bottom-color: var(--ink); }
+  .mw__pause:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .mw__pause[hidden] { display: none; }
+
+  .mw__note { margin: 0; font-size: 13px; color: var(--color-muted); }
+
+  @media (min-width: 1000px) {
+    .mw__stage { aspect-ratio: 1 / 0.92; }
+  }
+  @media (max-width: 599px) {
+    .mw__stage { aspect-ratio: 1 / 0.82; }
+    .mw__tag { font-size: 10px; }
+  }
+</style>

@@ -1,15 +1,19 @@
 ---
 // Главная (редизайн 11.10; Влад: «шаблон не нужно использовать тот же, ещё и везде кирпич»).
 // Входная страница под общий запрос «цветная кладочная смесь (для облицовочного кирпича)».
-// Главный материал — цвет раствора: стена оттенков на первом экране, полосы тонов, палитры серий.
-// Кирпича на главной нет. Факты — только из src/data (ассортимент дилера, данные производителей).
+// Главный материал — цвет раствора: объёмная волна образцов на первом экране (бриф 20.10, вместо стены оттенков),
+// полосы тонов, палитры серий. Факты — только из src/data (ассортимент дилера, данные производителей).
+// Под первым экраном — оттенок волны швом на кадре кладки и карусель сочетаний: кирпич вне /podbor-shva/
+// по брифу 20.10, решение Влада — ожидается.
 //
 // «Швы — до 15–20 % площади фасада» — утверждение самого дилера (вопросы и ответы на его сайтах
 // кирпича Старого Оскола и Железногорска: «Швы составляют до 15-20% площади фасада»).
 import Page from '../layouts/Page.astro';
 import Container from '../components/layout/Container.astro';
 import Section from '../components/layout/Section.astro';
-import PigmentWall from '../components/pal/PigmentWall.astro';
+import MortarWave from '../components/smesi/MortarWave.astro';
+import SeamStudio from '../components/smesi/SeamStudio.astro';
+import SeamCarousel from '../components/smesi/SeamCarousel.astro';
 import BrickTypes from '../components/smesi/BrickTypes.astro';
 import SeriesCard from '../components/smesi/SeriesCard.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
@@ -58,15 +62,18 @@ const index = [
   <section class="hero">
     <Container>
       <div class="hero__grid">
-        <div class="hero__text">
+        <div class="hero__head">
           <p class="label" data-reveal>Москва и Московская область</p>
-          <h1 class="hero__title" data-reveal="head">Цветные кладочные смеси <em>для облицовочного кирпича</em></h1>
+          <h1 class="hero__title" data-reveal="head">Цвет шва меняет всё</h1>
+        </div>
+        <div class="hero__wave"><MortarWave /></div>
+        <div class="hero__body">
           <p class="hero__lead" data-reveal>
-            Perel и Основит — для клинкера, обычного кирпича и кирпича ручной формовки, плюс растворы
-            для расшивки швов. Поможем выбрать оттенок и посчитаем мешки.
+            Цветные кладочные смеси Perel и Основит — для клинкера, обычного кирпича и кирпича ручной формовки,
+            плюс растворы для расшивки швов. Поможем выбрать оттенок и посчитаем мешки.
           </p>
           <div class="hero__actions" data-reveal>
-            <a class="btn btn--primary btn--lg" href={PAGES.katalog.href}>Каталог оттенков</a>
+            <a class="btn btn--primary btn--lg" href={PAGES.katalog.href}>Подобрать оттенок</a>
             <a class="arrow-link" href={PAGES.podbor.href}>Шов на вашем кирпиче <span aria-hidden="true">→</span></a>
           </div>
           <dl class="hero__facts num" data-reveal>
@@ -75,10 +82,12 @@ const index = [
             <div><dt>офиса в Москве</dt><dd>{OFFICES.length}</dd></div>
           </dl>
         </div>
-        <div class="hero__wall"><PigmentWall /></div>
       </div>
     </Container>
   </section>
+
+  <SeamStudio />
+  <SeamCarousel />
 
   <section class="claim">
     <Container>
@@ -146,24 +155,34 @@ const index = [
 </Page>
 
 <style>
-  .hero { padding: clamp(28px, 4vw, 56px) 0 clamp(56px, 7vw, 112px); }
-  .hero__grid { display: grid; gap: clamp(40px, 5vw, 64px); align-items: end; }
+  .hero { padding: clamp(28px, 4vw, 56px) 0 clamp(56px, 7vw, 112px); overflow-x: clip; }
+  .hero__grid { display: grid; grid-template-areas: 'head' 'wave' 'body'; gap: clamp(24px, 4vw, 40px); }
+  .hero__head { grid-area: head; }
+  .hero__wave { grid-area: wave; min-width: 0; }
+  .hero__body { grid-area: body; }
   .hero__title {
     margin: var(--space-4) 0 0;
     font-size: clamp(50px, 7.2vw, 112px);
     line-height: 0.92;
     letter-spacing: -0.03em;
-    max-width: 11ch;
+    max-width: 9ch;
   }
-  .hero__title em { display: block; margin-top: 0.12em; font-size: 0.5em; line-height: 1.05; letter-spacing: -0.01em; color: var(--color-text-soft); }
-  .hero__lead { max-width: 44ch; margin: var(--space-6) 0 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
+  .hero__lead { max-width: 44ch; margin: 0; font-size: var(--fs-lead); color: var(--color-text-soft); }
   .hero__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5) var(--space-6); margin-top: var(--space-7); }
   .hero__facts { display: flex; gap: clamp(24px, 4vw, 56px); margin: clamp(40px, 5vw, 64px) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--hair); }
   .hero__facts div { display: flex; flex-direction: column-reverse; justify-content: flex-end; }
   .hero__facts dd { margin: 0; font-family: var(--font-head); font-size: clamp(40px, 4vw, 60px); line-height: 1; }
   .hero__facts dt { font-size: var(--fs-tiny); letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-muted); }
   @media (min-width: 1000px) {
-    .hero__grid { grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); }
+    .hero__grid {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      grid-template-areas: 'head wave' 'body wave';
+      grid-template-rows: auto 1fr;
+      column-gap: clamp(32px, 4vw, 64px);
+      row-gap: var(--space-6);
+      align-items: start;
+    }
+    .hero__head { align-self: end; }
   }
 
   .claim { padding: clamp(56px, 8vw, 128px) 0; background: var(--ink); color: var(--paper); }
