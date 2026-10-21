@@ -90,10 +90,19 @@ const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includ
     position: sticky;
     top: 0;
     z-index: var(--z-header);
-    background: color-mix(in srgb, var(--paper) 92%, transparent);
-    backdrop-filter: saturate(1.2) blur(8px);
     border-bottom: 1px solid transparent;
     transition: border-color var(--dur) var(--ease);
+  }
+  /* Фон и размытие — отдельным слоем. backdrop-filter на самой шапке делал её опорной рамкой для
+     position: fixed: панель меню на телефоне схлопывалась до 97 px, и под ней просвечивала страница
+     (Safari и Chrome, 390 px; Влад 21.10). */
+  .hd::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: saturate(1.2) blur(8px);
   }
   .hd.is-scrolled { border-bottom-color: var(--hair); }
   .hd__row { display: flex; align-items: center; gap: var(--space-6); min-height: 72px; }
@@ -135,7 +144,11 @@ const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includ
     .hd__burger { display: none; }
     .hd__side { margin-left: var(--space-5); }
   }
+  /* Страница под открытым меню стоит. body возвращаем в visible: иначе его overflow-x: hidden делает
+     его областью прокрутки, липкая шапка уезжает вверх вместе со страницей (на −300 px при прокрутке 300),
+     и над панелью меню видна страница вместо шапки (Влад 21.10). */
   :global(html.hd-open) { overflow: hidden; }
+  :global(html.hd-open body) { overflow: visible; }
   /* узкие экраны: знак с подписью и кнопка меню должны влезать в 288 px (на 320 давали прокрутку вбок) */
   @media (max-width: 379px) {
     .hd__row { gap: 10px; }
