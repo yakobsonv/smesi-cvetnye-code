@@ -128,7 +128,7 @@ const PALETTE_OF: Record<SeriesId, SwatchPalette> = {
  *  только при выводе через swatchFor — то есть везде, где цвет берётся из данных (каталог, серии,
  *  полосы тонов, волна на первом экране). Насыщенность в HSL умножается на этот коэффициент, светлота
  *  не меняется: серые и белые остаются серыми и белыми. 1 — как замерено. */
-export const SWATCH_SATURATION = 1.35;
+export const SWATCH_SATURATION = 1.7;
 
 /** Насыщеннее на k: hex → HSL → S × k (не выше 1) → hex. */
 export function saturate(hex: string, k: number): string {
