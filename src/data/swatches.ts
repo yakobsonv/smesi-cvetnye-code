@@ -124,8 +124,31 @@ const PALETTE_OF: Record<SeriesId, SwatchPalette> = {
   'osnovit-xc30': 'osnovit-xc30',
 };
 
-/** HEX плашки для цвета серии: код — как в catalog.ts ('05', '010'). */
+/** Усиление насыщенности плашек на экране (решение Паши 22.10): замеры выше не трогаем, усиление
+ *  только при выводе через swatchFor — то есть везде, где цвет берётся из данных (каталог, серии,
+ *  полосы тонов, волна на первом экране). Насыщенность в HSL умножается на этот коэффициент, светлота
+ *  не меняется: серые и белые остаются серыми и белыми. 1 — как замерено. */
+export const SWATCH_SATURATION = 1.35;
+
+/** Насыщеннее на k: hex → HSL → S × k (не выше 1) → hex. */
+export function saturate(hex: string, k: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m || k === 1) return hex;
+  const n = parseInt(m[1], 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (d === 0) return hex;
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  const s = Math.min(1, (d / (1 - Math.abs(2 * l - 1))) * k);
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), mm = l - c / 2;
+  const [r1, g1, b1] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const to = (v: number) => Math.round((v + mm) * 255).toString(16).padStart(2, '0');
+  return `#${to(r1)}${to(g1)}${to(b1)}`;
+}
+
+/** HEX плашки для цвета серии: код — как в catalog.ts ('05', '010'). С усилением насыщенности. */
 export function swatchFor(seriesId: SeriesId, code: string): string {
   const palette = PALETTE_OF[seriesId];
-  return (palette && SWATCH[palette][code]) || SWATCH_FALLBACK;
+  return saturate((palette && SWATCH[palette][code]) || SWATCH_FALLBACK, SWATCH_SATURATION);
 }
