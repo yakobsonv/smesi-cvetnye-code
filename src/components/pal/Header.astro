@@ -15,6 +15,7 @@ const links: { key: PageKey; label: string; also?: PageKey[] }[] = [
   { key: 'katalog', label: 'Каталог', also: ['belaya', 'chernaya', 'klinker'] },
   { key: 'perel', label: 'Perel' },
   { key: 'osnovit', label: 'Основит' },
+  { key: 'dauer', label: 'Dauer' },
   { key: 'podbor', label: 'Подбор шва' },
   { key: 'kalkulyator', label: 'Расход' },
   { key: 'dostavka', label: 'Контакты' },
@@ -117,12 +118,14 @@ const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includ
   .hd__name { font-family: var(--font-head); font-size: 27px; font-weight: 600; letter-spacing: -0.01em; }
   .hd__sub { margin-top: 4px; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); }
 
-  .hd__nav { display: none; gap: clamp(14px, 1.8vw, 28px); margin-left: auto; }
-  .hd__link { position: relative; padding: 6px 0; color: var(--ink); font-size: 15px; text-decoration: none; }
+  /* семь пунктов (с 24.10 — Dauer): шаг меньше, пункты и кнопка не переносятся на вторую строку (на 1440 «Подбор шва» рвался) */
+  .hd__nav { display: none; gap: clamp(12px, 1.5vw, 24px); margin-left: auto; }
+  .hd__link { position: relative; padding: 6px 0; color: var(--ink); font-size: 15px; text-decoration: none; white-space: nowrap; }
   .hd__link::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform var(--dur) var(--ease); }
   .hd__link:hover::after, .hd__link[aria-current='page']::after { transform: scaleX(1); }
 
   .hd__side { display: none; align-items: center; gap: var(--space-5); }
+  .hd__side :global(.btn) { white-space: nowrap; }
   .hd__phone { color: var(--ink); font-weight: 500; text-decoration: none; white-space: nowrap; }
 
   .hd__burger { margin-left: auto; display: grid; place-content: center; gap: 7px; width: 44px; height: 44px; border: 0; background: none; cursor: pointer; }

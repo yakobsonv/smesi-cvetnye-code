@@ -25,7 +25,7 @@ import SwatchNote from '../components/smesi/SwatchNote.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
 import FaqAccordion from '../components/content/FaqAccordion.astro';
 import SpecTable from '../components/content/SpecTable.astro';
-import { BRICK_TYPES, POSITIONS, SERIES, BRANDS, BRAND_LIST, seriesById, seriesFor, seriesHref, type Brand, type BrickType, type FactSeriesId, type Position, type SeriesId } from '../data/catalog';
+import { BRICK_TYPES, POSITIONS, SERIES, BRANDS, BRAND_LIST, codeText, seriesById, seriesFor, seriesHref, type Brand, type BrickType, type FactSeriesId, type Position, type SeriesId } from '../data/catalog';
 import { swatchFor } from '../data/swatches';
 import { SERIES_FACTS, LIGHT_JOINT_FACTS, CONSUMPTION, hasFacts, type SeriesFacts } from '../data/series-facts';
 import { PAGES } from '../data/nav';
@@ -105,8 +105,11 @@ const pad2 = (i: number) => String(i + 1).padStart(2, '0');
 // (swatches.ts); у расшивочных RL и ХС30 оттенок снят с фотографий образцов, поэтому своя плашка.
 // Клик по плашке — окно «Узнать цену» с названием цвета и артикулами.
 const brandOf = (p: Position) => seriesById(p.series).brand;
-const short = (id: SeriesId) => seriesById(id).name.replace(/^Perel /, '').replace(/^Основит (Брикформ )?/, '');
-const isSuper = (n: string) => n.startsWith('супер');
+const short = (id: SeriesId) => seriesById(id).name.replace(/^Perel /, '').replace(/^Основит (Брикформ )?/, '').replace(/^Dauer BRICK\.COLOR /, '');
+// «супер-белый» (Perel), «супербелый» (Основит), «ультра-белый» (Dauer) — в колонке первым
+const isSuper = (n: string) => /^(супер|ультра)/.test(n);
+// код позиции в строке «серия код»: у Dauer кодов нет — «№ 2» (номер на палитре производителя)
+const code = (p: Position) => codeText(seriesById(p.series), p.article, true);
 /** «супер-белый» не рвём по дефису: на телефоне строка ломалась «супер-/белого» */
 const nbHyph = (t: string) => t.replace(/-/g, '\u2011');
 const GENITIVE: Record<string, string> = { 'супер-белый': 'супер-белого', супербелый: 'супербелого', белый: 'белого' };
@@ -135,7 +138,7 @@ const palette = brandOrder.map((b) => {
         top,
         bottom,
         hex: swatchFor(top[0].series, top[0].color.code),
-        ask: `${BRANDS[b].name}, ${n} — ${top.map((p) => `${short(p.series)} ${p.article}`).join(', ')}`,
+        ask: `${BRANDS[b].name}, ${n} — ${top.map((p) => `${short(p.series)} ${code(p)}`).join(', ')}`,
         missing,
       };
     }),
@@ -234,6 +237,8 @@ const articlesOf = (series: typeof SERIES, colorName: string) =>
   series.flatMap((s) => isWhite(s.id).filter((p) => p.color.name === colorName).map((p) => p.article));
 const rlWhite = isWhite('perel-rl');
 const osnovitWhite = isWhite('osnovit-mc11');
+// у Dauer палитра одна на 250, 251 и 252 — белые называем по 250
+const dauerWhite = isWhite('dauer-250');
 const perel1nf = CONSUMPTION.perel.perBrick.find((x) => x.format === '1-НФ');
 const fNl = SERIES_FACTS['perel-nl'];
 const fMc11 = SERIES_FACTS['osnovit-mc11'];
@@ -245,8 +250,8 @@ const aSrc = (url: string, label = srcLabel(url)) => `<a href="${url}" rel="nofo
 
 const faq: FaqItem[] = [
   {
-    q: 'Какие белые цвета есть у Perel и Основит?',
-    a: `<p>У Perel в кладочных сериях ${andList(perelKladka.map((s) => s.name.replace('Perel ', '')))} — супер-белый (артикулы ${articlesOf(perelKladka, 'супер-белый').join(', ')}) и белый (${articlesOf(perelKladka, 'белый').join(', ')}). У затирки Perel RL супер-белого нет, белый — ${rlWhite.map((p) => p.article).join(', ')}.</p><p>У Основит в Брикформ МС11, МС11/1 и в растворе для расшивки Бриксэйв ХС30 — ${osnovitWhite.map((p) => `${p.color.name} (цвет ${p.article})`).join(' и ')}.</p>`,
+    q: 'Какие белые цвета есть у Perel, Основит и Dauer?',
+    a: `<p>У Perel в кладочных сериях ${andList(perelKladka.map((s) => s.name.replace('Perel ', '')))} — супер-белый (артикулы ${articlesOf(perelKladka, 'супер-белый').join(', ')}) и белый (${articlesOf(perelKladka, 'белый').join(', ')}). У затирки Perel RL супер-белого нет, белый — ${rlWhite.map((p) => p.article).join(', ')}.</p><p>У Основит в Брикформ МС11, МС11/1 и в растворе для расшивки Бриксэйв ХС30 — ${osnovitWhite.map((p) => `${p.color.name} (цвет ${p.article})`).join(' и ')}.</p><p>У Dauer в BRICK.COLOR 250, 251 и 252 — ${dauerWhite.map((p) => `${p.color.name} (${p.articleText})`).join(' и ')}: кодов цвета у производителя нет, номер — по его палитре.</p>`,
   },
   {
     q: 'Какая белая смесь нужна для клинкерного кирпича?',
@@ -291,7 +296,7 @@ const itemList = {
     h1="Белая кладочная смесь для облицовочного кирпича"
     crumb="Белая кладочная смесь"
     trail={[{ label: PAGES.katalog.label, href: PAGES.katalog.href }]}
-    lead={`Белый и супербелый цвет есть в каждой кладочной серии ${BRAND_LIST} — под обычный облицовочный кирпич, ручную формовку и клинкер. Для уже уложенной кладки — белые растворы для расшивки швов.`}
+    lead={`Белый и супербелый (у Dauer — ультра-белый) цвет есть в каждой кладочной серии ${BRAND_LIST} — под обычный облицовочный кирпич, ручную формовку и клинкер. Для уже уложенной кладки — белые растворы для расшивки швов.`}
   >
     <div class="bh__actions" data-reveal>
       <a class="btn btn--primary" href="#pod-kirpich">Выбрать под свой кирпич</a>
@@ -327,12 +332,12 @@ const itemList = {
                 <button class="wh__plate wh__plate--top mortar" type="button" style={`--c:${c.hex}`} data-ask={c.ask} aria-label={`${c.ask} — узнать цену`}></button>
                 <p class="wh__name">{nbHyph(c.n)}</p>
                 <p class="wh__codes num">
-                  {c.top.map((p) => <span>{short(p.series)} <b>{p.article}</b></span>)}
+                  {c.top.map((p) => <span>{short(p.series)} <b>{code(p)}</b></span>)}
                 </p>
                 {c.bottom.map((p) => (
                   <Fragment>
                     <button class="wh__plate wh__plate--sub mortar" type="button" style={`--c:${swatchFor(p.series, p.color.code)}`} data-ask={p.title} aria-label={`${p.title} — узнать цену`}></button>
-                    <p class="wh__subcap"><span class="wh__kind">расшивка</span> <span class="num">{short(p.series)} <b>{p.article}</b></span></p>
+                    <p class="wh__subcap"><span class="wh__kind">расшивка</span> <span class="num">{short(p.series)} <b>{code(p)}</b></span></p>
                   </Fragment>
                 ))}
                 {c.missing.map((t) => <p class="wh__miss">{t}</p>)}
@@ -602,11 +607,12 @@ const itemList = {
 
   @media (min-width: 900px) {
     .wh { grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) clamp(12px, 2.4vw, 40px) minmax(0, 3fr) minmax(0, 2fr); column-gap: 14px; }
-    /* по две марки в ряд: Perel | Основит, Promix | Стройбриг */
+    /* по две марки в ряд: Perel | Основит, Dauer | Promix, Стройбриг (нечётная пятая — одна в своём ряду) */
     .wh__brand:nth-child(odd) { grid-column: 1 / span 2; }
     .wh__brand:nth-child(even) { grid-column: 4 / span 2; }
     .wh__brand:nth-child(-n + 2) { grid-row: 1 / span 6; }
     .wh__brand:nth-child(n + 3):nth-child(-n + 4) { grid-row: 7 / span 6; }
+    .wh__brand:nth-child(n + 5):nth-child(-n + 6) { grid-row: 13 / span 6; }
     /* вес выше, чем у «.wh__brand + .wh__brand .wh__bname» (QA 23.10: подпись второй марки уезжала на 64 px) */
     .wh__brand + .wh__brand:nth-child(-n + 2) .wh__bname { margin-top: 0; }
   }

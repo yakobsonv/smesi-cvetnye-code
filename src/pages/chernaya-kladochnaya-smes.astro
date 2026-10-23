@@ -27,6 +27,8 @@ import {
   BRICK_TYPES,
   POSITIONS,
   SERIES,
+  andList,
+  codeText,
   seriesById,
   seriesFor,
   positionsByTone,
@@ -63,6 +65,9 @@ const positionOf = (id: SeriesId) => POSITIONS.find((p) => p.series === id && p.
 // Тёмный цвет каждого производителя — по палитрам каталога (группа «Чёрные и графит»).
 const perelBlack = darkKladka.find((p) => seriesById(p.series).brand === 'perel')?.color;
 const osnovitBlack = darkKladka.find((p) => seriesById(p.series).brand === 'osnovit')?.color;
+// у Dauer тёмных три — графитовый, антрацитовый, чёрный (палитра одна на 250 / 251 / 252)
+const dauerDark = seriesById('dauer-250').colors.filter((c: Color) => c.tone === 'black');
+const dauerBlack = dauerDark.find((c: Color) => c.name === 'чёрный');
 
 /* ── Тёмная палитра: плашки раствора вместо кадров кладки ─────────────────────── */
 
@@ -104,15 +109,17 @@ const kladkaPlaque = (palette: SeriesId, code: string): Plaque | null => {
   if (!c) return null;
   const brand = BRANDS[s.brand].name;
   const series = SERIES.filter((x) => x.purpose === 'kladka' && x.brand === s.brand && x.colors.some((y) => y.code === code));
+  // у Dauer кодов цвета нет — «№ 8 на палитре» (catalog.ts → codeText)
+  const codeLine = s.codeKind === 'palette' ? codeText(s, code) : `код ${code}`;
   return {
     key: `${palette}-${code}`,
     brand,
     name: c.name,
-    code,
+    code: s.codeKind === 'palette' ? codeText(s, code, true) : code,
     hex: swatchFor(palette, code),
-    meta: `${brand} · код ${code}`,
+    meta: `${brand} · ${codeLine}`,
     inSeries: joinSeries(series.map((x) => x.name.replace(`${brand} `, ''))),
-    ask: `${brand}, ${c.name} (код ${code}) — серию подберём под кирпич`,
+    ask: `${brand}, ${c.name} (${codeLine}) — серию подберём под кирпич`,
   };
 };
 
@@ -134,22 +141,27 @@ const rsPlaque = (id: SeriesId): Plaque | null => {
 
 const isPlaque = (x: Plaque | null): x is Plaque => Boolean(x);
 
-// Главная пара — чёрный Perel и графит Основит.
+// Главные — чёрный Perel, графит Основит и чёрный Dauer (у Dauer рядом графитовый и антрацитовый).
 const mainPlaques = [
   perelBlack ? kladkaPlaque('perel-sl', perelBlack.code) : null,
   osnovitBlack ? kladkaPlaque('osnovit-mc11', osnovitBlack.code) : null,
+  dauerBlack ? kladkaPlaque('dauer-250', dauerBlack.code) : null,
+  ...dauerDark.filter((c: Color) => c.name !== 'чёрный').map((c: Color) => kladkaPlaque('dauer-250', c.code)),
 ].filter(isPlaque);
-// Тёмные из группы «серые»: тёмно-серый обеих марок и «мокрый асфальт» Основит — по плашкам
+// Тёмные из группы «серые»: тёмно-серый трёх марок и «мокрый асфальт» Основит — по плашкам
 // палитр это самые тёмные серые (остальные серые — в разделе «Если чёрный слишком резкий»).
 const greyPlaques = [
   kladkaPlaque('perel-sl', '15'),
   kladkaPlaque('osnovit-mc11', '022'),
   kladkaPlaque('osnovit-mc11', '028'),
+  kladkaPlaque('dauer-250', '05'),
 ].filter(isPlaque);
+const plaqueBrands = andList([...new Set([...mainPlaques, ...greyPlaques].map((x) => x.brand))]);
 const rsPlaques = (['perel-rl', 'osnovit-xc30'] as SeriesId[]).map(rsPlaque).filter(isPlaque);
 
 // Первый экран: те же тёмные оттенки кладочных палитр полосой — по плашкам от светлой к тёмной.
-const heroStrip = [...mainPlaques, ...greyPlaques].sort((a, b) => lum(b.hex) - lum(a.hex));
+// Из тёмных Dauer в полосе только чёрный: с графитовым и антрацитовым полос было бы 9, на 320 px они не влезают.
+const heroStrip = [...mainPlaques.filter((x) => !(x.brand === 'Dauer' && x.name !== 'чёрный')), ...greyPlaques].sort((a, b) => lum(b.hex) - lum(a.hex));
 
 /* ── Кладочные: по типу кирпича ───────────────────────────────────────────────── */
 
@@ -191,6 +203,8 @@ const greyGroups = [
   { title: 'Perel RL — затирка', series: 'perel-rl' as SeriesId },
   { title: 'Основит Брикформ МС11 и МС11/1', series: 'osnovit-mc11' as SeriesId },
   { title: 'Основит Бриксэйв ХС30 — расшивка', series: 'osnovit-xc30' as SeriesId },
+  // у Dauer палитра одна на 250, 251 и 252 (кодов нет — номер на палитре)
+  { title: 'Dauer BRICK.COLOR 250, 251, 252', series: 'dauer-250' as SeriesId },
   // коды цвета у CKS 512 и CKS 017 разные — по строке на серию
   { title: 'Promix CKS 512', series: 'promix-cks512' as SeriesId },
   { title: 'Promix CKS 017', series: 'promix-cks017' as SeriesId },
@@ -221,7 +235,7 @@ const specRows = darkAll.filter((p) => hasFacts(p.series)).map((p) => {
   return {
     id: p.id,
     name: s.name,
-    color: `${p.color.name}, ${s.brand === 'perel' ? 'арт.' : 'цвет'} ${p.article}`,
+    color: s.codeKind === 'palette' ? `${p.color.name}, ${p.articleText}` : `${p.color.name}, ${s.brand === 'perel' ? 'арт.' : 'цвет'} ${p.article}`,
     hex: swatchFor(p.series, p.color.code),
     frost,
     strength,
@@ -279,7 +293,7 @@ const faq: FaqItem[] = [
   },
   {
     q: 'Какую тёмную смесь взять для клинкерного кирпича?',
-    a: `<p>Perel NL, ${nl?.color.name}, арт. ${nl?.article}. Производитель пишет о серии: «${SERIES_FACTS['perel-nl'].forBrick}».</p><p>У Основит графит (цвет ${mc11Graphite?.color.code}) есть в Брикформ МС11 — клинкер производитель называет среди её оснований: «${SERIES_FACTS['osnovit-mc11'].forBrick}»</p>`,
+    a: `<p>Perel NL, ${nl?.color.name}, арт. ${nl?.article}. Производитель пишет о серии: «${SERIES_FACTS['perel-nl'].forBrick}».</p><p>У Основит графит (цвет ${mc11Graphite?.color.code}) есть в Брикформ МС11 — клинкер производитель называет среди её оснований: «${SERIES_FACTS['osnovit-mc11'].forBrick}»</p><p>У Dauer для клинкера — BRICK.COLOR 252: «${SERIES_FACTS['dauer-252'].forBrick}». Тёмные цвета в его палитре — ${dauerDark.map((c: Color) => c.name).join(', ')}.</p>`,
   },
   {
     q: 'Какую тёмную смесь взять для кирпича ручной формовки?',
@@ -308,12 +322,12 @@ const itemList = {
   itemListElement: darkAll.map((p, i) => ({ '@type': 'ListItem', position: i + 1, name: p.title })),
 };
 
-const lead = `Для тёмного шва у Perel есть цвет «${perelBlack?.name}», у Основит — «${osnovitBlack?.name}». В ассортименте ${darkKladka.length} ${plural(darkKladka.length, 'позиция', 'позиции', 'позиций')} кладочной смеси — для обычного, клинкерного кирпича и кирпича ручной формовки — и ${darkRasshivka.length} ${plural(darkRasshivka.length, 'позиция', 'позиции', 'позиций')} для расшивки готовых швов.`;
+const lead = `Для тёмного шва у Perel есть цвет «${perelBlack?.name}», у Основит — «${osnovitBlack?.name}», у Dauer — ${dauerDark.map((c: Color) => `«${c.name}»`).join(', ')}. В ассортименте ${darkKladka.length} ${plural(darkKladka.length, 'позиция', 'позиции', 'позиций')} кладочной смеси — для обычного, клинкерного кирпича и кирпича ручной формовки — и ${darkRasshivka.length} ${plural(darkRasshivka.length, 'позиция', 'позиции', 'позиций')} для расшивки готовых швов.`;
 ---
 
 <Page
   title={`Чёрная и графитовая кладочная смесь — ${BRAND_LIST}`}
-  description="Чёрный шов Perel SL, VL, NL и Promix, графит Основит Брикформ и Стройбриг, тёмные растворы для расшивки RL и ХС30. Как тёмный шов выглядит на светлом и красном кирпиче."
+  description="Чёрный шов Perel SL, VL, NL и Promix, графит Основит Брикформ и Стройбриг, графитовый, антрацитовый и чёрный Dauer BRICK.COLOR, тёмные растворы для расшивки RL и ХС30. Как тёмный шов выглядит на светлом и красном кирпиче."
   slug={SLUG}
   current="chernaya"
   source="chernaya"
@@ -340,7 +354,7 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
           ))}
         </div>
         <figcaption class="hs__cap">
-          <span class="label">Perel и Основит · {heroStrip.length} {plural(heroStrip.length, 'тёмный оттенок', 'тёмных оттенка', 'тёмных оттенков')} для кладки</span>
+          <span class="label">{plaqueBrands} · {heroStrip.length} {plural(heroStrip.length, 'тёмный оттенок', 'тёмных оттенка', 'тёмных оттенков')} для кладки</span>
           <a class="hs__more" href="#kladka">Названия и серии <span aria-hidden="true">↓</span></a>
         </figcaption>
       </figure>
@@ -352,7 +366,7 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
       <header class="dp__head" data-reveal>
         <p class="dp__kicker">Тёмная палитра</p>
         <h2 class="dp__title" id="dp-title">{nb('Чёрный, графит и тёмно-серые')}</h2>
-        <p class="dp__sub">{nb('Чёрный у Perel и графит у Основит — для кладки и для расшивки готовых швов. Рядом — тёмно-серые оттенки из тех же палитр. Нажмите на образец — назовём цену и наличие.')}</p>
+        <p class="dp__sub">{nb('Чёрный у Perel и Dauer, графит у Основит и графитовый с антрацитовым у Dauer — для кладки; тёмное есть и для расшивки готовых швов. Рядом — тёмно-серые оттенки из тех же палитр. Нажмите на образец — назовём цену и наличие.')}</p>
       </header>
 
       <div class="dp__grid">
@@ -516,7 +530,7 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
               <li class="gr__item">
                 <span class="gr__chip mortar" style={`--c:${swatchFor(g.series, c.code)}`} aria-hidden="true"></span>
                 <span class="gr__name">{c.name}</span>
-                <span class="gr__code num">код {c.code}</span>
+                <span class="gr__code num">{seriesById(g.series).codeKind === 'palette' ? codeText(seriesById(g.series), c.code) : `код ${c.code}`}</span>
               </li>
             ))}
           </ul>
@@ -591,12 +605,15 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
   .ph-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5) var(--space-6); margin-top: var(--space-7); }
   .hs { margin: 0; }
   .hs__strip { height: clamp(220px, 34vw, 460px); }
-  .hs__band { display: flex; align-items: flex-end; animation: hs-in 0.9s var(--ease) both; animation-delay: calc(var(--i) * 70ms + 120ms); }
+  /* min-width: 0 — подпись не раздвигает полосу: семь полос на 320 px давали прокрутку вбок (24.10) */
+  .hs__band { display: flex; align-items: flex-end; min-width: 0; animation: hs-in 0.9s var(--ease) both; animation-delay: calc(var(--i) * 70ms + 120ms); }
   .hs__code {
     position: relative;
     z-index: 1;
     display: grid;
     gap: 2px;
+    min-width: 0;
+    overflow: hidden;
     padding: 0 0 12px 12px;
     color: rgb(247 244 238 / 0.94);
     font-size: 11px;
@@ -612,6 +629,10 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
   @media (max-width: 420px) {
     .hs__code { padding: 0 0 10px 8px; font-size: 10px; letter-spacing: 0.02em; }
     .hs__code b { font-size: 12px; }
+  }
+  @media (max-width: 359px) {
+    .hs__code { padding: 0 0 8px 5px; font-size: 9px; letter-spacing: 0; }
+    .hs__code b { font-size: 11px; }
   }
 
   /* ── тёмная палитра: плашки раствора на туши ──────────────────────────────── */

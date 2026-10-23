@@ -26,6 +26,15 @@
  *    Promix — коды четырёхзначные, как у дилера: CKS 512 — …00 (0300 супер-белый … 6400 чёрный),
  *    CKS 017 — те же цвета с «20» на конце (0320 … 6420). Названия — как у одноимённых цветов Perel.
  *    Стройбриг — коды и названия как у Основит (010 белый … 040 коричневый).
+ *
+ *  DAUER добавлен 24.10.2026 по просьбе Паши («нужен Dauer производитель») — как полноценный бренд, с данными
+ *  производителя (series-facts.ts) и своей палитрой (swatches.ts). В магазине tk-sm.ru позиций Dauer нет (0),
+ *  поэтому состав — по производителю: три цветные смеси BRICK.COLOR 250 / 251 / 252 (одна палитра 25 цветов),
+ *  мешки 25 и 50 кг; какие серии, цвета и фасовки держит дилер — вопрос Владу. Кодов цвета у производителя нет
+ *  (ни на сайте, ни в техкартах) — код позиции = номер полосы на официальной палитре (01…25), на сайте
+ *  показывается как «№ 7 на палитре» (codeKind: 'palette'); артикулы чужих дилеров не используем.
+ *  Снято 09.10.2026 (Обсидиан Влада: «Палитры смесей — официальные», разведка «Цветные смеси — разведка, данные»);
+ *  dauer.ru 24.10 недоступен (таймаут).
  *  ⚠️ У белой NL на сайте Perel ошибка: 0105 в заголовке и 0101 в свойствах. По палитре
  *  01 = супер-белый, 05 = белый — так и у дилера (супер-белая 0101, белая 0105).
  *  ⚠️ Код Основит 041: на новой палитре производителя «светло-кирпичный», везде ещё
@@ -65,13 +74,13 @@ export const BRICK_TYPES: Record<BrickType, { label: string; short: string; abso
   },
 };
 
-export type Brand = 'perel' | 'osnovit' | 'promix' | 'stroybrig';
+export type Brand = 'perel' | 'osnovit' | 'dauer' | 'promix' | 'stroybrig';
 
-/** Бренды со своей страницей на сайте (/perel/, /osnovit/): по ним есть данные производителя (series-facts.ts). */
-export type BrandPage = 'perel' | 'osnovit';
+/** Бренды со своей страницей на сайте (/perel/, /osnovit/, /dauer/): по ним есть данные производителя (series-facts.ts). */
+export type BrandPage = 'perel' | 'osnovit' | 'dauer';
 
 /** Серии, по которым есть данные производителя (series-facts.ts → SERIES_FACTS) и страница бренда. */
-export type FactSeriesId = 'perel-nl' | 'perel-sl' | 'perel-vl' | 'perel-rl' | 'osnovit-mc11' | 'osnovit-mc11-1' | 'osnovit-xc30';
+export type FactSeriesId = 'perel-nl' | 'perel-sl' | 'perel-vl' | 'perel-rl' | 'osnovit-mc11' | 'osnovit-mc11-1' | 'osnovit-xc30' | 'dauer-250' | 'dauer-251' | 'dauer-252';
 
 /** Все серии: с данными производителя и только по ассортименту дилера (Promix, Стройбриг). */
 export type SeriesId = FactSeriesId | 'promix-cks512' | 'promix-cks017' | 'stroybrig-mc11';
@@ -163,6 +172,41 @@ export const OSNOVIT_COLORS: Color[] = [
   { code: '083', name: 'медный', tone: 'brown' },
 ];
 
+/** Dauer BRICK.COLOR 250 / 251 / 252 — одна палитра на три серии, 25 цветов. Названия и порядок — по подписям
+ *  на официальном фото палитры производителя «Палитра_BRICK_COLOR.png» (dauer.ru, у трёх карточек один файл):
+ *  «Ультра-белый … Шоколадный», у производителя без «ё». Кодов цвета у Dauer нет — код здесь = номер полосы
+ *  на палитре (01…25), выводится как «№ N на палитре» (codeKind: 'palette' у серий).
+ *  Нормализация типографики, как у остальных марок: строчные буквы и «ё» («тёмно-серый», «чёрный», «жёлтый»,
+ *  «зелёный», «вишнёвый»). Группа оттенка — наша навигация: зелёный и синий — «цветные», терракотовый,
+ *  вишнёвый и кирпичный — к красным, слоновая кость и пудра — к бежевым. */
+export const DAUER_COLORS: Color[] = [
+  { code: '01', name: 'ультра-белый', tone: 'white' },
+  { code: '02', name: 'белый', tone: 'white' },
+  { code: '03', name: 'светло-серый', tone: 'grey' },
+  { code: '04', name: 'серый', tone: 'grey' },
+  { code: '05', name: 'тёмно-серый', tone: 'grey' },
+  { code: '06', name: 'графитовый', tone: 'black' },
+  { code: '07', name: 'антрацитовый', tone: 'black' },
+  { code: '08', name: 'чёрный', tone: 'black' },
+  { code: '09', name: 'жёлтый', tone: 'yellow' },
+  { code: '10', name: 'зелёный', tone: 'accent' },
+  { code: '11', name: 'синий', tone: 'accent' },
+  { code: '12', name: 'красный', tone: 'red' },
+  { code: '13', name: 'слоновая кость', tone: 'beige' },
+  { code: '14', name: 'кремово-бежевый', tone: 'beige' },
+  { code: '15', name: 'бежевый', tone: 'beige' },
+  { code: '16', name: 'светло-бежевый', tone: 'beige' },
+  { code: '17', name: 'пудра', tone: 'beige' },
+  { code: '18', name: 'кремовый', tone: 'beige' },
+  { code: '19', name: 'терракотовый', tone: 'red' },
+  { code: '20', name: 'вишнёвый', tone: 'red' },
+  { code: '21', name: 'кирпичный', tone: 'red' },
+  { code: '22', name: 'светло-коричневый', tone: 'brown' },
+  { code: '23', name: 'коричневый', tone: 'brown' },
+  { code: '24', name: 'тёмно-коричневый', tone: 'brown' },
+  { code: '25', name: 'шоколадный', tone: 'brown' },
+];
+
 /** Promix CKS 512 и CKS 017 — у дилера 12 одинаковых цветов, коды — как в названиях позиций tk-sm.ru.
  *  Названия — как у одноимённых цветов палитры Perel (Promix — марка Perel), группа оттенка — как у них. */
 const PROMIX_BASE: Color[] = [
@@ -219,6 +263,9 @@ export interface SeriesRef {
   packKg: number;
   /** префикс артикула Perel: '00' + '05' = 0005 */
   articlePrefix?: string;
+  /** как показывать код позиции: по умолчанию — код/артикул производителя как есть; 'palette' — у производителя
+   *  кодов нет, код = номер полосы на его палитре, на сайте «№ 7 на палитре» (Dauer) */
+  codeKind?: 'palette';
   /** страница бренда на нашем сайте (якорь — id серии). Не задано — своей страницы нет (Promix, Стройбриг:
    *  данных производителя нет); адрес серии в любом случае — seriesHref (без страницы — серия в каталоге). */
   page?: BrandPage;
@@ -230,6 +277,13 @@ export const SERIES: SeriesRef[] = [
   { id: 'perel-nl', brand: 'perel', name: 'Perel NL', short: 'для клинкерного кирпича', purpose: 'kladka', brickType: 'klinker', absorption: '0–5 %', colors: PEREL_COLORS, packKg: 50, articlePrefix: '01', page: 'perel' },
   { id: 'osnovit-mc11', brand: 'osnovit', name: 'Основит Брикформ МС11', short: 'для облицовочного кирпича до 12 % и клинкера', purpose: 'kladka', brickType: 'obychnyj', absorption: 'до 12 %, а также клинкер', colors: OSNOVIT_COLORS, packKg: 25, page: 'osnovit' },
   { id: 'osnovit-mc11-1', brand: 'osnovit', name: 'Основит Брикформ МС11/1', short: 'для кирпича с водопоглощением выше 12 % и ручной формовки', purpose: 'kladka', brickType: 'ruchnoj', absorption: 'более 12 %', colors: OSNOVIT_COLORS, packKg: 25, page: 'osnovit' },
+  // Dauer — по производителю (см. шапку): водопоглощение — с карточек dauer.ru (series-facts.ts); тип кирпича для
+  // фильтра: 250 (6–12 %) — обычный, 251 (5–18 %, «все виды кирпича», в т. ч. ручной формовки) — ручная формовка
+  // и обычный (ALSO_FOR), 252 (1–5 %) — клинкер. Мешок: у производителя 25 и 50 кг, какой держит дилер — не знаем,
+  // показываем 50 (как у Perel); 25 кг — в фактах упаковки.
+  { id: 'dauer-250', brand: 'dauer', name: 'Dauer BRICK.COLOR 250', short: 'для кирпича с водопоглощением 6–12 %', purpose: 'kladka', brickType: 'obychnyj', absorption: '6–12 %', colors: DAUER_COLORS, packKg: 50, page: 'dauer', codeKind: 'palette' },
+  { id: 'dauer-251', brand: 'dauer', name: 'Dauer BRICK.COLOR 251', short: 'для всех видов кирпича, в том числе ручной формовки', purpose: 'kladka', brickType: 'ruchnoj', absorption: '5–18 %', colors: DAUER_COLORS, packKg: 50, page: 'dauer', codeKind: 'palette' },
+  { id: 'dauer-252', brand: 'dauer', name: 'Dauer BRICK.COLOR 252', short: 'для клинкерного кирпича', purpose: 'kladka', brickType: 'klinker', absorption: '1–5 %', colors: DAUER_COLORS, packKg: 50, page: 'dauer', codeKind: 'palette' },
   // Promix и Стройбриг — только по ассортименту дилера (см. шапку): short и absorption — по подразделу tk-sm.ru,
   // артикул = код цвета, как в названии позиции у дилера; страницы бренда нет.
   { id: 'promix-cks512', brand: 'promix', name: 'Promix CKS 512', short: 'для обычного кирпича', purpose: 'kladka', brickType: 'obychnyj', absorption: '5–12 %', colors: PROMIX_CKS512_COLORS, packKg: 50 },
@@ -242,6 +296,8 @@ export const SERIES: SeriesRef[] = [
 export const BRANDS: Record<Brand, { name: string; maker: string; site: string }> = {
   perel: { name: 'Perel', maker: 'Perel (группа компаний «Текато»), завод в Щёлкове, Московская область', site: 'https://td-perel.ru' },
   osnovit: { name: 'Основит', maker: 'ТМ «Основит» (ООО «Седрус»), производство в Коломне, Московская область', site: 'https://osnovit.ru' },
+  // по декларациям соответствия на dauer.ru: изготовитель ООО «Качественные смеси», площадка — МО, г. Жуковский
+  dauer: { name: 'Dauer', maker: 'Dauer (Daüer®), ООО «Качественные смеси», производство в Жуковском, Московская область', site: 'https://dauer.ru' },
   // ⚠️ Promix и Стройбриг: производитель указан по вторичным источникам, с сайтов производителей НЕ подтверждён —
   // perel-promix.ru и stroybrig.ru 23.10.2026 не открывались (таймаут). maker и site на страницы сейчас не выводятся.
   promix: { name: 'Promix', maker: 'марка Perel (эконом-линейка)', site: 'https://perel-promix.ru' },
@@ -258,6 +314,8 @@ export const BRAND_LIST = andList(Object.values(BRANDS).map((b) => b.name));
  *  в подразделе «обычный кирпич», поэтому в фильтре «клинкер» МС11 показываем вторым. */
 export const ALSO_FOR: Partial<Record<SeriesId, BrickType[]>> = {
   'osnovit-mc11': ['klinker'],
+  // Dauer 251 — «для кладки всех видов кирпича с водопоглощением от 5 до 18 %» (карточка): это и обычный кирпич 5–12 %
+  'dauer-251': ['obychnyj'],
 };
 
 /** ── Позиции ─────────────────────────────────────────────────────────────────── */
@@ -267,8 +325,10 @@ export interface Position {
   id: string;
   series: SeriesId;
   color: Color;
-  /** артикул или код, как его называет производитель: '0005', '010' */
+  /** артикул или код, как его называет производитель: '0005', '010'; у Dauer — номер на палитре '07' */
   article: string;
+  /** код для показа: '0005', '010' или «№ 7 на палитре» (Dauer, codeKind 'palette') */
+  articleText: string;
   packKg: number;
   /** полное название для карточки и заявки */
   title: string;
@@ -278,14 +338,23 @@ function articleOf(s: SeriesRef, c: Color): string {
   return s.articlePrefix ? `${s.articlePrefix}${c.code}` : c.code;
 }
 
+/** Код позиции словами: у Perel и Основит — как есть ('0005', '010'), у Dauer кодов нет — «№ 7 на палитре»
+ *  (коротко — «№ 7»: для строк, где рядом уже стоит название серии). */
+export function codeText(s: SeriesRef, article: string, short = false): string {
+  if (s.codeKind !== 'palette') return article;
+  const n = Number(article);
+  return short ? `№ ${n}` : `№ ${n} на палитре`;
+}
+
 export const POSITIONS: Position[] = SERIES.flatMap((s) =>
   s.colors.map((c) => ({
     id: `${s.id}-${c.code}`,
     series: s.id,
     color: c,
     article: articleOf(s, c),
+    articleText: codeText(s, articleOf(s, c)),
     packKg: s.packKg,
-    title: `${s.name}, ${c.name} ${articleOf(s, c)}, ${s.packKg} кг`,
+    title: `${s.name}, ${c.name} ${codeText(s, articleOf(s, c))}, ${s.packKg} кг`,
   })),
 );
 

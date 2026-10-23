@@ -7,7 +7,8 @@
 //     (Perel NL: td-perel.ru; Основит Брикформ МС11 — блок «Рекомендуемые материалы» на osnovit.ru);
 //   - диапазоны водопоглощения на шкале — строки «Водопоглощение кирпича» из SERIES_FACTS[…].specs,
 //     зона клинкера — BRICK_TYPES.klinker (подраздел дилера «Клинкерный кирпич 0–5 %»);
-//   - какие серии подходят к клинкеру — seriesFor('klinker') (Perel NL + Основит МС11 через ALSO_FOR);
+//   - какие серии подходят к клинкеру — seriesFor('klinker') (Perel NL, Dauer BRICK.COLOR 252 + Основит МС11 через ALSO_FOR);
+//   - Dauer (с 24.10): BRICK.COLOR 252 — «Для клинкерного кирпича с водопоглощением от 1 до 5%» (карточка dauer.ru);
 //   - МС11/1 к клинкеру НЕ относим (DISCREPANCIES в series-facts.ts);
 //   - расшивка готовой кладки — Основит Бриксэйв ХС30: в его forBrick (блок «Рекомендуемые основания»
 //     на osnovit.ru, сверено 11.10) назван клинкерный кирпич; в purpose ХС30 клинкерного кирпича НЕТ;
@@ -48,6 +49,7 @@ const mc111 = seriesById('osnovit-mc11-1');
 const sl = seriesById('perel-sl');
 const vl = seriesById('perel-vl');
 const xc30 = seriesById('osnovit-xc30');
+const d252 = seriesById('dauer-252');
 const F = SERIES_FACTS;
 
 const klinkerIds = seriesFor('klinker').map((s) => s.id);
@@ -74,7 +76,7 @@ function parseRange(v: string): { from: number; to: number | null } {
 }
 
 // ── Шкала водопоглощения: на какой кирпич рассчитана каждая кладочная серия ──────────
-const scaleIds: FactSeriesId[] = ['perel-nl', 'perel-sl', 'perel-vl', 'osnovit-mc11', 'osnovit-mc11-1'];
+const scaleIds: FactSeriesId[] = ['perel-nl', 'perel-sl', 'perel-vl', 'osnovit-mc11', 'osnovit-mc11-1', 'dauer-252', 'dauer-250', 'dauer-251'];
 const parsed = scaleIds.map((id) => ({ id, value: absOf(id).value, ...parseRange(absOf(id).value) }));
 // Ось — 0–20 %: с запасом над самой верхней границей в данных (17 % у VL), чтобы открытый
 // диапазон «более 12 %» было куда продолжить. Если в данных появится граница выше — ось растянется.
@@ -93,11 +95,14 @@ const ticks = [...new Set([0, ...parsed.flatMap((r) => [r.from, r.to]).filter((n
 const zoneStyle = `--from:${pct(zone.from)};--to:${pct(zone.to ?? scaleMax)}`;
 
 // Источники шкалы: у Perel все три диапазона названы на странице подбора по водопоглощению,
-// у Основит — на страницах МС11 и МС11/1.
+// у Основит — на страницах МС11 и МС11/1, у Dauer — на карточках 250, 251, 252.
 const scaleSrc = [
   { href: F['perel-nl'].forBrickSrc, label: 'серии Perel на td-perel.ru' },
   { href: absOf('osnovit-mc11').src, label: 'Брикформ МС11 на osnovit.ru' },
   { href: absOf('osnovit-mc11-1').src, label: 'Брикформ МС11/1 на osnovit.ru' },
+  { href: absOf('dauer-252').src, label: 'BRICK.COLOR 252 на dauer.ru' },
+  { href: absOf('dauer-250').src, label: 'BRICK.COLOR 250 на dauer.ru' },
+  { href: absOf('dauer-251').src, label: 'BRICK.COLOR 251 на dauer.ru' },
 ];
 
 // ── Характеристики: ключевые строки производителя ─────────────────────────────────
@@ -121,6 +126,16 @@ const mc11Specs = pick('osnovit-mc11', [
   LABEL_ABS,
   'Прочность на сжатие',
   'Сцепление с основанием',
+  'Морозостойкость',
+  'Жизнеспособность раствора',
+  'Вода затворения',
+  'Толщина шва',
+  'Температура применения',
+]);
+const d252Specs = pick('dauer-252', [
+  LABEL_ABS,
+  'Прочность на сжатие',
+  'Прочность при сдвиге',
   'Морозостойкость',
   'Жизнеспособность раствора',
   'Вода затворения',
@@ -162,7 +177,11 @@ const brikformTrial = F['osnovit-mc11'].steps.find((s) => s.text.startsWith('П�
 const faq: FaqItem[] = [
   {
     q: 'Подойдёт ли для клинкера смесь для обычного облицовочного кирпича?',
-    a: `Зависит от производителя. У Perel для клинкера отдельная серия — NL, она рассчитана на кирпич с водопоглощением ${absOf('perel-nl').value}; ${sl.name} — на ${absOf('perel-sl').value}, ${vl.name} — на ${absOf('perel-vl').value}. У Основит клинкерный кирпич назван в назначении Брикформ МС11 — того же раствора, что и для керамического и силикатного облицовочного кирпича с водопоглощением до 12 %. Брикформ МС11/1 производитель рекомендует для кирпича с водопоглощением более 12 % и кирпича ручной формовки.`,
+    a: `Зависит от производителя. У Perel для клинкера отдельная серия — NL, она рассчитана на кирпич с водопоглощением ${absOf('perel-nl').value}; ${sl.name} — на ${absOf('perel-sl').value}, ${vl.name} — на ${absOf('perel-vl').value}. У Основит клинкерный кирпич назван в назначении Брикформ МС11 — того же раствора, что и для керамического и силикатного облицовочного кирпича с водопоглощением до 12 %. Брикформ МС11/1 производитель рекомендует для кирпича с водопоглощением более 12 % и кирпича ручной формовки. У Dauer для клинкера отдельная смесь — BRICK.COLOR 252 (${absOf('dauer-252').value}); 250 и 251 рассчитаны на кирпич с водопоглощением ${absOf('dauer-250').value} и ${absOf('dauer-251').value}.`,
+  },
+  {
+    q: 'Чем BRICK.COLOR 252 отличается от других смесей Dauer?',
+    a: `Кирпичом и прочностью. Производитель пишет о 252: «${F['dauer-252'].forBrick}». Прочность на сжатие у неё ${F['dauer-252'].specs.find((f) => f.label === 'Прочность на сжатие')?.value}, морозостойкость — ${F['dauer-252'].specs.find((f) => f.label === 'Морозостойкость')?.value}; у 250 и 251 — ${F['dauer-250'].specs.find((f) => f.label === 'Прочность на сжатие')?.value} и ${F['dauer-250'].specs.find((f) => f.label === 'Морозостойкость')?.value}. Палитра у трёх смесей одна — ${colorsWord(d252.colors.length)}, мешки 25 и 50 кг.`,
   },
   {
     q: 'Чем отличаются Perel NL и Основит Брикформ МС11?',
@@ -191,7 +210,7 @@ const itemList = {
   itemListElement: klinkerPositions.map((p, i) => ({ '@type': 'ListItem', position: i + 1, name: p.title })),
 };
 
-const picks = [nl, mc11].map((s) => ({
+const picks = [nl, mc11, d252].map((s) => ({
   s,
   href: `#${s.id}`,
   abs: absOf(s.id).value,
@@ -211,6 +230,11 @@ const keyFacts = {
     { v: `${mc11.packKg} кг`, l: 'мешок' },
     { v: mc11Abs[0], l: 'водопоглощение кирпича, а также клинкер' },
   ],
+  d252: [
+    { v: String(d252.colors.length), l: `${plural(d252.colors.length, 'цвет', 'цвета', 'цветов')} у нас` },
+    { v: '25 и 50 кг', l: 'мешок у производителя' },
+    { v: absOf('dauer-252').value, l: 'водопоглощение кирпича' },
+  ],
 };
 const colorsTitle = (n: number, name: string) => `${n} ${plural(n, 'цвет', 'цвета', 'цветов')} ${name}`;
 const two = (n: number) => String(n).padStart(2, '0');
@@ -220,8 +244,8 @@ const qt = (t: string) => nb(t).replace(/ (?=[-–—] )/g, '\u00a0');
 ---
 
 <Page
-  title="Кладочная смесь для клинкерного кирпича — Perel NL и Основит МС11"
-  description={`Цветные кладочные смеси для клинкера с водопоглощением ${KL.absorption}: Perel NL — ${colorsWord(nl.colors.length)}, Основит Брикформ МС11 — ${colorsWord(mc11.colors.length)}. Расшивка готовой кладки, Москва и МО.`}
+  title="Кладочная смесь для клинкерного кирпича — Perel NL, Основит МС11, Dauer 252"
+  description={`Цветные кладочные смеси для клинкера с водопоглощением ${KL.absorption}: Perel NL — ${colorsWord(nl.colors.length)}, Основит Брикформ МС11 — ${colorsWord(mc11.colors.length)}, Dauer BRICK.COLOR 252 — ${colorsWord(d252.colors.length)}. Расшивка готовой кладки, Москва и МО.`}
   slug={SLUG}
   current="klinker"
   source="klinker"
@@ -232,7 +256,7 @@ const qt = (t: string) => nb(t).replace(/ (?=[-–—] )/g, '\u00a0');
     h1="Кладочная смесь для клинкерного кирпича"
     crumb="Для клинкерного кирпича"
     trail={[{ label: 'Каталог', href: PAGES.katalog.href }]}
-    lead={`У клинкерного кирпича низкое водопоглощение — ${KL.absorption}. Для него у Perel есть отдельная серия NL, а у Основит клинкер назван в назначении Брикформ МС11. У нас ${colorsWord(nl.colors.length)} NL и ${colorsWord(mc11.colors.length)} МС11 — нажмите на образец, чтобы узнать цену и наличие.`}
+    lead={`У клинкерного кирпича низкое водопоглощение — ${KL.absorption}. Для него у Perel есть отдельная серия NL, у Dauer — смесь BRICK.COLOR 252, а у Основит клинкер назван в назначении Брикформ МС11. У нас ${colorsWord(nl.colors.length)} NL, ${colorsWord(mc11.colors.length)} МС11 и ${colorsWord(d252.colors.length)} BRICK.COLOR 252 — нажмите на образец, чтобы узнать цену и наличие.`}
   >
     <div class="kh" slot="aside">
       <p class="kh__big num">{nb(KL.absorption)}</p>
@@ -257,7 +281,7 @@ const qt = (t: string) => nb(t).replace(/ (?=[-–—] )/g, '\u00a0');
     id="pochemu"
     kicker="01 — Водопоглощение"
     title="Почему клинкеру нужна своя смесь"
-    subtitle="Главное условие подбора кладочной смеси у Perel — водопоглощение кирпича, то есть сколько воды он впитывает. У клинкера оно низкое, от 0 до 5 %, и оба производителя из нашего каталога называют такой кирпич отдельно."
+    subtitle="Главное условие подбора кладочной смеси у Perel — водопоглощение кирпича, то есть сколько воды он впитывает. У клинкера оно низкое, от 0 до 5 %, и все три производителя с данными в нашем каталоге называют такой кирпич отдельно."
     bg="base"
   >
     <figure class="sc" data-reveal>
@@ -316,6 +340,10 @@ const qt = (t: string) => nb(t).replace(/ (?=[-–—] )/g, '\u00a0');
         <blockquote class="q">
           <p>«{qt(F['osnovit-mc11'].forBrick)}»</p>
           <footer>Основит, рекомендуемые материалы для Брикформ МС11&nbsp;— <a href={F['osnovit-mc11'].forBrickSrc} rel="nofollow noopener" target="_blank">osnovit.ru</a></footer>
+        </blockquote>
+        <blockquote class="q">
+          <p>«{qt(F['dauer-252'].forBrick)}»</p>
+          <footer>Dauer, подзаголовок карточки BRICK.COLOR 252&nbsp;— <a href={F['dauer-252'].forBrickSrc} rel="nofollow noopener" target="_blank">dauer.ru</a></footer>
         </blockquote>
       </div>
       <aside class="why__pass" data-reveal>
@@ -404,7 +432,46 @@ const qt = (t: string) => nb(t).replace(/ (?=[-–—] )/g, '\u00a0');
     <SwatchNote />
   </Section>
 
-  <Section id="rasshivka" kicker="04 — Расшивка" title="Цветной шов на готовой клинкерной кладке" bg="alt">
+  <Section id={d252.id} kicker="04 — Dauer" title="BRICK.COLOR 252 — смесь Dauer под клинкер" bg="alt">
+    <div class="ser grid12">
+      <div class="ser__intro" data-reveal>
+        <blockquote class="q q--lead">
+          <p>{qt(F['dauer-252'].purpose)}</p>
+          <footer>Назначение смеси&nbsp;— <a href={F['dauer-252'].purposeSrc} rel="nofollow noopener" target="_blank">dauer.ru</a></footer>
+        </blockquote>
+        <dl class="kf">
+          {keyFacts.d252.map((f) => <div><dt>{f.l}</dt><dd class="num">{nb(f.v)}</dd></div>)}
+        </dl>
+        <p class="ser__note">
+          Кодов цвета у Dauer нет — под образцом стоит номер полосы на палитре производителя. Какие цвета и мешки есть
+          в наличии, уточняйте у менеджера.
+        </p>
+        <div class="ser__actions">
+          <button class="btn btn--primary" type="button" data-ask={`${d252.name} — цвет подберём`}>Узнать цену</button>
+          <a class="arrow-link" href={`#${d252.id}-cveta`}>{colorsWord(d252.colors.length)} <span aria-hidden="true">↓</span></a>
+        </div>
+      </div>
+      <div class="ser__specs" data-reveal>
+        <p class="label ser__label">Характеристики</p>
+        <SpecTable rows={d252Specs.rows} />
+        <p class="src">
+          По данным производителя:{' '}
+          {d252Specs.srcs.map((h, i) => (
+            <Fragment>{i > 0 && ', '}<a href={h} rel="nofollow noopener" target="_blank">карточка смеси на {srcName(h)}</a></Fragment>
+          ))}
+        </p>
+      </div>
+    </div>
+
+    <div class="pal" id={`${d252.id}-cveta`} data-reveal>
+      <h3 class="pal__title">{nb(colorsTitle(d252.colors.length, 'BRICK.COLOR 252'))}</h3>
+      <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
+    </div>
+    <SwatchGrid series="dauer-252" />
+    <SwatchNote />
+  </Section>
+
+  <Section id="rasshivka" kicker="05 — Расшивка" title="Цветной шов на готовой клинкерной кладке" bg="base">
     <div class="rs grid12">
       <div class="rs__text">
         <p class="rs__lead" data-reveal>
@@ -431,7 +498,7 @@ const qt = (t: string) => nb(t).replace(/ (?=[-–—] )/g, '\u00a0');
     </div>
   </Section>
 
-  <Section kicker="05 — Вопросы и ответы" title="Коротко о смеси для клинкера" bg="base">
+  <Section kicker="06 — Вопросы и ответы" title="Коротко о смеси для клинкера" bg="alt">
     <FaqAccordion items={faq} site="smesi" slug={SLUG} />
   </Section>
 

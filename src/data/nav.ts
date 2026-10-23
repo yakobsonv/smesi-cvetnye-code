@@ -11,6 +11,7 @@ export const PAGES = {
   katalog: { href: p('katalog'), label: 'Каталог' },
   perel: { href: p('perel'), label: 'Perel' },
   osnovit: { href: p('osnovit'), label: 'Основит' },
+  dauer: { href: p('dauer'), label: 'Dauer' },
   belaya: { href: p('belaya-kladochnaya-smes'), label: 'Белая смесь' },
   chernaya: { href: p('chernaya-kladochnaya-smes'), label: 'Чёрная и графитовая смесь' },
   podbor: { href: p('podbor-shva'), label: 'Подбор шва под кирпич' },
@@ -30,11 +31,12 @@ export function mainNav(current?: PageKey): NavItem[] {
     {
       label: 'Смеси',
       href: PAGES.katalog.href,
-      current: ['katalog', 'perel', 'osnovit', 'klinker', 'belaya', 'chernaya'].includes(current ?? ''),
+      current: ['katalog', 'perel', 'osnovit', 'dauer', 'klinker', 'belaya', 'chernaya'].includes(current ?? ''),
       children: [
         item('katalog', 'Весь каталог'),
         item('perel', 'Perel — SL, VL, NL, затирка RL'),
         item('osnovit', 'Основит — Брикформ, Бриксэйв'),
+        item('dauer', 'Dauer — BRICK.COLOR 250, 251, 252'),
         item('klinker'),
         item('belaya'),
         item('chernaya'),
@@ -49,7 +51,7 @@ export function mainNav(current?: PageKey): NavItem[] {
 /** Колонки подвала. */
 export function footerColumns() {
   return [
-    { title: 'Смеси', links: [PAGES.katalog, PAGES.perel, PAGES.osnovit, PAGES.klinker] },
+    { title: 'Смеси', links: [PAGES.katalog, PAGES.perel, PAGES.osnovit, PAGES.dauer, PAGES.klinker] },
     { title: 'Цвет шва', links: [PAGES.podbor, PAGES.belaya, PAGES.chernaya] },
     { title: 'Покупателю', links: [PAGES.kalkulyator, PAGES.dostavka] },
   ].map((c) => ({ title: c.title, links: c.links.map((l) => ({ href: l.href, label: l.label })) }));

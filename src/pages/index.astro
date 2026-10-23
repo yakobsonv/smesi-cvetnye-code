@@ -47,14 +47,14 @@ const tones = toneOrder
 const kladka = SERIES.filter((s) => s.purpose === 'kladka');
 const rasshivka = SERIES.filter((s) => s.purpose === 'rasshivka');
 // «Восемь кладочных серий и две — для расшивки» — из данных, а не руками
-const NUM_F = ['ноль', 'одна', 'две', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять'];
+const NUM_F = ['ноль', 'одна', 'две', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать'];
 const numF = (n: number) => NUM_F[n] ?? String(n);
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const seriesTitle = `${cap(numF(kladka.length))} ${plural(kladka.length, 'кладочная серия', 'кладочные серии', 'кладочных серий')} и ${numF(rasshivka.length)} — для расшивки`;
 
 const index = [
   { href: PAGES.belaya.href, title: 'Белая кладочная смесь', note: 'белый и супербелый шов' },
-  { href: PAGES.chernaya.href, title: 'Чёрная и графитовая', note: 'тёмный шов у Perel и Основит' },
+  { href: PAGES.chernaya.href, title: 'Чёрная и графитовая', note: 'тёмный шов у Perel, Основит и Dauer' },
   { href: PAGES.klinker.href, title: 'Для клинкерного кирпича', note: 'низкое водопоглощение — своя смесь' },
   { href: PAGES.kalkulyator.href, title: 'Сколько нужно мешков', note: 'калькулятор по нормам производителей' },
   { href: PAGES.podbor.href, title: 'Шов на вашем кирпиче', note: 'как оттенок смотрится в кладке' },
@@ -114,7 +114,7 @@ const index = [
     id="vybor"
     kicker="01 — Сначала кирпич"
     title="Смесь подбирают по водопоглощению кирпича"
-    subtitle="Так делят цветные смеси и Perel, и Основит: клинкеру, обычному облицовочному кирпичу и кирпичу ручной формовки нужен разный раствор. Водопоглощение указано в паспорте кирпича."
+    subtitle="Так делят цветные смеси Perel, Основит и Dauer: клинкеру, обычному облицовочному кирпичу и кирпичу ручной формовки нужен разный раствор. Водопоглощение указано в паспорте кирпича."
     bg="base"
   >
     <BrickTypes />

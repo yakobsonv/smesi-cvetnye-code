@@ -24,7 +24,7 @@ const items = POSITIONS.filter((p) => p.series === series && (!tones || tones.in
       <button class="chip" type="button" data-ask={p.title} aria-label={`${p.title} — узнать цену`}>
         <span class="chip__swatch mortar" style={`--c:${swatchFor(p.series, p.color.code)}`} aria-hidden="true"></span>
         <span class="chip__name">{p.color.name}</span>
-        <span class="chip__code num">{showSeries ? `${s.name} · ` : ''}{p.article}</span>
+        <span class="chip__code num">{showSeries ? `${s.name} · ` : ''}{p.articleText}</span>
       </button>
     </li>
   ))}

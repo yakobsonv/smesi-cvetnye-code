@@ -1,0 +1,881 @@
+---
+// Страница бренда Dauer (добавлена 24.10.2026 по просьбе Паши «нужен Dauer производитель»): цветные кладочные
+// смеси BRICK.COLOR 250 / 251 / 252 — три смеси под водопоглощение кирпича, одна палитра из 25 цветов.
+// Вид — как у /osnovit/ (редизайн 11.10, язык «палитра шва»): полосы оттенков вместо кадра кладки, строки
+// через тонкие линии, цитаты производителя курсивом антиквы, сравнение смесей — таблица через линии.
+//
+// ФАКТЫ — только из данных (src/data):
+//   назначение и «для какого кирпича» — ДОСЛОВНО из SERIES_FACTS (purpose / forBrick);
+//   характеристики, шаги, оговорки о цвете, зимняя версия — SERIES_FACTS, у каждой строки свой адрес;
+//   расход — CONSUMPTION.dauer (таблица «Примерный расчёт количества материала» из технической карты);
+//   о производителе и его материалах — BRAND_FACTS.dauer;
+//   ассортимент (25 цветов, фасовка) — catalog.ts; оттенки плашек — swatches.ts (замер по фото палитры производителя).
+// ⚠️ Кодов цвета у Dauer нет — под плашкой «№ N на палитре» (catalog.ts → codeText); артикулы чужих дилеров не берём.
+// ⚠️ В магазине дилера tk-sm.ru позиций Dauer нет: какие серии, цвета и мешки есть в наличии — «уточняйте у менеджера»
+//   (вопрос Владу). Зимняя версия — факт производителя, наличие не знаем.
+// ⚠️ dauer.ru на 24.10.2026 недоступен (таймаут): данные — со снимков 09.10.2026 (Обсидиан Влада).
+// Цен нет: действие позиции — «Узнать цену» (атрибут data-ask, окно есть на странице через Page).
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Section from '../components/layout/Section.astro';
+import SwatchGrid from '../components/smesi/SwatchGrid.astro';
+import SwatchNote from '../components/smesi/SwatchNote.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import SpecTable from '../components/content/SpecTable.astro';
+import FaqAccordion from '../components/content/FaqAccordion.astro';
+import Collapse from '../components/ui/Collapse.astro';
+import { seriesById, DAUER_COLORS, POSITIONS, type SeriesId, type Tone } from '../data/catalog';
+import { SERIES_FACTS, CONSUMPTION, BRAND_FACTS, type SeriesFacts } from '../data/series-facts';
+import { swatchFor } from '../data/swatches';
+import { PAGES } from '../data/nav';
+import { liveUrl } from '../lib/sites';
+import { nb as typoNb } from '../lib/typo';
+// Пробел перед «—» — неразрывный: тире не начинает строку (сквозная проверка дизайна 11.10).
+const nb = (t: string) => typoNb(t).replace(/ — /g, ' — ');
+import type { FaqItem, SpecRow } from '../lib/types';
+
+const SERIES_HERE: SeriesId[] = ['dauer-250', 'dauer-251', 'dauer-252'];
+const s250 = seriesById('dauer-250');
+const s251 = seriesById('dauer-251');
+const s252 = seriesById('dauer-252');
+const F250 = SERIES_FACTS['dauer-250'];
+const F251 = SERIES_FACTS['dauer-251'];
+const F252 = SERIES_FACTS['dauer-252'];
+const all = [
+  { s: s250, f: F250 },
+  { s: s251, f: F251 },
+  { s: s252, f: F252 },
+];
+/** «BRICK.COLOR 250» — без имени марки, для подписей */
+const shortName = (id: SeriesId) => seriesById(id).name.replace(/^Dauer /, '');
+
+const colorsCount = DAUER_COLORS.length;
+const positionsCount = POSITIONS.filter((p) => SERIES_HERE.includes(p.series)).length;
+
+/* ── помощники ─────────────────────────────────────────────────────────────── */
+
+const spec = (f: SeriesFacts, label: string) => {
+  const x = f.specs.find((s) => s.label === label);
+  if (!x) throw new Error(`dauer.astro: нет показателя «${label}»`);
+  return x;
+};
+const pack = (f: SeriesFacts) => {
+  const x = f.packaging.find((s) => s.label === 'Мешок');
+  if (!x) throw new Error('dauer.astro: нет строки «Мешок»');
+  return x;
+};
+const rowsOf = (f: SeriesFacts): SpecRow[] => [...f.specs, ...f.packaging].map((x) => ({ label: x.label, value: x.value }));
+const plural = (n: number, forms: [string, string, string]) => {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return forms[2];
+  if (b === 1) return forms[0];
+  if (b >= 2 && b <= 4) return forms[1];
+  return forms[2];
+};
+const colorsWord = (n: number) => plural(n, ['цвет', 'цвета', 'цветов']);
+const num = (n: number) => String(n).replace('.', ',');
+
+/** Подпись источника по адресу (адреса — из данных, здесь только название ссылки). */
+const SRC_NAMES: [RegExp, string][] = [
+  [/TK_BRICKCOLOR_250\.pdf$/, 'техническая карта BRICK.COLOR 250'],
+  [/TK_BRICKCOLOR_251\.pdf$/, 'техническая карта BRICK.COLOR 251'],
+  [/TK_BRICKCOLOR_252\.pdf$/, 'техническая карта BRICK.COLOR 252'],
+  [/dauer-brick-color-250\/$/, 'карточка BRICK.COLOR 250 на dauer.ru'],
+  [/dauer-brick-color-251\/$/, 'карточка BRICK.COLOR 251 на dauer.ru'],
+  [/dauer-brick-color-252\/$/, 'карточка BRICK.COLOR 252 на dauer.ru'],
+  [/\/documents\/declarations\//, 'декларации соответствия на dauer.ru'],
+  [/\/company\/news\//, 'новость производителя'],
+  [/\/media\/articles\//, 'статья производителя'],
+  [/\/where\//, 'карта дилеров dauer.ru'],
+  [/BRICK_COLOR\.png$/, 'фото палитры на dauer.ru'],
+];
+const srcName = (url: string) => SRC_NAMES.find(([re]) => re.test(url))?.[1] ?? 'dauer.ru';
+const sources = (urls: string[]) => [...new Set(urls)].map((url) => ({ url, name: srcName(url) }));
+const factSources = (f: SeriesFacts) => sources([f.purposeSrc, f.forBrickSrc, ...f.specs.map((x) => x.src), ...f.packaging.map((x) => x.src)]);
+
+const about = (needle: string) => {
+  const x = BRAND_FACTS.dauer.about.find((f) => f.text.includes(needle));
+  if (!x) throw new Error(`dauer.astro: нет факта о производителе «${needle}»`);
+  return x;
+};
+const tool = (needle: string) => {
+  const x = BRAND_FACTS.dauer.tools.find((f) => f.text.includes(needle));
+  if (!x) throw new Error(`dauer.astro: нет материала производителя «${needle}»`);
+  return x;
+};
+
+/* ── первый экран: полоса оттенков ────────────────────────────────────────── */
+
+// Порядок плашек — по тонам (белые → бежевые → жёлтые → коричневые → красные → цветные → серые → чёрные),
+// внутри тона от светлого к тёмному. Палитра одна на три смеси — полоса одна.
+const TONE_FLOW: Tone[] = ['white', 'beige', 'yellow', 'brown', 'red', 'accent', 'grey', 'black'];
+const luma = (hex: string) => {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+};
+const strip = [...s250.colors]
+  .sort(
+    (a, b) =>
+      TONE_FLOW.indexOf(a.tone) - TONE_FLOW.indexOf(b.tone) ||
+      luma(swatchFor(s250.id, b.code)) - luma(swatchFor(s250.id, a.code)),
+  )
+  .map((c) => ({ title: `${c.name}, № ${Number(c.code)} на палитре`, hex: swatchFor(s250.id, c.code) }));
+
+const jump = [
+  { href: '#vybor', label: '250, 251 или 252' },
+  { href: `#${s250.id}`, label: 'BRICK.COLOR 250' },
+  { href: `#${s251.id}`, label: 'BRICK.COLOR 251' },
+  { href: `#${s252.id}`, label: 'BRICK.COLOR 252' },
+  { href: '#zima', label: 'Зимняя версия' },
+  { href: '#rashod', label: 'Расход' },
+];
+
+/* ── 1. о производителе ───────────────────────────────────────────────────── */
+
+const maker = [
+  { title: 'Производство', fact: about('Качественные смеси') },
+  { title: 'Линейка', fact: about('представил в июле 2025') },
+  { title: 'Три смеси', fact: about('Три смеси') },
+  { title: 'Дилеры', fact: about('Кирпичный трест') },
+];
+// Адрес площадки и ГОСТ не должны рваться по дефису на две строки.
+const KEEP = ['проезд Коммунальный, д. 16', 'г. Жуковский', 'BRICK.COLOR', 'Научный проезд, 10'];
+const keepTogether = (text: string) =>
+  KEEP.reduce((acc, k) => acc.split(k).join(`<span class="os-nowrap">${k}</span>`), nb(text)).replace(/<\/span> /g, '</span> ');
+
+/* ── 2. какая смесь: решает кирпич ───────────────────────────────────────── */
+
+type Cmp = { label: string; v: string[]; wide?: boolean };
+const cmpLabels = ['Водопоглощение кирпича', 'Прочность на сжатие', 'Морозостойкость', 'Водоудерживающая способность', 'Жизнеспособность раствора', 'Толщина шва'];
+const cmp: Cmp[] = [
+  { label: 'Для какого кирпича', v: all.map((x) => x.f.forBrick), wide: true },
+  ...cmpLabels.map((l) => ({ label: l, v: all.map((x) => spec(x.f, l).value) })),
+  { label: 'Мешок', v: all.map((x) => pack(x.f).value) },
+  { label: 'Цветов у нас', v: all.map((x) => String(x.s.colors.length)) },
+];
+const same = (v: string[]) => v.every((x) => x === v[0]);
+const cmpSources = sources([
+  ...all.map((x) => x.f.forBrickSrc),
+  ...cmpLabels.flatMap((l) => all.map((x) => spec(x.f, l).src)),
+  ...all.map((x) => pack(x.f).src),
+]);
+
+const hints = [
+  { title: 'Клинкер — 252.', text: `Производитель относит BRICK.COLOR 252 к клинкерному кирпичу с водопоглощением ${spec(F252, 'Водопоглощение кирпича').value}; у неё выше прочность и морозостойкость.` },
+  { title: 'Обычный облицовочный кирпич — 250.', text: `BRICK.COLOR 250 рассчитана на кирпич с водопоглощением ${spec(F250, 'Водопоглощение кирпича').value}: керамический облицовочный, рядовой и плотный силикатный.` },
+  { title: 'Ручная формовка и «все виды» — 251.', text: `BRICK.COLOR 251 производитель называет смесью для всех видов кирпича с водопоглощением ${spec(F251, 'Водопоглощение кирпича').value}, в том числе ручной формовки; с 250 диапазоны перекрываются.` },
+];
+
+/* ── 3–5. серии ───────────────────────────────────────────────────────────── */
+
+const joint = (f: SeriesFacts) => spec(f, 'Толщина шва').value.replace(' (рекомендуемая)', '');
+type Fact = [dt: string, dd: string];
+const seriesBlocks = [
+  { s: s250, f: F250, bg: 'base' as const, kicker: 'BRICK.COLOR 250', title: 'BRICK.COLOR 250 — для кирпича с водопоглощением 6–12 %' },
+  { s: s251, f: F251, bg: 'alt' as const, kicker: 'BRICK.COLOR 251', title: 'BRICK.COLOR 251 — для всех видов кирпича, 5–18 %' },
+  { s: s252, f: F252, bg: 'base' as const, kicker: 'BRICK.COLOR 252', title: 'BRICK.COLOR 252 — для клинкерного кирпича, 1–5 %' },
+].map((b) => ({
+  ...b,
+  facts: [
+    ['Мешок', pack(b.f).value],
+    ['Цветов у нас', String(b.s.colors.length)],
+    ['Толщина шва', joint(b.f)],
+    ['Морозостойкость', spec(b.f, 'Морозостойкость').value],
+  ] as Fact[],
+}));
+
+/* ── 6. зимняя версия ─────────────────────────────────────────────────────── */
+
+// Пересказ dauerWinter() из series-facts.ts по пунктам — числа производителя без добавлений.
+const winterRules = [
+  'Работы — при температуре воздуха не ниже −10 °C.',
+  'Жизнеспособность раствора — 1 час.',
+  'Смесь затворяют подогретой водой +25…+27 °C.',
+  'Снег и наледь с кирпича удаляют; учитывают замедленный набор прочности.',
+  'Срок годности зимней версии — 6 месяцев.',
+];
+const winterSources = sources(all.map((x) => x.f.winter?.src ?? '').filter(Boolean));
+
+/* ── 7. как работать ──────────────────────────────────────────────────────── */
+
+// Шаги у трёх смесей совпадают (у 252 — из технической карты); показываем по 250.
+const steps = F250.steps;
+const colorNotes = F250.notes ?? [];
+const stepsSources = sources([...steps.map((s) => s.src), ...colorNotes.map((n) => n.src)]);
+
+/* ── 8. расход ─────────────────────────────────────────────────────────────── */
+
+const rate = CONSUMPTION.dauer;
+const ex = rate.perFormat.find((r) => r.format === '1 НФ') ?? rate.perFormat[0];
+const exampleM2 = 10;
+const exampleKg = ex.kgPerM2 * exampleM2;
+const exampleBags = Math.ceil(exampleKg / s250.packKg);
+const kgMin = Math.min(...rate.perFormat.map((r) => r.kgPerM2));
+const kgMax = Math.max(...rate.perFormat.map((r) => r.kgPerM2));
+
+/* ── 9. материалы производителя ───────────────────────────────────────────── */
+
+const tools = [
+  { title: 'Техническая карта BRICK.COLOR 250', text: 'Характеристики с оговорками, примерный расчёт количества материала по форматам кирпича, зимняя версия.', href: tool('BRICK.COLOR 250 (PDF)').src, cta: 'Открыть PDF' },
+  { title: 'Технические карты 251 и 252', text: 'Те же разделы для смеси под все виды кирпича и для смеси под клинкер.', href: tool('BRICK.COLOR 251 (PDF)').src, cta: 'Открыть PDF 251', href2: tool('BRICK.COLOR 252 (PDF)').src, cta2: 'PDF 252' },
+  { title: 'Палитра BRICK.COLOR', text: 'Фото 25 полос затвердевшего раствора с названиями цветов — с него сняты плашки на этой странице.', href: tool('Фото палитры').src, cta: 'Открыть на dauer.ru' },
+  { title: 'Карта дилеров «Где купить»', text: 'Продавцы смесей Dauer по регионам; «Кирпичный трест» в Москве — в их числе.', href: tool('Карта дилеров').src, cta: 'Открыть на dauer.ru' },
+  { title: 'Статья производителя о цветных смесях', text: 'Как Dauer делает цветные кладочные смеси надёжными и удобными (14.04.2026).', href: tool('Статья производителя').src, cta: 'Читать на dauer.ru' },
+];
+
+/* ── 10. вопросы ──────────────────────────────────────────────────────────── */
+
+const faq: FaqItem[] = [
+  {
+    q: 'Чем отличаются BRICK.COLOR 250, 251 и 252?',
+    a: `<p>Кирпичом, под который рассчитана смесь. 250: «${F250.forBrick}». 251: «${F251.forBrick}». 252: «${F252.forBrick}».</p><p>Прочность на сжатие у 250 и 251 — ${spec(F250, 'Прочность на сжатие').value}, у 252 — ${spec(F252, 'Прочность на сжатие').value}; морозостойкость — ${spec(F250, 'Морозостойкость').value} у 250 и 251 и ${spec(F252, 'Морозостойкость').value} у 252. Палитра у трёх смесей одна — ${colorsCount} ${colorsWord(colorsCount)}.</p>`,
+  },
+  {
+    q: 'Какая смесь Dauer подходит для клинкерного кирпича?',
+    a: `<p>BRICK.COLOR 252 — производитель называет её смесью для клинкерного кирпича с водопоглощением ${spec(F252, 'Водопоглощение кирпича').value}. Смеси 250 и 251 рассчитаны на кирпич с водопоглощением от 5–6 % и выше.</p>`,
+  },
+  {
+    q: 'Сколько цветов у Dauer и есть ли у них коды?',
+    a: `<p>${colorsCount} ${colorsWord(colorsCount)} — от ультра-белого до шоколадного, с жёлтым, зелёным и синим. Кодов цвета производитель не публикует: на сайте мы показываем номер полосы на его палитре, а при заказе называем цвет словами.</p>`,
+  },
+  {
+    q: 'Сколько смеси нужно на кладку?',
+    a: `<p>По таблице примерного расчёта в технической карте — от ${kgMin} до ${kgMax} кг на 1 м² в зависимости от формата кирпича; для формата ${ex.format} (${ex.size} мм) — около ${ex.kgPerM2} кг на 1 м² и около ${num(ex.kgPerBrick)} кг на 1 кирпич. Толщину шва и вид кладки, для которых посчитано, производитель не указывает — расчёт примерный.</p>`,
+  },
+  {
+    q: 'Можно ли класть Dauer зимой?',
+    a: `<p>У производителя есть зимняя версия: работы при температуре воздуха не ниже −10 °C, жизнеспособность раствора 1 час, вода для затворения +25…+27 °C, срок годности 6 месяцев. Наличие зимней версии уточняйте у менеджера.</p>`,
+  },
+  {
+    q: 'Почему шов может выглядеть не так, как образец?',
+    a: `<p>По словам производителя, оттенок затвердевшего шва зависит от погодных условий, способа применения на объекте и способа формирования шва, поэтому перед выбором цвета он рекомендует сделать пробную кладку. Плашки на сайте сняты с фото палитры — цвет на экране приблизительный.</p>`,
+  },
+];
+
+/* ── микроразметка ─────────────────────────────────────────────────────────── */
+
+const pageUrl = liveUrl('smesi', 'dauer');
+const itemList = {
+  '@type': 'ItemList',
+  name: 'Цветные кладочные смеси Dauer BRICK.COLOR 250, 251, 252',
+  numberOfItems: SERIES_HERE.length,
+  itemListElement: SERIES_HERE.map((id, i) => ({ '@type': 'ListItem', position: i + 1, name: seriesById(id).name, url: `${pageUrl}#${id}` })),
+};
+---
+
+<Page
+  title="Dauer BRICK.COLOR 250, 251 и 252 — цветные кладочные смеси, Москва"
+  description={`Цветные кладочные смеси Dauer BRICK.COLOR под водопоглощение кирпича: 250 — 6–12 %, 251 — 5–18 %, 252 — клинкер 1–5 %. ${colorsCount} ${colorsWord(colorsCount)}, характеристики, расход по форматам кирпича.`}
+  slug="dauer"
+  current="dauer"
+  source="dauer"
+  jsonLd={[itemList]}
+>
+  <PageHead
+    kicker="Производитель Dauer"
+    h1="Цветные кладочные смеси Dauer BRICK.COLOR"
+    crumb="Dauer"
+    trail={[{ label: 'Каталог', href: PAGES.katalog.href }]}
+    lead={`Смесь Dauer подбирают по кирпичу: BRICK.COLOR 250 — для кирпича с водопоглощением 6–12 %, 251 — для всех видов кирпича 5–18 %, в том числе ручной формовки, 252 — для клинкера 1–5 %. Палитра одна на три смеси — ${colorsCount} ${colorsWord(colorsCount)}, ${positionsCount} позиций.`}
+  >
+    <nav class="os-jump" aria-label="Разделы страницы" data-reveal>
+      <ol>
+        {jump.map((j) => <li><a href={j.href}>{j.label}</a></li>)}
+      </ol>
+    </nav>
+    <Fragment slot="aside">
+      <div class="os-pal">
+        <div class="os-pal__item os-pal__item--lg">
+          <a class="os-pal__strip strip" href={`#${s250.id}-cveta`} tabindex="-1" aria-hidden="true">
+            {strip.map((c) => <span class="mortar" style={`--c:${c.hex}`} title={c.title}></span>)}
+          </a>
+          <p class="os-pal__cap">
+            <a href={`#${s250.id}-cveta`}>Палитра BRICK.COLOR</a>
+            <span class="num">{colorsCount}&nbsp;{colorsWord(colorsCount)} у&nbsp;нас</span>
+          </p>
+        </div>
+        <p class="os-pal__note">
+          Цвет на экране приблизительный: плашки сняты с фото палитры производителя. Кодов цвета у Dauer нет&nbsp;— под плашкой номер полосы на палитре.
+        </p>
+        <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
+      </div>
+    </Fragment>
+  </PageHead>
+
+  <Section id="proizvoditel" kicker="Производитель" title="Dauer — смеси из Жуковского" bg="base">
+    <dl class="os-maker__facts" data-reveal>
+      {maker.map((m) => (
+        <div class="os-maker__row">
+          <dt class="label">{m.title}</dt>
+          <dd>
+            <p set:html={keepTogether(m.fact.text)} />
+            <a class="os-srclink" href={m.fact.src} rel="nofollow noopener" target="_blank">{srcName(m.fact.src)}</a>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  </Section>
+
+  <Section
+    id="vybor"
+    kicker="Выбор смеси"
+    title="250, 251 или 252: решает кирпич"
+    subtitle="Палитра, толщина шва и норма воды у трёх смесей одинаковые. Различаются кирпич, под который рассчитана смесь, прочность и морозостойкость."
+    bg="alt"
+  >
+    <table class="os-cmp" data-reveal>
+      <caption class="os-vh">Сравнение BRICK.COLOR 250, 251 и 252</caption>
+      <thead>
+        <tr>
+          <th scope="col"><span class="os-vh">Показатель</span></th>
+          {all.map((x) => (
+            <th scope="col"><a href={`#${x.s.id}`}>{shortName(x.s.id).replace('BRICK.COLOR ', '')}</a><span class="os-cmp__abs">{spec(x.f, 'Водопоглощение кирпича').value}</span></th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {cmp.map((r) =>
+          same(r.v) ? (
+            <tr class="os-cmp__row os-cmp__row--same">
+              <th scope="row">{r.label}</th>
+              <td colspan="3">{nb(r.v[0])} <span class="os-cmp__same">одинаково</span></td>
+            </tr>
+          ) : (
+            <tr class:list={['os-cmp__row', r.wide && 'os-cmp__row--wide']}>
+              <th scope="row">{r.label}</th>
+              {r.v.map((v, i) => <td data-col={shortName(all[i].s.id).replace('BRICK.COLOR ', '')}>{nb(v)}</td>)}
+            </tr>
+          ),
+        )}
+      </tbody>
+    </table>
+    <p class="os-src">
+      По данным производителя:
+      {cmpSources.map((s, i) => (
+        <Fragment>{i > 0 && ' · '}<a href={s.url} rel="nofollow noopener" target="_blank">{s.name}</a></Fragment>
+      ))}
+    </p>
+    <div class="os-hints" data-reveal>
+      <p class="label">Коротко о выборе</p>
+      <ol class="os-hints__list">
+        {hints.map((h) => (
+          <li><b>{nb(h.title)}</b><span>{nb(h.text)}</span></li>
+        ))}
+      </ol>
+    </div>
+  </Section>
+
+  {seriesBlocks.map(({ s, f, bg, kicker, title, facts }) => (
+    <Section id={s.id} kicker={kicker} title={title} bg={bg}>
+      <div class="os-ser">
+        <div class="os-ser__about" data-reveal>
+          <p class="label">Назначение — слова производителя</p>
+          <blockquote class="os-quote" cite={f.purposeSrc}>«{nb(f.purpose)}»</blockquote>
+          <p class="os-quote__src">— <a href={f.purposeSrc} rel="nofollow noopener" target="_blank">{srcName(f.purposeSrc)}</a></p>
+          <div class="os-ser__brick">
+            <p class="label">Для какого кирпича</p>
+            <p>«{nb(f.forBrick)}»</p>
+          </div>
+          <dl class="os-dl">
+            {facts.map(([dt, dd]) => <div><dt>{dt}</dt><dd class="num">{nb(dd)}</dd></div>)}
+          </dl>
+          <div class="os-ser__actions">
+            <button class="btn btn--primary" type="button" data-ask={`${s.name} — цвет подберём`}>Узнать цену</button>
+            <a class="arrow-link" href={`#${s.id}-cveta`}>Смотреть цвета <span aria-hidden="true">↓</span></a>
+          </div>
+        </div>
+        <div class="os-ser__specs" data-reveal>
+          <Collapse max={560} fade={bg} label="Все характеристики">
+            <SpecTable rows={rowsOf(f)} caption={`Характеристики ${s.name}`} />
+          </Collapse>
+          <p class="os-src">
+            По данным производителя:
+            {factSources(f).map((x, i) => (
+              <Fragment>{i > 0 && ' · '}<a href={x.url} rel="nofollow noopener" target="_blank">{x.name}</a></Fragment>
+            ))}
+          </p>
+        </div>
+      </div>
+      <div class="os-colors-head">
+        <h3 class="os-sub" id={`${s.id}-cveta`}>{nb(`Цвета ${shortName(s.id)} у нас — ${s.colors.length}`)}</h3>
+        <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
+      </div>
+      <SwatchGrid series={s.id} />
+      <SwatchNote />
+    </Section>
+  ))}
+
+  <Section id="zima" kicker="Зимняя кладка" title="Зимняя версия BRICK.COLOR" bg="dark" class="os-zima">
+    <div class="os-winter">
+      <div class="os-winter__main" data-reveal>
+        <p class="os-winter__lead">
+          У каждой из трёх смесей есть зимняя версия. Условия работы с ней по техническим картам производителя:
+        </p>
+        <ol class="os-winter__list">
+          {winterRules.map((r) => <li>{nb(r)}</li>)}
+        </ol>
+        <p class="os-src">
+          По данным производителя:
+          {winterSources.map((x, i) => (
+            <Fragment>{i > 0 && ' · '}<a href={x.url} rel="nofollow noopener" target="_blank">{x.name}</a></Fragment>
+          ))}
+        </p>
+      </div>
+      <aside class="os-winter__aside" data-reveal>
+        <p class="os-winter__big num">до&nbsp;−10&nbsp;°C</p>
+        <p class="os-winter__cap">температура воздуха при работе с зимней версией</p>
+        <p class="os-winter__stock">Наличие зимней версии уточняйте у менеджера.</p>
+        <div class="os-winter__actions">
+          <button class="btn btn--primary btn--sm" type="button" data-ask="Dauer BRICK.COLOR, зимняя версия — наличие">Спросить о зимней версии</button>
+        </div>
+      </aside>
+    </div>
+  </Section>
+
+  <Section id="kak-rabotat" kicker="Как работать" title="Кладка по шагам" bg="alt" clamp={1150} clampLabel="Все шаги">
+    <div class="os-steps">
+      <div class="os-steps__col" data-reveal>
+        <h3 class="os-steps__title">Кладка на BRICK.COLOR 250, 251 и&nbsp;252</h3>
+        <ol class="os-steps__list">
+          {steps.map((s) => <li>{nb(s.text)}</li>)}
+        </ol>
+      </div>
+      <div class="os-color os-color--col" data-reveal>
+        <h3 class="os-color__title">От чего зависит цвет шва</h3>
+        <ul class="os-color__list">
+          {colorNotes.map((n) => <li>{nb(n.text)}</li>)}
+        </ul>
+      </div>
+    </div>
+    <p class="os-src">
+      По данным производителя:
+      {stepsSources.map((x, i) => (
+        <Fragment>{i > 0 && ' · '}<a href={x.url} rel="nofollow noopener" target="_blank">{x.name}</a></Fragment>
+      ))}
+    </p>
+  </Section>
+
+  <Section id="rashod" kicker="Расход" title="Примерный расчёт по формату кирпича" bg="base">
+    <div class="os-calc">
+      <div class="os-calc__norm" data-reveal>
+        <table class="os-rate-table">
+          <caption class="os-vh">Расход BRICK.COLOR по формату кирпича</caption>
+          <thead>
+            <tr><th scope="col">Формат кирпича</th><th scope="col">Размер, мм</th><th scope="col">На 1&nbsp;м²</th><th scope="col">На 1&nbsp;кирпич</th></tr>
+          </thead>
+          <tbody>
+            {rate.perFormat.map((r) => (
+              <tr><th scope="row">{r.format}</th><td class="num">{r.size}</td><td class="num">≈{r.kgPerM2}&nbsp;кг</td><td class="num">≈{num(r.kgPerBrick)}&nbsp;кг</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <p class="os-calc__cap">{nb(rate.basis)}</p>
+        <p class="os-src">
+          По данным производителя: <a href={rate.src} rel="nofollow noopener" target="_blank">{srcName(rate.src)}</a>
+        </p>
+      </div>
+      <div class="os-calc__example" data-reveal>
+        <p class="label">Пример по этой таблице</p>
+        <dl class="os-calc__sum num">
+          <div><dt>Площадь кладки</dt><dd>{exampleM2}&nbsp;м²</dd></div>
+          <div><dt>Формат {ex.format}</dt><dd>× ≈{ex.kgPerM2}&nbsp;кг/м²</dd></div>
+          <div><dt>Сухой смеси</dt><dd>≈{exampleKg}&nbsp;кг</dd></div>
+          <div class="os-calc__total"><dt>Мешков по {s250.packKg}&nbsp;кг</dt><dd>{exampleBags}</dd></div>
+        </dl>
+        <p class="os-calc__hint">
+          Расчёт примерный: толщину шва и вид кладки производитель в таблице не указывает. Назовите кирпич и площадь&nbsp;— посчитаем мешки под ваш объект.
+        </p>
+        <button class="btn btn--primary" type="button" data-ask="Dauer BRICK.COLOR — посчитать мешки под мой кирпич">Посчитать под мой кирпич</button>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="materialy" kicker="Материалы производителя" title="Технические карты, палитра, дилеры" bg="alt" clamp={900} clampLabel="Все материалы">
+    <ol class="os-tools" data-reveal-stagger>
+      {tools.map((t) => (
+        <li class="os-tool">
+          <h3 class="os-tool__title">{t.title}</h3>
+          <p class="os-tool__text">{nb(t.text)}</p>
+          <p class="os-tool__links">
+            <a class="arrow-link os-tool__link" href={t.href} rel="nofollow noopener" target="_blank">{t.cta} <span aria-hidden="true">↗</span></a>
+            {t.href2 && <a class="arrow-link os-tool__link" href={t.href2} rel="nofollow noopener" target="_blank">{t.cta2} <span aria-hidden="true">↗</span></a>}
+          </p>
+        </li>
+      ))}
+    </ol>
+  </Section>
+
+  <Section id="voprosy" kicker="Вопросы" title="Частые вопросы о Dauer" bg="base">
+    <FaqAccordion items={faq} site="smesi" slug="dauer" />
+  </Section>
+
+  <CtaBand
+    source="dauer"
+    title={nb('Подберём Dauer под ваш кирпич')}
+    text={nb('Назовите кирпич и площадь кладки — подскажем, 250, 251 или 252, поможем с цветом шва и посчитаем мешки.')}
+  />
+</Page>
+
+<style is:global>
+  /* Подпись секции на тёмной полосе: общий .section__kicker красит её --color-muted (#625d55),
+     на туши это 2,6:1. Только для своей полосы «Зимняя версия» (класс os-zima). */
+  html[data-site='smesi'] .os-zima .section__kicker { color: rgb(247 244 238 / 0.66); }
+  /* Только эта страница: слово «BRICK.COLOR» в H1 на 320 px не влезало в 288 px (прокрутка вбок на 2 px) —
+     на узких экранах кегль от ширины колонки текста, как на странице белой смеси. */
+  html[data-site='smesi'] .mh__text { container-type: inline-size; }
+  @media (max-width: 419px) {
+    html[data-site='smesi'] .mh__title { max-width: none; font-size: min(var(--fs-h1), 12cqi); }
+  }
+</style>
+
+<style>
+  .os-vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* ── первый экран: оглавление строками через линии ───────────────────────── */
+  .os-jump { margin-top: var(--space-7); }
+  .os-jump ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hair-strong);
+    counter-reset: os-jump;
+  }
+  .os-jump li { counter-increment: os-jump; border-bottom: 1px solid var(--hair); }
+  .os-jump a {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    min-height: 44px;
+    padding: 12px 0 10px;
+    color: var(--ink);
+    font-size: var(--fs-small);
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .os-jump a::before {
+    content: counter(os-jump, decimal-leading-zero);
+    flex: none;
+    font-size: 12px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+  .os-jump a::after {
+    content: '↓';
+    margin-left: auto;
+    color: var(--color-muted);
+    opacity: 0;
+    translate: 0 -4px;
+    transition: opacity var(--dur) var(--ease), translate var(--dur) var(--ease);
+  }
+  .os-jump a:hover::after, .os-jump a:focus-visible::after { opacity: 1; translate: 0 0; }
+  /* «BRICK.COLOR 250» не влезает в полколонки на 320 px (давало прокрутку вбок на 2 px) — на узких экранах одна колонка */
+  @media (max-width: 419px) { .os-jump ol { grid-template-columns: 1fr; } }
+
+  /* ── первый экран: полоса оттенков вместо кадра кладки ───────────────────── */
+  .os-pal { display: grid; gap: var(--space-5); justify-items: start; }
+  .os-pal__item { width: 100%; }
+  .os-pal__strip { height: clamp(160px, 24vw, 360px); }
+  .os-pal__strip span { transition: flex-grow 0.5s var(--ease); }
+  .os-pal__strip:hover span:hover { flex-grow: 3; }
+  .os-pal__cap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 4px 16px;
+    margin: 10px 0 0;
+    font-size: var(--fs-tiny);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .os-pal__cap a { color: var(--ink); font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--hair-strong); }
+  .os-pal__cap a:hover { border-color: var(--ink); }
+  .os-pal__note { max-width: 46ch; margin: 0; font-size: var(--fs-small); color: var(--color-muted); }
+
+  /* ── общее ──────────────────────────────────────────────────────────────── */
+  .label { margin: 0 0 var(--space-3); }
+  .os-src { max-width: 90ch; margin: var(--space-5) 0 0; font-size: var(--fs-tiny); line-height: 1.6; color: var(--color-muted); }
+  .os-src a, .os-srclink { color: var(--color-text-soft); }
+  .os-srclink { font-size: var(--fs-tiny); }
+  .os-colors-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-6);
+    margin: clamp(56px, 7vw, 104px) 0 var(--space-6);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--hair-strong);
+  }
+  .os-sub { margin: 0; font-size: var(--fs-h3); line-height: 1.05; letter-spacing: -0.01em; }
+
+  /* ── 1. производитель: факты строками ───────────────────────────────────── */
+  .os-maker__facts { max-width: 92ch; margin: 0; border-top: 1px solid var(--hair-strong); }
+  .os-maker__row { display: grid; gap: var(--space-2) var(--space-6); padding: var(--space-5) 0; border-bottom: 1px solid var(--hair); }
+  .os-maker__row dt { margin: 0; padding-top: 5px; }
+  .os-maker__row dd { margin: 0; }
+  .os-maker__row :global(.os-nowrap) { white-space: nowrap; }
+  .os-maker__row p { max-width: 62ch; margin: 0 0 var(--space-3); color: var(--color-text-soft); }
+  @media (min-width: 760px) { .os-maker__row { grid-template-columns: 150px minmax(0, 1fr); } }
+
+  /* ── 2. сравнение: таблица через линии, три смеси ───────────────────────── */
+  /* table-layout: fixed — три колонки значений держат свои проценты, таблица не шире контейнера (на 768 вылезала на 25 px) */
+  .os-cmp { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .os-cmp th, .os-cmp td { padding: 16px 20px 16px 0; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+  .os-cmp thead th { padding-bottom: 18px; border-bottom: 1px solid var(--ink); vertical-align: bottom; }
+  .os-cmp thead a {
+    display: block;
+    font-family: var(--font-head);
+    font-weight: 500;
+    font-size: clamp(28px, 2.8vw, 40px);
+    line-height: 1;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .os-cmp thead a:hover { font-style: italic; }
+  .os-cmp__abs {
+    display: block;
+    margin-top: 8px;
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .os-cmp__row { border-bottom: 1px solid var(--hair); }
+  .os-cmp__row th { width: 22%; font-weight: 400; font-size: var(--fs-small); color: var(--color-muted); }
+  .os-cmp__row td { width: 26%; font-weight: 500; }
+  .os-cmp__row--wide td { font-weight: 400; color: var(--color-text-soft); }
+  .os-cmp__same {
+    margin-left: 12px;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+
+  /* на телефоне строка таблицы — показатель сверху, значения трёх смесей столбиком */
+  @media (max-width: 699px) {
+    .os-cmp thead tr { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: var(--space-3); }
+    .os-cmp thead th:first-child { display: none; }
+    .os-cmp thead th { align-self: end; padding: 0 0 14px; }
+    .os-cmp thead a { font-size: 24px; }
+    .os-cmp tbody tr { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: var(--space-3); padding: 14px 0; }
+    .os-cmp tbody th { grid-column: 1 / -1; width: auto; padding: 0 0 6px; font-size: var(--fs-tiny); letter-spacing: 0.12em; text-transform: uppercase; }
+    .os-cmp tbody td { width: auto; padding: 0; font-size: var(--fs-small); }
+    .os-cmp tbody td[colspan] { grid-column: 1 / -1; }
+    .os-cmp__row--wide td { grid-column: 1 / -1; }
+    .os-cmp tbody td[data-col]::before {
+      content: attr(data-col);
+      display: block;
+      margin-bottom: 2px;
+      font-size: 11.5px;
+      letter-spacing: 0.08em;
+      color: var(--color-muted);
+    }
+  }
+
+  .os-hints { display: grid; gap: 0 var(--space-6); margin-top: clamp(56px, 7vw, 96px); }
+  .os-hints__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); counter-reset: os-hint; }
+  .os-hints__list li {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 4px var(--space-3);
+    padding: 18px 0;
+    border-bottom: 1px solid var(--hair);
+    counter-increment: os-hint;
+  }
+  .os-hints__list li::before {
+    content: counter(os-hint, decimal-leading-zero);
+    grid-row: 1 / span 2;
+    padding-top: 9px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+  .os-hints__list b { font-family: var(--font-head); font-weight: 500; font-size: clamp(23px, 2vw, 28px); line-height: 1.1; }
+  .os-hints__list span { color: var(--color-text-soft); }
+  @media (min-width: 900px) {
+    .os-hints__list li { grid-template-columns: 34px minmax(0, 5fr) minmax(0, 6fr); column-gap: var(--space-5); align-items: baseline; }
+    .os-hints__list li::before { grid-row: auto; padding-top: 0; }
+  }
+  @media (min-width: 1000px) {
+    .os-hints { grid-template-columns: minmax(0, 3fr) minmax(0, 9fr); align-items: start; }
+    .os-hints > .label { padding-top: var(--space-4); }
+  }
+
+  /* ── 3–5. серии ─────────────────────────────────────────────────────────── */
+  .os-ser { display: grid; gap: var(--space-7); }
+  .os-ser__about { display: flex; flex-direction: column; align-items: stretch; }
+  .os-quote {
+    max-width: 30ch;
+    margin: 0;
+    font-family: var(--font-head);
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(24px, 2.3vw, 32px);
+    line-height: 1.18;
+    letter-spacing: -0.005em;
+    text-wrap: pretty;
+  }
+  .os-quote__src { margin: var(--space-3) 0 0; font-size: var(--fs-tiny); color: var(--color-muted); }
+  .os-quote__src a { color: var(--color-text-soft); }
+  .os-ser__brick { margin-top: var(--space-7); }
+  .os-ser__brick p:not(.label) { max-width: 52ch; margin: 0 0 var(--space-2); color: var(--color-text-soft); }
+  .os-dl { margin: var(--space-6) 0 0; border-top: 1px solid var(--hair-strong); }
+  .os-dl div { display: flex; justify-content: space-between; gap: var(--space-4); padding: 11px 0; border-bottom: 1px solid var(--hair); font-size: var(--fs-small); }
+  .os-dl dt { color: var(--color-muted); }
+  .os-dl dd { margin: 0; font-weight: 500; text-align: right; }
+  .os-ser__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5) var(--space-6); margin-top: var(--space-6); }
+  @media (min-width: 1000px) {
+    .os-ser { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(48px, 7vw, 112px); align-items: start; }
+    /* характеристики длиннее описания — описание с кнопкой едет рядом с таблицей */
+    .os-ser__about { position: sticky; top: 96px; }
+  }
+
+  /* ── 6. зима: тушь, строки через линии ──────────────────────────────────── */
+  .os-winter { display: grid; gap: var(--space-8); }
+  .os-winter__lead { max-width: 56ch; margin: 0 0 var(--space-6); font-size: var(--fs-lead); color: rgb(247 244 238 / 0.82); }
+  .os-winter__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid rgb(247 244 238 / 0.32); counter-reset: os-win; }
+  .os-winter__list li {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: var(--space-3);
+    padding: 14px 0;
+    border-bottom: 1px solid rgb(247 244 238 / 0.16);
+    counter-increment: os-win;
+  }
+  .os-winter__list li::before {
+    content: counter(os-win, decimal-leading-zero);
+    padding-top: 3px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: rgb(247 244 238 / 0.6);
+  }
+  .os-winter .os-src { color: rgb(247 244 238 / 0.62); }
+  .os-winter .os-src a { color: var(--paper); }
+  .os-winter__big {
+    font-family: var(--font-head);
+    font-weight: 500;
+    margin: 0;
+    font-size: clamp(56px, 6.6vw, 100px);
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    color: var(--sand);
+    white-space: nowrap;
+  }
+  .os-winter__cap { max-width: 30ch; margin: var(--space-4) 0 0; color: rgb(247 244 238 / 0.75); }
+  .os-winter__stock { margin: var(--space-6) 0 0; padding-top: var(--space-4); border-top: 1px solid rgb(247 244 238 / 0.32); font-weight: 500; }
+  .os-winter__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
+  /* на туши главная кнопка — бумагой; три класса, чтобы перебить html[data-site] .btn--primary (0,2,1) */
+  .os-winter .os-winter__actions .btn--primary { background: var(--paper); color: var(--ink); }
+  .os-winter .os-winter__actions .btn--primary:hover { background: var(--sand); }
+  @media (min-width: 1000px) {
+    .os-winter { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(48px, 6vw, 96px); align-items: start; }
+  }
+
+  /* ── 7. шаги ────────────────────────────────────────────────────────────── */
+  .os-steps { display: grid; gap: var(--space-8); }
+  .os-steps__title { margin: 0 0 var(--space-5); font-size: var(--fs-h3); line-height: 1.05; }
+  .os-steps__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); counter-reset: os-step; }
+  .os-steps__list li {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: var(--space-3);
+    padding: 14px 0;
+    border-bottom: 1px solid var(--hair);
+    color: var(--color-text-soft);
+    counter-increment: os-step;
+  }
+  .os-steps__list li::before {
+    content: counter(os-step, decimal-leading-zero);
+    padding-top: 3px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+  @media (min-width: 960px) { .os-steps { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(40px, 5vw, 80px); align-items: start; } }
+
+  .os-color { display: grid; gap: var(--space-5) var(--space-6); }
+  .os-color__title { margin: 0 0 var(--space-5); font-size: var(--fs-h3); line-height: 1.05; max-width: 14ch; }
+  .os-color__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); color: var(--color-text-soft); }
+  .os-color__list li { padding: 12px 0; border-bottom: 1px solid var(--hair); }
+
+  /* ── 8. расход: таблица по форматам и пример ─────────────────────────────── */
+  .os-calc { display: grid; gap: var(--space-8); }
+  .os-calc .label { margin-bottom: var(--space-3); }
+  .os-rate-table { width: 100%; border-collapse: collapse; border-top: 1px solid var(--ink); }
+  .os-rate-table th, .os-rate-table td { padding: 12px 16px 12px 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--hair); }
+  .os-rate-table thead th { font-size: var(--fs-tiny); font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-muted); }
+  .os-rate-table tbody th { font-family: var(--font-head); font-weight: 500; font-size: clamp(20px, 1.8vw, 24px); line-height: 1.1; }
+  .os-rate-table tbody td { font-weight: 500; white-space: nowrap; }
+  .os-rate-table td:last-child, .os-rate-table th:last-child { padding-right: 0; }
+  .os-calc__cap { max-width: 60ch; margin: var(--space-5) 0 0; color: var(--color-text-soft); }
+  .os-calc__sum { margin: 0; border-top: 1px solid var(--hair-strong); }
+  .os-calc__sum div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); padding: 12px 0; border-bottom: 1px solid var(--hair); }
+  .os-calc__sum dt { color: var(--color-muted); font-size: var(--fs-small); }
+  .os-calc__sum dd { margin: 0; font-weight: 500; text-align: right; }
+  .os-calc__sum .os-calc__total { border-bottom-color: var(--ink); }
+  .os-calc__sum .os-calc__total dt { color: var(--ink); font-weight: 500; }
+  .os-calc__sum .os-calc__total dd { font-family: var(--font-head); font-size: var(--fs-stat); line-height: 1; }
+  .os-calc__hint { max-width: 52ch; margin: var(--space-5) 0 var(--space-6); color: var(--color-text-soft); }
+  @media (max-width: 499px) {
+    .os-rate-table thead th:nth-child(2), .os-rate-table tbody td:nth-child(2) { display: none; }
+  }
+  @media (min-width: 1000px) {
+    .os-calc { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(48px, 7vw, 112px); align-items: start; }
+  }
+
+  /* ── 9. материалы: строки через линии ───────────────────────────────────── */
+  .os-tools { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); counter-reset: os-tool; }
+  .os-tool {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: var(--space-2) var(--space-3);
+    padding: 22px 0;
+    border-bottom: 1px solid var(--hair);
+    counter-increment: os-tool;
+  }
+  .os-tool::before {
+    content: counter(os-tool, decimal-leading-zero);
+    grid-row: 1 / span 3;
+    padding-top: 10px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted);
+  }
+  .os-tool__title { margin: 0; font-size: clamp(26px, 2.4vw, 34px); line-height: 1.05; }
+  .os-tool__text { max-width: 60ch; margin: 0; color: var(--color-text-soft); }
+  .os-tool__links { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); justify-self: start; margin: var(--space-2) 0 0; }
+  @media (min-width: 1000px) {
+    .os-tool { grid-template-columns: 34px minmax(0, 4fr) minmax(0, 5fr) minmax(0, 2.6fr); column-gap: var(--space-6); align-items: baseline; }
+    .os-tool::before { grid-row: auto; padding-top: 0; }
+    .os-tool__links { justify-self: end; margin-top: 0; white-space: nowrap; }
+  }
+
+  /* Подпись таблицы характеристик — мелкий капс, как на /osnovit/ и /perel/. */
+  .os-ser__specs :global(.specs__caption) {
+    margin-bottom: var(--space-3);
+    font-size: var(--fs-tiny);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+</style>
