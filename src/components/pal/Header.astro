@@ -118,15 +118,16 @@ const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includ
   .hd__name { font-family: var(--font-head); font-size: 27px; font-weight: 600; letter-spacing: -0.01em; }
   .hd__sub { margin-top: 4px; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); }
 
-  /* семь пунктов (с 24.10 — Dauer): шаг меньше, пункты и кнопка не переносятся на вторую строку (на 1440 «Подбор шва» рвался) */
-  .hd__nav { display: none; gap: clamp(12px, 1.5vw, 24px); margin-left: auto; }
-  .hd__link { position: relative; padding: 6px 0; color: var(--ink); font-size: 15px; text-decoration: none; white-space: nowrap; }
+  /* семь пунктов (с 24.10 — Dauer): кегль 14 и шаг меньше, пункт не рвётся изнутри (на 1440 «Подбор шва» рвался);
+     запас — перенос целыми пунктами (flex-wrap), чтобы телефон и кнопка никогда не выходили за контейнер (QA 24.10) */
+  .hd__nav { display: none; flex-wrap: wrap; justify-content: flex-end; gap: 0 clamp(10px, 1.4vw, 20px); margin-left: auto; min-width: 0; }
+  .hd__link { position: relative; padding: 6px 0; color: var(--ink); font-size: 14px; text-decoration: none; white-space: nowrap; }
   .hd__link::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform var(--dur) var(--ease); }
   .hd__link:hover::after, .hd__link[aria-current='page']::after { transform: scaleX(1); }
 
-  .hd__side { display: none; align-items: center; gap: var(--space-5); }
+  .hd__side { display: none; flex: none; align-items: center; gap: var(--space-4); }
   .hd__side :global(.btn) { white-space: nowrap; }
-  .hd__phone { color: var(--ink); font-weight: 500; text-decoration: none; white-space: nowrap; }
+  .hd__phone { color: var(--ink); font-size: 16px; font-weight: 500; text-decoration: none; white-space: nowrap; }
 
   .hd__burger { margin-left: auto; display: grid; place-content: center; gap: 7px; width: 44px; height: 44px; border: 0; background: none; cursor: pointer; }
   .hd__burger i { display: block; width: 26px; height: 1.5px; background: var(--ink); transition: transform var(--dur) var(--ease); }
@@ -146,6 +147,16 @@ const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includ
     .hd__nav, .hd__side { display: flex; }
     .hd__burger { display: none; }
     .hd__side { margin-left: var(--space-5); }
+  }
+  /* ноутбуки 1100–1279: контейнер 1030–1210 px — знак, семь пунктов, телефон и кнопка в одну строку только мельче */
+  @media (min-width: 1100px) and (max-width: 1279px) {
+    .hd__row { gap: var(--space-5); }
+    .hd__name { font-size: 24px; }
+    .hd__sub { font-size: 9.5px; letter-spacing: 0.12em; }
+    .hd__link { font-size: 13px; }
+    .hd__nav { gap: 0 10px; }
+    .hd__phone { font-size: 15px; }
+    .hd__side { gap: var(--space-3); margin-left: var(--space-4); }
   }
   /* Страница под открытым меню стоит. body возвращаем в visible: иначе его overflow-x: hidden делает
      его областью прокрутки, липкая шапка уезжает вверх вместе со страницей (на −300 px при прокрутке 300),

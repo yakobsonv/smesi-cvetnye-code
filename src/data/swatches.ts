@@ -34,7 +34,7 @@
  *  и Основит (PALETTE_OF, PROMIX_TO_PEREL), это приближение к приближению; оговорка — SWATCH_BORROWED.
  */
 
-import { SERIES, PEREL_COLORS, type Brand, type SeriesId } from './catalog';
+import { SERIES, PEREL_COLORS, seriesById, type Brand, type SeriesId } from './catalog';
 
 export type SwatchPalette = 'perel' | 'perel-rl' | 'osnovit' | 'osnovit-xc30' | 'dauer';
 
@@ -251,9 +251,17 @@ export function saturate(hex: string, k: number): string {
   return `#${to(r1)}${to(g1)}${to(b1)}`;
 }
 
-/** HEX плашки для цвета серии: код — как в catalog.ts ('05', '010', у Promix '0300'). С усилением насыщенности. */
+/** Группы оттенка, которые не усиливаем вовсе: белые, серые и чёрные должны оставаться нейтральными, даже если замер
+ *  с фото тёплый или холодный (QA 24.10: «белый» Dauer № 2 #d4cebb при усилении становился соломенным #e3d6ac;
+ *  раньше фильтр по hex пропускал его — насыщенность замера 0,22, светлота 0,78). */
+const NEUTRAL_TONES = new Set(['white', 'grey', 'black']);
+
+/** HEX плашки для цвета серии: код — как в catalog.ts ('05', '010', у Promix '0300'). С усилением насыщенности
+ *  (кроме белых, серых и чёрных — NEUTRAL_TONES). */
 export function swatchFor(seriesId: SeriesId, code: string): string {
   const palette = PALETTE_OF[seriesId];
   const key = CODE_IN_PALETTE[seriesId]?.[code] ?? code;
-  return saturate((palette && SWATCH[palette][key]) || SWATCH_FALLBACK, SWATCH_SATURATION);
+  const tone = seriesById(seriesId).colors.find((c) => c.code === code)?.tone;
+  const k = tone && NEUTRAL_TONES.has(tone) ? 1 : SWATCH_SATURATION;
+  return saturate((palette && SWATCH[palette][key]) || SWATCH_FALLBACK, k);
 }

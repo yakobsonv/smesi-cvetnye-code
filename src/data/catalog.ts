@@ -281,7 +281,7 @@ export const SERIES: SeriesRef[] = [
   // фильтра: 250 (6–12 %) — обычный, 251 (5–18 %, «все виды кирпича», в т. ч. ручной формовки) — ручная формовка
   // и обычный (ALSO_FOR), 252 (1–5 %) — клинкер. Мешок: у производителя 25 и 50 кг, какой держит дилер — не знаем,
   // показываем 50 (как у Perel); 25 кг — в фактах упаковки.
-  { id: 'dauer-250', brand: 'dauer', name: 'Dauer BRICK.COLOR 250', short: 'для кирпича с водопоглощением 6–12 %', purpose: 'kladka', brickType: 'obychnyj', absorption: '6–12 %', colors: DAUER_COLORS, packKg: 50, page: 'dauer', codeKind: 'palette' },
+  { id: 'dauer-250', brand: 'dauer', name: 'Dauer BRICK.COLOR 250', short: 'для керамического и силикатного кирпича', purpose: 'kladka', brickType: 'obychnyj', absorption: '6–12 %', colors: DAUER_COLORS, packKg: 50, page: 'dauer', codeKind: 'palette' },
   { id: 'dauer-251', brand: 'dauer', name: 'Dauer BRICK.COLOR 251', short: 'для всех видов кирпича, в том числе ручной формовки', purpose: 'kladka', brickType: 'ruchnoj', absorption: '5–18 %', colors: DAUER_COLORS, packKg: 50, page: 'dauer', codeKind: 'palette' },
   { id: 'dauer-252', brand: 'dauer', name: 'Dauer BRICK.COLOR 252', short: 'для клинкерного кирпича', purpose: 'kladka', brickType: 'klinker', absorption: '1–5 %', colors: DAUER_COLORS, packKg: 50, page: 'dauer', codeKind: 'palette' },
   // Promix и Стройбриг — только по ассортименту дилера (см. шапку): short и absorption — по подразделу tk-sm.ru,

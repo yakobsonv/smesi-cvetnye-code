@@ -231,7 +231,7 @@ const keyFacts = {
     { v: mc11Abs[0], l: 'водопоглощение кирпича, а также клинкер' },
   ],
   d252: [
-    { v: String(d252.colors.length), l: `${plural(d252.colors.length, 'цвет', 'цвета', 'цветов')} у нас` },
+    { v: String(d252.colors.length), l: `${plural(d252.colors.length, 'цвет', 'цвета', 'цветов')} в палитре` },
     { v: '25 и 50 кг', l: 'мешок у производителя' },
     { v: absOf('dauer-252').value, l: 'водопоглощение кирпича' },
   ],
@@ -317,7 +317,7 @@ const qt = (t: string) => nb(t).replace(/ (?=[-–—] )/g, '\u00a0');
           <span class="sc__name label">водопоглощение, %</span>
           <span class="sc__track sc__ticks">
             {ticks.map((t, i) => (
-              <span class:list={['sc__tick', 'num', i === 0 && 'is-first', i === ticks.length - 1 && 'is-last']} style={`--x:${pct(t)}`}>{i === ticks.length - 1 ? `${t} %` : t}</span>
+              <span class:list={['sc__tick', 'num', i === 0 && 'is-first', i === ticks.length - 1 && 'is-last', i > 0 && t - ticks[i - 1] < 2 && 'is-crowded']} style={`--x:${pct(t)}`}>{i === ticks.length - 1 ? `${t} %` : t}</span>
             ))}
           </span>
         </div>
@@ -620,6 +620,8 @@ const qt = (t: string) => nb(t).replace(/ (?=[-–—] )/g, '\u00a0');
   .sc__tick { position: absolute; top: 0; left: var(--x); translate: -50% 0; font-size: var(--fs-tiny); color: var(--color-muted); white-space: nowrap; }
   .sc__tick.is-first { translate: 0 0; }
   .sc__tick.is-last { translate: -100% 0; }
+  /* деления ближе 2 % к соседу (1, 6, 18 — границы серий Dauer) на телефоне не подписываем: «17 18 20 %» слипались (QA 24.10) */
+  @media (max-width: 599px) { .sc__tick.is-crowded { display: none; } }
   .sc .src { margin-top: var(--space-5); }
 
   @media (min-width: 720px) {

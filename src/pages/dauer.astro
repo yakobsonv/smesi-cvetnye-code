@@ -152,7 +152,7 @@ const cmp: Cmp[] = [
   { label: 'Для какого кирпича', v: all.map((x) => x.f.forBrick), wide: true },
   ...cmpLabels.map((l) => ({ label: l, v: all.map((x) => spec(x.f, l).value) })),
   { label: 'Мешок', v: all.map((x) => pack(x.f).value) },
-  { label: 'Цветов у нас', v: all.map((x) => String(x.s.colors.length)) },
+  { label: 'Цветов в палитре', v: all.map((x) => String(x.s.colors.length)) },
 ];
 const same = (v: string[]) => v.every((x) => x === v[0]);
 const cmpSources = sources([
@@ -179,7 +179,7 @@ const seriesBlocks = [
   ...b,
   facts: [
     ['Мешок', pack(b.f).value],
-    ['Цветов у нас', String(b.s.colors.length)],
+    ['Цветов в палитре', String(b.s.colors.length)],
     ['Толщина шва', joint(b.f)],
     ['Морозостойкость', spec(b.f, 'Морозостойкость').value],
   ] as Fact[],
@@ -277,7 +277,7 @@ const itemList = {
     h1="Цветные кладочные смеси Dauer BRICK.COLOR"
     crumb="Dauer"
     trail={[{ label: 'Каталог', href: PAGES.katalog.href }]}
-    lead={`Смесь Dauer подбирают по кирпичу: BRICK.COLOR 250 — для кирпича с водопоглощением 6–12 %, 251 — для всех видов кирпича 5–18 %, в том числе ручной формовки, 252 — для клинкера 1–5 %. Палитра одна на три смеси — ${colorsCount} ${colorsWord(colorsCount)}, ${positionsCount} позиций.`}
+    lead={`Смесь Dauer подбирают по кирпичу: BRICK.COLOR 250 — для кирпича с водопоглощением 6–12 %, 251 — для всех видов кирпича 5–18 %, в том числе ручной формовки, 252 — для клинкера 1–5 %. Палитра одна на три смеси — ${colorsCount} ${colorsWord(colorsCount)}, ${positionsCount} позиций; наличие цветов и мешков уточняйте у менеджера.`}
   >
     <nav class="os-jump" aria-label="Разделы страницы" data-reveal>
       <ol>
@@ -292,7 +292,7 @@ const itemList = {
           </a>
           <p class="os-pal__cap">
             <a href={`#${s250.id}-cveta`}>Палитра BRICK.COLOR</a>
-            <span class="num">{colorsCount}&nbsp;{colorsWord(colorsCount)} у&nbsp;нас</span>
+            <span class="num">{colorsCount}&nbsp;{colorsWord(colorsCount)} в&nbsp;палитре</span>
           </p>
         </div>
         <p class="os-pal__note">
@@ -398,7 +398,7 @@ const itemList = {
         </div>
       </div>
       <div class="os-colors-head">
-        <h3 class="os-sub" id={`${s.id}-cveta`}>{nb(`Цвета ${shortName(s.id)} у нас — ${s.colors.length}`)}</h3>
+        <h3 class="os-sub" id={`${s.id}-cveta`}>{nb(`Цвета ${shortName(s.id)} — ${s.colors.length}`)}</h3>
         <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
       </div>
       <SwatchGrid series={s.id} />
