@@ -607,7 +607,8 @@ const itemList = {
     .wh__brand:nth-child(even) { grid-column: 4 / span 2; }
     .wh__brand:nth-child(-n + 2) { grid-row: 1 / span 6; }
     .wh__brand:nth-child(n + 3):nth-child(-n + 4) { grid-row: 7 / span 6; }
-    .wh__brand:nth-child(-n + 2) .wh__bname { margin-top: 0; }
+    /* вес выше, чем у «.wh__brand + .wh__brand .wh__bname» (QA 23.10: подпись второй марки уезжала на 64 px) */
+    .wh__brand + .wh__brand:nth-child(-n + 2) .wh__bname { margin-top: 0; }
   }
 
   .wh__foot { display: grid; gap: var(--space-6); margin-top: clamp(48px, 6vw, 88px); padding-top: var(--space-5); border-top: 1px solid rgb(247 244 238 / 0.28); }
