@@ -22,8 +22,8 @@ import Section from '../components/layout/Section.astro';
 import Container from '../components/layout/Container.astro';
 import SwatchNote from '../components/smesi/SwatchNote.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
-import { OFFICES, HOURS_FULL, getSite, localPath } from '../lib/sites';
-import { SERIES } from '../data/catalog';
+import { OFFICES, HOURS_FULL, getSite } from '../lib/sites';
+import { SERIES, BRAND_LIST, seriesHref } from '../data/catalog';
 import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
 import { nb } from '../lib/typo';
@@ -50,7 +50,7 @@ const packGroups = [
     name: s.name,
     short: s.short,
     kg: s.packKg,
-    href: `${localPath('smesi', s.page)}#${s.id}`,
+    href: seriesHref(s),
     ask: `${s.name} — цвет подберём`,
     colors: s.colors.map((c) => swatchFor(s.id, c.code)),
     count: s.colors.length,
@@ -169,7 +169,7 @@ const contactJson = {
 
   <Section id="fasovka" kicker="Фасовка" title="В чём приезжает смесь" bg="base">
     <table class="dv-pk" data-reveal>
-      <caption class="vh">Фасовка цветных смесей Perel и Основит: серия, назначение, оттенки, мешок</caption>
+      <caption class="vh">Фасовка цветных смесей {BRAND_LIST}: серия, назначение, оттенки, мешок</caption>
       <thead>
         <tr>
           <th scope="col">Серия</th>

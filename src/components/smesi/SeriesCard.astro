@@ -1,9 +1,8 @@
 ---
 // Серия (редизайн 11.10): широкая полоса оттенков раствора сверху, название антиквой, тонкие строки
 // фактов, две текстовые ссылки. Без рамки и тени — разделители линиями.
-import { seriesById, type SeriesId } from '../../data/catalog';
+import { seriesById, seriesHref, type SeriesId } from '../../data/catalog';
 import { swatchFor } from '../../data/swatches';
-import { localPath } from '../../lib/sites';
 import { nb } from '../../lib/typo';
 
 interface Props { id: SeriesId; level?: 2 | 3; href?: string }
@@ -11,7 +10,9 @@ interface Props { id: SeriesId; level?: 2 | 3; href?: string }
 const { id, level = 3, href } = Astro.props;
 const s = seriesById(id);
 const Heading = `h${level}` as any;
-const link = href ?? `${localPath('smesi', s.page)}#${s.id}`;
+const link = href ?? seriesHref(s);
+// у серий без страницы бренда (Promix, Стройбриг — данных производителя нет) ссылка ведёт на их цвета в каталоге
+const linkLabel = s.page || href ? 'Характеристики' : 'Все цвета';
 ---
 
 <article class="sr">
@@ -27,7 +28,7 @@ const link = href ?? `${localPath('smesi', s.page)}#${s.id}`;
     <div><dt>Мешок</dt><dd class="num">{s.packKg} кг</dd></div>
   </dl>
   <div class="sr__actions">
-    <a class="arrow-link" href={link}>Характеристики <span aria-hidden="true">→</span></a>
+    <a class="arrow-link" href={link}>{linkLabel} <span aria-hidden="true">→</span></a>
     <button class="sr__ask" type="button" data-ask={`${s.name} — цвет подберём`}>Узнать цену</button>
   </div>
 </article>

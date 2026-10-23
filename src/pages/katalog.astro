@@ -1,5 +1,6 @@
 ---
-// Каталог — весь ассортимент дилера Perel и Основит на одной странице (план, волна 1, № 2).
+// Каталог — весь ассортимент дилера на одной странице (план, волна 1, № 2): Perel и Основит, с 23.10 — Promix и Стройбриг.
+// У Promix и Стройбриг своей страницы и данных производителя нет — у их серий нет ссылки «Характеристики».
 // Карточки на каждую позицию НЕ делаем (≈120 тонких страниц): позиция — образец в сетке
 // своей серии, клик открывает окно «Узнать цену» с этой позицией.
 // Фильтры работают без перезагрузки и пишут выбор в адрес (?kirpich=…&ton=…&brend=…&dlya=…),
@@ -11,12 +12,13 @@ import Container from '../components/layout/Container.astro';
 import SwatchGrid from '../components/smesi/SwatchGrid.astro';
 import SwatchNote from '../components/smesi/SwatchNote.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
-import { SERIES, BRICK_TYPES, BRANDS, TONES, POSITIONS, ALSO_FOR, type BrickType, type Tone } from '../data/catalog';
+import { SERIES, BRICK_TYPES, BRANDS, BRAND_LIST, TONES, POSITIONS, ALSO_FOR, seriesHref, type BrickType, type Tone } from '../data/catalog';
 import { swatchFor } from '../data/swatches';
-import { localPath } from '../lib/sites';
 import { nb } from '../lib/typo';
+import { plural } from '../lib/format';
 
 const typeOrder: BrickType[] = ['obychnyj', 'ruchnoj', 'klinker'];
+const positionsText = `${POSITIONS.length} ${plural(POSITIONS.length, 'позиция', 'позиции', 'позиций')}`;
 const toneOrder: Tone[] = ['white', 'grey', 'black', 'beige', 'brown', 'yellow', 'red', 'accent'];
 const toneSample = (t: Tone) => {
   const p = POSITIONS.find((x) => x.color.tone === t);
@@ -32,8 +34,8 @@ const itemList = {
 ---
 
 <Page
-  title="Каталог цветных кладочных смесей Perel и Основит — все цвета шва"
-  description={`${POSITIONS.length} позиций Perel SL, VL, NL, RL и Основит Брикформ МС11, МС11/1, Бриксэйв ХС30. Фильтр по кирпичу, производителю и цвету шва.`}
+  title={`Каталог цветных кладочных смесей ${BRAND_LIST} — все цвета шва`}
+  description={`${positionsText} Perel SL, VL, NL, RL, Основит Брикформ МС11, МС11/1, Бриксэйв ХС30, Promix CKS 512, CKS 017 и Стройбриг Кирпирок MC11. Фильтр по кирпичу, производителю и цвету шва.`}
   slug="katalog"
   current="katalog"
   source="katalog"
@@ -43,7 +45,7 @@ const itemList = {
     kicker="Каталог"
     h1="Цветные кладочные смеси"
     crumb="Каталог"
-    lead={`Perel и Основит — ${POSITIONS.length} позиций. Выберите кирпич, производителя и тон шва; нажмите на образец, чтобы узнать цену и наличие.`}
+    lead={`${BRAND_LIST} — ${positionsText}. Выберите кирпич, производителя и тон шва; нажмите на образец, чтобы узнать цену и наличие.`}
   />
 
   <section class="kat" data-kat>
@@ -104,7 +106,7 @@ const itemList = {
                     {' '}· {nb(`мешок ${s.packKg} кг`)}
                   </p>
                 </div>
-                <a class="ser__more" href={`${localPath('smesi', s.page)}#${s.id}`}>Характеристики <span aria-hidden="true">→</span></a>
+                {s.page && <a class="ser__more" href={seriesHref(s)}>Характеристики <span aria-hidden="true">→</span></a>}
               </header>
               <SwatchGrid series={s.id} />
             </section>
@@ -115,7 +117,7 @@ const itemList = {
           редкий цвет, позвоните: подскажем ближайший.
         </p>
       </div>
-      <SwatchNote />
+      <SwatchNote series={SERIES.map((s) => s.id)} />
     </Container>
   </section>
 

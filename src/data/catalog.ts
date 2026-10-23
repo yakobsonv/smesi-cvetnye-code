@@ -3,18 +3,29 @@
  *  ИСТОЧНИК СОСТАВА — действующий магазин смесей клиента tk-sm.ru («ТОРГКОМПЛЕКТ»), разделы
  *  «Цветные смеси» (подразделы по водопоглощению кирпича) и «Затирки для швов», снято 09.10.2026:
  *    https://tk-sm.ru/products/2369 — клинкерный кирпич 0–5 %: Perel NL × 14
- *    https://tk-sm.ru/products/2370 — обычный кирпич 5–12 %: Perel SL × 14, Основит Брикформ МС11 × 22
- *    https://tk-sm.ru/products/2371 — ручная формовка 10–17 %: Perel VL × 14, Основит Брикформ МС11/1 × 22
+ *    https://tk-sm.ru/products/2370 — обычный кирпич 5–12 %: Perel SL × 14, Основит Брикформ МС11 × 22,
+ *                                     Promix CKS 512 × 12, Стройбриг Кирпирок MC11 × 8
+ *    https://tk-sm.ru/products/2371 — ручная формовка 10–17 %: Perel VL × 14, Основит Брикформ МС11/1 × 22,
+ *                                     Promix CKS 017 × 12
  *    https://tk-sm.ru/products/2389 — затирки для швов: Perel RL × 12, Основит Бриксэйв ХС30 × 22
- *  В тех же разделах у дилера есть Promix CKS 512 / CKS 017 и Стройбриг «Кирпирок» — на сайт
- *  НЕ взяты до слова Влада (план, вопрос 2): источники фактов по заданию — только Perel,
- *  Основит, Dauer; Dauer в каталоге дилера нет (позиций 0).
+ *  PROMIX И СТРОЙБРИГ взяты 23.10.2026 по решению Паши («добавить всех производителей, которые есть
+ *  на изначальном сайте»); вопрос Владу (план, вопрос 2) — в журнале доски. До этого не брали:
+ *  источники фактов по заданию — только Perel, Основит, Dauer (Dauer в каталоге дилера нет, позиций 0).
+ *  По этим двум маркам у нас ТОЛЬКО ассортимент дилера: серия, подраздел (тип кирпича), фасовка,
+ *  название и код цвета — из названий позиций tk-sm.ru (снимок 09.10.2026: Promix CKS 512 —
+ *  /products/2221, 2396–2406; CKS 017 — /products/2410–2421; Стройбриг — /products/2454–2461).
+ *  Сайты марок perel-promix.ru и stroybrig.ru 23.10 не открывались (таймаут) — характеристик,
+ *  расхода, прочности и своих страниц у этих серий нет и не пишем; в series-facts.ts их нет.
+ *  Водопоглощение у них — диапазон подраздела дилера (у производителя не подтверждено).
  *
  *  НАЗВАНИЯ И КОДЫ ЦВЕТОВ — по палитрам производителей (у дилера в названиях встречается род
  *  «белая/белый», это одно и то же):
  *    Perel — https://td-perel.ru/catalog/palitra-14-tsvetov/ (14 цветов, коды 01–65; артикул
  *    = серия 00 / 01 / 02 + код: SL 0005, NL 0105, VL 0205); затирка RL — 12 цветов, артикул 04 + код.
  *    Основит — палитра Брикформ и Бриксэйв на osnovit.ru, коды трёхзначные (010 белый …).
+ *    Promix — коды четырёхзначные, как у дилера: CKS 512 — …00 (0300 супер-белый … 6400 чёрный),
+ *    CKS 017 — те же цвета с «20» на конце (0320 … 6420). Названия — как у одноимённых цветов Perel.
+ *    Стройбриг — коды и названия как у Основит (010 белый … 040 коричневый).
  *  ⚠️ У белой NL на сайте Perel ошибка: 0105 в заголовке и 0101 в свойствах. По палитре
  *  01 = супер-белый, 05 = белый — так и у дилера (супер-белая 0101, белая 0105).
  *  ⚠️ Код Основит 041: на новой палитре производителя «светло-кирпичный», везде ещё
@@ -24,6 +35,8 @@
  *  ЦЕН НЕТ НАМЕРЕННО: цены производителей на сайт не ставим, дилерские — только по слову
  *  Влада (план, вопрос 3). Кнопка позиции — «Узнать цену».
  */
+
+import { localPath } from '../lib/sites';
 
 /** Тип кирпича по водопоглощению — главная логика выбора у всех производителей и у дилера.
  *  Подписи и диапазоны — как у самого дилера: подразделы tk-sm.ru «Клинкерный кирпич 0-5%»,
@@ -52,9 +65,16 @@ export const BRICK_TYPES: Record<BrickType, { label: string; short: string; abso
   },
 };
 
-export type Brand = 'perel' | 'osnovit';
+export type Brand = 'perel' | 'osnovit' | 'promix' | 'stroybrig';
 
-export type SeriesId = 'perel-nl' | 'perel-sl' | 'perel-vl' | 'perel-rl' | 'osnovit-mc11' | 'osnovit-mc11-1' | 'osnovit-xc30';
+/** Бренды со своей страницей на сайте (/perel/, /osnovit/): по ним есть данные производителя (series-facts.ts). */
+export type BrandPage = 'perel' | 'osnovit';
+
+/** Серии, по которым есть данные производителя (series-facts.ts → SERIES_FACTS) и страница бренда. */
+export type FactSeriesId = 'perel-nl' | 'perel-sl' | 'perel-vl' | 'perel-rl' | 'osnovit-mc11' | 'osnovit-mc11-1' | 'osnovit-xc30';
+
+/** Все серии: с данными производителя и только по ассортименту дилера (Promix, Стройбриг). */
+export type SeriesId = FactSeriesId | 'promix-cks512' | 'promix-cks017' | 'stroybrig-mc11';
 
 /** Назначение смеси: кладочная (кладка и шов за один проход) или для расшивки готовых швов. */
 export type Purpose = 'kladka' | 'rasshivka';
@@ -143,6 +163,40 @@ export const OSNOVIT_COLORS: Color[] = [
   { code: '083', name: 'медный', tone: 'brown' },
 ];
 
+/** Promix CKS 512 и CKS 017 — у дилера 12 одинаковых цветов, коды — как в названиях позиций tk-sm.ru.
+ *  Названия — как у одноимённых цветов палитры Perel (Promix — марка Perel), группа оттенка — как у них. */
+const PROMIX_BASE: Color[] = [
+  { code: '03', name: 'супер-белый', tone: 'white' },
+  { code: '04', name: 'белый', tone: 'white' },
+  { code: '08', name: 'серый', tone: 'grey' },
+  { code: '14', name: 'тёмно-серый', tone: 'grey' },
+  { code: '18', name: 'бежевый', tone: 'beige' },
+  { code: '24', name: 'кремово-бежевый', tone: 'beige' },
+  { code: '28', name: 'кремово-жёлтый', tone: 'beige' },
+  { code: '38', name: 'кремовый', tone: 'beige' },
+  { code: '44', name: 'светло-коричневый', tone: 'brown' },
+  { code: '48', name: 'коричневый', tone: 'brown' },
+  { code: '54', name: 'шоколадный', tone: 'brown' },
+  { code: '64', name: 'чёрный', tone: 'black' },
+];
+/** Promix CKS 512: 0300 … 6400. */
+export const PROMIX_CKS512_COLORS: Color[] = PROMIX_BASE.map((c) => ({ ...c, code: `${c.code}00` }));
+/** Promix CKS 017: те же цвета, код с «20» на конце — 0320 … 6420. */
+export const PROMIX_CKS017_COLORS: Color[] = PROMIX_BASE.map((c) => ({ ...c, code: `${c.code}20` }));
+
+/** Стройбриг Кирпирок MC11 — 8 цветов у дилера; коды и названия совпадают с палитрой Основит
+ *  (тот же производитель, ООО «Седрус»), группа оттенка — как у Основит. */
+export const STROYBRIG_COLORS: Color[] = [
+  { code: '010', name: 'белый', tone: 'white' },
+  { code: '011', name: 'супербелый', tone: 'white' },
+  { code: '021', name: 'светло-серый', tone: 'grey' },
+  { code: '022', name: 'тёмно-серый', tone: 'grey' },
+  { code: '023', name: 'графит', tone: 'black' },
+  { code: '030', name: 'бежевый', tone: 'beige' },
+  { code: '034', name: 'светло-бежевый', tone: 'beige' },
+  { code: '040', name: 'коричневый', tone: 'brown' },
+];
+
 /** ── Серии ───────────────────────────────────────────────────────────────────── */
 
 export interface SeriesRef {
@@ -157,15 +211,17 @@ export interface SeriesRef {
   brickType?: BrickType;
   /** водопоглощение кирпича ПО ПРОИЗВОДИТЕЛЮ (series-facts.ts, forBrick). Диапазоны дилера
    *  (BRICK_TYPES) — только для типа кирпича; серии их не приписываем: у Perel VL 5–17 %,
-   *  а не 10–17 %, у МС11/1 «более 12 %» (сквозная проверка 11.10). */
+   *  а не 10–17 %, у МС11/1 «более 12 %» (сквозная проверка 11.10).
+   *  Исключение — Promix и Стройбриг (23.10): данных производителя нет, стоит диапазон подраздела дилера. */
   absorption?: string;
   colors: Color[];
   /** фасовка, которую держит дилер, кг */
   packKg: number;
   /** префикс артикула Perel: '00' + '05' = 0005 */
   articlePrefix?: string;
-  /** страница бренда на нашем сайте и якорь серии */
-  page: string;
+  /** страница бренда на нашем сайте (якорь — id серии). Не задано — своей страницы нет (Promix, Стройбриг:
+   *  данных производителя нет); адрес серии в любом случае — seriesHref (без страницы — серия в каталоге). */
+  page?: BrandPage;
 }
 
 export const SERIES: SeriesRef[] = [
@@ -174,6 +230,11 @@ export const SERIES: SeriesRef[] = [
   { id: 'perel-nl', brand: 'perel', name: 'Perel NL', short: 'для клинкерного кирпича', purpose: 'kladka', brickType: 'klinker', absorption: '0–5 %', colors: PEREL_COLORS, packKg: 50, articlePrefix: '01', page: 'perel' },
   { id: 'osnovit-mc11', brand: 'osnovit', name: 'Основит Брикформ МС11', short: 'для облицовочного кирпича до 12 % и клинкера', purpose: 'kladka', brickType: 'obychnyj', absorption: 'до 12 %, а также клинкер', colors: OSNOVIT_COLORS, packKg: 25, page: 'osnovit' },
   { id: 'osnovit-mc11-1', brand: 'osnovit', name: 'Основит Брикформ МС11/1', short: 'для кирпича с водопоглощением выше 12 % и ручной формовки', purpose: 'kladka', brickType: 'ruchnoj', absorption: 'более 12 %', colors: OSNOVIT_COLORS, packKg: 25, page: 'osnovit' },
+  // Promix и Стройбриг — только по ассортименту дилера (см. шапку): short и absorption — по подразделу tk-sm.ru,
+  // артикул = код цвета, как в названии позиции у дилера; страницы бренда нет.
+  { id: 'promix-cks512', brand: 'promix', name: 'Promix CKS 512', short: 'для обычного кирпича', purpose: 'kladka', brickType: 'obychnyj', absorption: '5–12 %', colors: PROMIX_CKS512_COLORS, packKg: 50 },
+  { id: 'promix-cks017', brand: 'promix', name: 'Promix CKS 017', short: 'для кирпича ручной формовки', purpose: 'kladka', brickType: 'ruchnoj', absorption: '10–17 %', colors: PROMIX_CKS017_COLORS, packKg: 50 },
+  { id: 'stroybrig-mc11', brand: 'stroybrig', name: 'Стройбриг Кирпирок MC11', short: 'для обычного кирпича', purpose: 'kladka', brickType: 'obychnyj', absorption: '5–12 %', colors: STROYBRIG_COLORS, packKg: 25 },
   { id: 'perel-rl', brand: 'perel', name: 'Perel RL', short: 'затирка для швов', purpose: 'rasshivka', colors: PEREL_RL_COLORS, packKg: 25, articlePrefix: '04', page: 'perel' },
   { id: 'osnovit-xc30', brand: 'osnovit', name: 'Основит Бриксэйв ХС30', short: 'раствор для расшивки швов', purpose: 'rasshivka', colors: OSNOVIT_COLORS, packKg: 20, page: 'osnovit' },
 ];
@@ -181,7 +242,15 @@ export const SERIES: SeriesRef[] = [
 export const BRANDS: Record<Brand, { name: string; maker: string; site: string }> = {
   perel: { name: 'Perel', maker: 'Perel (группа компаний «Текато»), завод в Щёлкове, Московская область', site: 'https://td-perel.ru' },
   osnovit: { name: 'Основит', maker: 'ТМ «Основит» (ООО «Седрус»), производство в Коломне, Московская область', site: 'https://osnovit.ru' },
+  // ⚠️ Promix и Стройбриг: производитель указан по вторичным источникам, с сайтов производителей НЕ подтверждён —
+  // perel-promix.ru и stroybrig.ru 23.10.2026 не открывались (таймаут). maker и site на страницы сейчас не выводятся.
+  promix: { name: 'Promix', maker: 'марка Perel (эконом-линейка)', site: 'https://perel-promix.ru' },
+  stroybrig: { name: 'Стройбриг', maker: 'ТМ «Стройбриг» (ООО «Седрус» — производитель Основит)', site: 'https://stroybrig.ru' },
 };
+
+/** Все марки через запятую и «и» — для текстов, где перечислены бренды: «Perel, Основит, Promix и Стройбриг». */
+export const andList = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} и ${xs[xs.length - 1]}` : xs.join(''));
+export const BRAND_LIST = andList(Object.values(BRANDS).map((b) => b.name));
 
 /** Клинкер у Основит: МС11 по назначению производителя подходит и для клинкерного кирпича
  *  («Керамический, силикатный облицовочный кирпич с нормальным водопоглощением до 12%.
@@ -225,6 +294,9 @@ export const seriesById = (id: SeriesId): SeriesRef => {
   if (!s) throw new Error(`Нет серии ${id}`);
   return s;
 };
+
+/** Адрес серии на сайте: на странице бренда, у серий без своей страницы — в каталоге. */
+export const seriesHref = (s: SeriesRef): string => `${localPath('smesi', s.page ?? 'katalog')}#${s.id}`;
 
 /** Серии, подходящие к типу кирпича (кладочные). */
 export const seriesFor = (t: BrickType): SeriesRef[] =>

@@ -24,9 +24,11 @@
  *  ⚠️ У Основит один и тот же код на двух картинках выглядит по-разному: Брикформ нарисован яркими
  *  заливками, ХС30 — фотографией образцов (046 оранжевый: #ff8300 против #934931; 070 жёлтый:
  *  #ffcb00 против #b0943e). Поэтому палитры ведём раздельно и берём ту, что относится к серии.
+ *  ⚠️ Promix и Стройбриг (добавлены 23.10) своего замера не имеют: плашки — одноимённые цвета Perel
+ *  и Основит (PALETTE_OF, PROMIX_TO_PEREL), это приближение к приближению; оговорка — SWATCH_BORROWED.
  */
 
-import type { SeriesId } from './catalog';
+import { SERIES, PEREL_COLORS, type Brand, type SeriesId } from './catalog';
 
 export type SwatchPalette = 'perel' | 'perel-rl' | 'osnovit' | 'osnovit-xc30';
 
@@ -121,16 +123,72 @@ const PALETTE_OF: Record<SeriesId, SwatchPalette> = {
   'perel-rl': 'perel-rl',
   'osnovit-mc11': 'osnovit',
   'osnovit-mc11-1': 'osnovit',
-  'osnovit-xc30': 'osnovit-xc30',
+  // 23.10 (Паша: «ярче, с сайтов производителей»): для ХС30 берём заливки палитры Брикформ — те же коды,
+  // нарисованы самим производителем; фото образцов ХС30 (палитра 'osnovit-xc30' выше) темнее и остаётся как замер.
+  'osnovit-xc30': 'osnovit',
+  // 23.10 (Promix, Стройбриг): своих палитр-картинок у нас нет (perel-promix.ru и stroybrig.ru не открывались).
+  // ЭТО ПРИБЛИЖЕНИЕ ВТОРОГО ПОРЯДКА: плашка — одноимённый цвет палитры родственной марки, а не замер этого товара.
+  // Promix — палитра Perel по названию цвета (коды разные — PROMIX_TO_PEREL ниже); Стройбриг — заливки
+  // Брикформ Основит по тому же коду. Оговорка рядом с образцами — SwatchNote с series (см. SWATCH_BORROWED).
+  'promix-cks512': 'perel',
+  'promix-cks017': 'perel',
+  'stroybrig-mc11': 'osnovit',
 };
+
+/** Promix → Perel: первые две цифры кода Promix → код Perel того же названия цвета. CKS 512 — код …00,
+ *  CKS 017 — …20 (0300 / 0320 супер-белый → 01 … 6400 / 6420 чёрный → 65). Сверка названий — ниже. */
+const PROMIX_PEREL: [promix: string, perel: string][] = [
+  ['03', '01'], // супер-белый
+  ['04', '05'], // белый
+  ['08', '10'], // серый
+  ['14', '15'], // тёмно-серый
+  ['18', '20'], // бежевый
+  ['24', '25'], // кремово-бежевый
+  ['28', '30'], // кремово-жёлтый
+  ['38', '40'], // кремовый
+  ['44', '45'], // светло-коричневый
+  ['48', '50'], // коричневый
+  ['54', '55'], // шоколадный
+  ['64', '65'], // чёрный
+];
+export const PROMIX_TO_PEREL: Record<string, string> = Object.fromEntries(
+  PROMIX_PEREL.flatMap(([p, perel]) => [[`${p}00`, perel], [`${p}20`, perel]]),
+);
+
+/** Код цвета серии → код в палитре PALETTE_OF, если они разные (только Promix). */
+const CODE_IN_PALETTE: Partial<Record<SeriesId, Record<string, string>>> = {
+  'promix-cks512': PROMIX_TO_PEREL,
+  'promix-cks017': PROMIX_TO_PEREL,
+};
+
+/** Серии, у которых плашки взяты с палитры другой марки, — для оговорки SwatchNote. */
+export const SWATCH_BORROWED: Partial<Record<SeriesId, Brand>> = {
+  'promix-cks512': 'perel',
+  'promix-cks017': 'perel',
+  'stroybrig-mc11': 'osnovit',
+};
+
+// Сверка при сборке: код из таблицы ведёт на цвет Perel с тем же названием и у каждого цвета Promix есть плашка.
+for (const s of SERIES) {
+  const map = CODE_IN_PALETTE[s.id];
+  if (!map) continue;
+  for (const c of s.colors) {
+    const perel = PEREL_COLORS.find((x) => x.code === map[c.code]);
+    if (!perel || perel.name !== c.name || !SWATCH[PALETTE_OF[s.id]][perel.code]) {
+      throw new Error(`swatches: у ${s.name} ${c.code} (${c.name}) нет одноимённого цвета Perel — поправьте PROMIX_PEREL`);
+    }
+  }
+}
 
 /** Усиление насыщенности плашек на экране (решение Паши 22.10): замеры выше не трогаем, усиление
  *  только при выводе через swatchFor — то есть везде, где цвет берётся из данных (каталог, серии,
  *  полосы тонов, волна на первом экране). Насыщенность в HSL умножается на этот коэффициент, светлота
- *  не меняется: серые и белые остаются серыми и белыми. 1 — как замерено. */
-export const SWATCH_SATURATION = 1.7;
+ *  не меняется: серые и белые остаются серыми и белыми. 1 — как замерено.
+ *  История: 1,7 (22.10 «ещё насыщеннее») → 2,4 (23.10 «ещё ярче»). Цвета, у которых S уже 1 (жёлтый 35,
+ *  ореховый 036, оранжевый 046, жёлтый 070, медный 083), дальше не меняются. */
+export const SWATCH_SATURATION = 2.4;
 
-/** Насыщеннее на k: hex → HSL → S × k (не выше 1) → hex. */
+/** Насыщеннее на k: hex → HSL → S × k (не выше 1) → hex; нейтральные (S < 0.08) не трогаем, до 0.25 — плавно. */
 export function saturate(hex: string, k: number): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   if (!m || k === 1) return hex;
@@ -140,15 +198,22 @@ export function saturate(hex: string, k: number): string {
   if (d === 0) return hex;
   let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
   h = (h * 60 + 360) % 360;
-  const s = Math.min(1, (d / (1 - Math.abs(2 * l - 1))) * k);
+  const s0 = d / (1 - Math.abs(2 * l - 1));
+  // Почти нейтральные цвета (белые, серые: S < 0.08) не усиливаем, до S = 0.25 — плавно: иначе шум замера
+  // (розоватый белый 010, зеленоватый серый 021) превращается в заметный оттенок. Ярче становятся только цветные.
+  const ramp = Math.min(1, Math.max(0, (s0 - 0.08) / (0.25 - 0.08)));
+  // Очень светлые (L ≥ 0.88 — супер-белые, белые) тоже не усиливаем, от 0.80 — плавно: белый с тёплым замером не должен розоветь.
+  const light = Math.min(1, Math.max(0, (0.88 - l) / 0.08));
+  const s = Math.min(1, s0 * (1 + (k - 1) * ramp * light));
   const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), mm = l - c / 2;
   const [r1, g1, b1] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
   const to = (v: number) => Math.round((v + mm) * 255).toString(16).padStart(2, '0');
   return `#${to(r1)}${to(g1)}${to(b1)}`;
 }
 
-/** HEX плашки для цвета серии: код — как в catalog.ts ('05', '010'). С усилением насыщенности. */
+/** HEX плашки для цвета серии: код — как в catalog.ts ('05', '010', у Promix '0300'). С усилением насыщенности. */
 export function swatchFor(seriesId: SeriesId, code: string): string {
   const palette = PALETTE_OF[seriesId];
-  return saturate((palette && SWATCH[palette][code]) || SWATCH_FALLBACK, SWATCH_SATURATION);
+  const key = CODE_IN_PALETTE[seriesId]?.[code] ?? code;
+  return saturate((palette && SWATCH[palette][key]) || SWATCH_FALLBACK, SWATCH_SATURATION);
 }

@@ -3,6 +3,7 @@
 import Container from '../layout/Container.astro';
 import { getSite, OFFICES, HOURS_FULL } from '../../lib/sites';
 import { PAGES } from '../../data/nav';
+import { BRAND_LIST } from '../../data/catalog';
 
 const site = getSite('smesi');
 const year = new Date().getFullYear();
@@ -36,7 +37,7 @@ const cols = [
       ))}
     </div>
     <div class="ft__bottom">
-      <p>© {year} {site.legal.name}, ИНН {site.legal.inn}. Perel и Основит — товарные знаки производителей.</p>
+      <p>© {year} {site.legal.name}, ИНН {site.legal.inn}. {BRAND_LIST} — товарные знаки производителей.</p>
       <p><a href={PAGES.regulation.href}>Положение об обработке персональных данных</a> · <a href={PAGES.consent.href}>Согласие на обработку персональных данных</a></p>
     </div>
   </Container>

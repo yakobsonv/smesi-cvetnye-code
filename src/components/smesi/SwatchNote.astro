@@ -2,13 +2,25 @@
 // Оговорка о цветопередаче — под сетками образцов. Основание — слова производителей: у Основит цвет
 // шва зависит от воды затворения, времени и способа расшивки (карточка Брикформ МС11); Dauer советует
 // пробную кладку (BRICK.COLOR 250).
-interface Props { class?: string }
-const { class: className } = Astro.props;
+// series — какие серии стоят в сетке над оговоркой: если среди них есть серии без своего замера плашек
+// (Promix, Стройбриг — swatches.ts → SWATCH_BORROWED), добавляется фраза, с чьей палитры взяты их плашки.
+import { BRANDS, andList, seriesById, type Brand, type SeriesId } from '../../data/catalog';
+import { SWATCH_BORROWED } from '../../data/swatches';
+
+interface Props { class?: string; series?: SeriesId[] }
+const { class: className, series = [] } = Astro.props;
+
+const borrowed = [...new Set(series.filter((id) => SWATCH_BORROWED[id]))];
+const own = [...new Set(borrowed.map((id) => seriesById(id).brand))] as Brand[];
+const from = [...new Set(borrowed.map((id) => SWATCH_BORROWED[id]!))];
+const borrowedLine = own.length
+  ? `У ${andList(own.map((b) => BRANDS[b].name))} плашки показаны по одноимённым цветам ${andList(from.map((b) => BRANDS[b].name))}.`
+  : '';
 ---
 <p class:list={['note', className]}>
   <span class="label">Цвет на экране приблизительный</span>
   Плашки сняты с палитр и фотографий образцов производителей. Оттенок готового шва зависит от количества воды
-  и способа расшивки — перед заказом партии сделайте пробную кладку.
+  и способа расшивки — перед заказом партии сделайте пробную кладку.{borrowedLine && ` ${borrowedLine}`}
 </p>
 <style>
   .note { display: grid; gap: 6px; max-width: 62ch; margin: var(--space-7) 0 0; padding-top: var(--space-4); border-top: 1px solid var(--hair); font-size: var(--fs-small); color: var(--color-muted); }

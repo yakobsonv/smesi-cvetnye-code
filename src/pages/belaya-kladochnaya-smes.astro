@@ -2,6 +2,8 @@
 // Белая кладочная смесь (план, волна 1): самый частый запрос по цвету — белый и супер-белый шов.
 // Угол страницы: какая белая смесь под какой кирпич, белый шов на готовой кладке (расшивка),
 // все белые оттенки Perel и Основит рядом и почему светлый шов пачкается.
+// С 23.10 в композиции белых оттенков и в «Под ваш кирпич» — и Promix, и Стройбриг (catalog.ts): у них только
+// ассортимент дилера, поэтому без цитат производителя и без ссылки на характеристики — ссылка на их цвета в каталоге.
 //
 // Редизайн 11.10 (Влад: «шаблон не нужно использовать тот же, ещё и везде кирпич»): кадров кладки на странице
 // больше нет — цвет дают только образцы раствора. Как белый шов смотрится на кирпиче, показывает инструмент
@@ -23,11 +25,10 @@ import SwatchNote from '../components/smesi/SwatchNote.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
 import FaqAccordion from '../components/content/FaqAccordion.astro';
 import SpecTable from '../components/content/SpecTable.astro';
-import { BRICK_TYPES, POSITIONS, SERIES, BRANDS, seriesById, seriesFor, type Brand, type BrickType, type Position, type SeriesId } from '../data/catalog';
+import { BRICK_TYPES, POSITIONS, SERIES, BRANDS, BRAND_LIST, seriesById, seriesFor, seriesHref, type Brand, type BrickType, type FactSeriesId, type Position, type SeriesId } from '../data/catalog';
 import { swatchFor } from '../data/swatches';
-import { SERIES_FACTS, LIGHT_JOINT_FACTS, CONSUMPTION } from '../data/series-facts';
+import { SERIES_FACTS, LIGHT_JOINT_FACTS, CONSUMPTION, hasFacts, type SeriesFacts } from '../data/series-facts';
 import { PAGES } from '../data/nav';
-import { localPath } from '../lib/sites';
 import { plural } from '../lib/format';
 import { nb as typo } from '../lib/typo';
 import type { FaqItem, SpecRow } from '../lib/types';
@@ -50,7 +51,7 @@ for (const s of kladkaSeries) {
 
 /** Какие серии ссылаются на адрес источника — чтобы подпись ссылки называла товар, а не только домен. */
 const URL_SERIES = new Map<string, Set<SeriesId>>();
-for (const [id, f] of Object.entries(SERIES_FACTS) as [SeriesId, (typeof SERIES_FACTS)[SeriesId]][]) {
+for (const [id, f] of Object.entries(SERIES_FACTS) as [FactSeriesId, SeriesFacts][]) {
   const urls = [f.purposeSrc, f.forBrickSrc, ...f.specs.map((x) => x.src), ...f.packaging.map((x) => x.src), ...f.steps.map((x) => x.src), ...(f.notes ?? []).map((x) => x.src), f.winter?.src];
   for (const u of urls) {
     if (!u) continue;
@@ -85,8 +86,8 @@ function pick<T extends { text: string }>(list: T[] | undefined, needle: string,
   return f;
 }
 const ljf = (needle: string) => pick(LIGHT_JOINT_FACTS, needle, 'LIGHT_JOINT_FACTS');
-const step = (id: SeriesId, needle: string) => pick(SERIES_FACTS[id].steps, needle, `${id}.steps`);
-const note = (id: SeriesId, needle: string) => pick(SERIES_FACTS[id].notes, needle, `${id}.notes`);
+const step = (id: FactSeriesId, needle: string) => pick(SERIES_FACTS[id].steps, needle, `${id}.steps`);
+const note = (id: FactSeriesId, needle: string) => pick(SERIES_FACTS[id].notes, needle, `${id}.notes`);
 const num = (n: number | string) => String(n).replace('.', ',');
 /** диапазон «3–4» не рвём на строки: по краям тире — невидимая «склейка» (U+2060);
  *  число не отрываем от единицы (то же делает typo), короткий предлог — от следующего слова;
@@ -94,7 +95,7 @@ const num = (n: number | string) => String(n).replace('.', ',');
 const nb = (t: string) =>
   typo(t.replace(/(\d)–(\d)/g, '$1\u2060–\u2060$2').replace(/ ([-–—]) /g, '\u00a0$1 '));
 const andList = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} и ${xs[xs.length - 1]}` : xs.join(''));
-const brandHref = (id: SeriesId) => `${localPath('smesi', seriesById(id).page)}#${id}`;
+const brandHref = (id: SeriesId) => seriesHref(seriesById(id));
 const pad2 = (i: number) => String(i + 1).padStart(2, '0');
 
 /* ── 1. Все белые оттенки: композиция образцов ───────────────────────────── */
@@ -111,7 +112,8 @@ const nbHyph = (t: string) => t.replace(/-/g, '\u2011');
 const GENITIVE: Record<string, string> = { 'супер-белый': 'супер-белого', супербелый: 'супербелого', белый: 'белого' };
 const RS_NAME: Partial<Record<SeriesId, string>> = { 'perel-rl': 'затирки Perel RL', 'osnovit-xc30': 'раствора Бриксэйв ХС30' };
 
-const brandOrder: Brand[] = ['perel', 'osnovit'];
+// все марки каталога, в порядке BRANDS (Perel, Основит, Promix, Стройбриг)
+const brandOrder = Object.keys(BRANDS) as Brand[];
 const palette = brandOrder.map((b) => {
   const kl = whiteKladka.filter((p) => brandOf(p) === b);
   const names = uniq(kl.map((p) => p.color.name)).sort((x, y) => Number(isSuper(y)) - Number(isSuper(x)));
@@ -157,13 +159,14 @@ const typeOrder: BrickType[] = ['obychnyj', 'ruchnoj', 'klinker'];
 const byBrick = typeOrder.map((t) => ({
   t,
   info: BRICK_TYPES[t],
-  series: seriesFor(t).map((s) => ({ s, f: SERIES_FACTS[s.id] })),
+  // у Promix и Стройбриг данных производителя нет — f: null, цитату не показываем
+  series: seriesFor(t).map((s) => ({ s, f: hasFacts(s.id) ? SERIES_FACTS[s.id] : null })),
 }));
 const pickRule = ljf('подбирают так же');
 
 /* ── 3. Расшивка ─────────────────────────────────────────────────────────── */
 
-function rasshivkaRows(id: SeriesId): { rows: SpecRow[]; srcs: string[] } {
+function rasshivkaRows(id: FactSeriesId): { rows: SpecRow[]; srcs: string[] } {
   const f = SERIES_FACTS[id];
   const width = f.specs.find((x) => x.label === 'Ширина шва');
   const bag = f.packaging.find((x) => x.label === 'Мешок');
@@ -183,7 +186,7 @@ function rasshivkaRows(id: SeriesId): { rows: SpecRow[]; srcs: string[] } {
   }
   return { rows, srcs: uniq([f.purposeSrc, ...srcs]) };
 }
-const rasshivka = rasshivkaSeries.map((s) => ({ s, f: SERIES_FACTS[s.id], ...rasshivkaRows(s.id) }));
+const rasshivka = rasshivkaSeries.flatMap((s) => (hasFacts(s.id) ? [{ s, f: SERIES_FACTS[s.id], ...rasshivkaRows(s.id) }] : []));
 
 // Как делают белый шов на готовой кладке — пересказ технической карты Бриксэйв ХС30 и карточки Perel RL.
 const xc = {
@@ -265,6 +268,8 @@ const faq: FaqItem[] = [
 
 /* ── Микроразметка ───────────────────────────────────────────────────────── */
 
+const kladkaWord = plural(whiteKladka.length, 'позиция', 'позиции', 'позиций');
+
 const itemList = {
   '@type': 'ItemList',
   name: 'Белые кладочные смеси и растворы для расшивки швов',
@@ -274,8 +279,8 @@ const itemList = {
 ---
 
 <Page
-  title="Белая кладочная смесь для облицовочного кирпича — Perel и Основит"
-  description={`Белая и супербелая кладочная смесь Perel и Основит: ${whiteKladka.length} позиций для обычного кирпича, ручной формовки и клинкера, белые растворы для расшивки швов.`}
+  title={`Белая кладочная смесь для облицовочного кирпича — ${BRAND_LIST}`}
+  description={`Белая и супербелая кладочная смесь ${BRAND_LIST}: ${whiteKladka.length} ${kladkaWord} для обычного кирпича, ручной формовки и клинкера, белые растворы для расшивки швов.`}
   slug="belaya-kladochnaya-smes"
   current="belaya"
   source="belaya"
@@ -286,17 +291,17 @@ const itemList = {
     h1="Белая кладочная смесь для облицовочного кирпича"
     crumb="Белая кладочная смесь"
     trail={[{ label: PAGES.katalog.label, href: PAGES.katalog.href }]}
-    lead="Белый и супербелый цвет есть в каждой кладочной серии Perel и Основит — под обычный облицовочный кирпич, ручную формовку и клинкер. Для уже уложенной кладки — белые растворы для расшивки швов."
+    lead={`Белый и супербелый цвет есть в каждой кладочной серии ${BRAND_LIST} — под обычный облицовочный кирпич, ручную формовку и клинкер. Для уже уложенной кладки — белые растворы для расшивки швов.`}
   >
     <div class="bh__actions" data-reveal>
       <a class="btn btn--primary" href="#pod-kirpich">Выбрать под свой кирпич</a>
       <button class="btn btn--ghost" type="button" data-ask="Белая кладочная смесь — серию подберём под кирпич">Узнать цену</button>
     </div>
     <div class="bh__aside" slot="aside">
-      <a class="bh__strip strip" href="#galereya" aria-label="Все белые оттенки Perel и Основит">
+      <a class="bh__strip strip" href="#galereya" aria-label={`Все белые оттенки ${BRAND_LIST}`}>
         {heroStrip.map((c) => <span class="mortar" style={`--c:${c}`}></span>)}
       </a>
-      <p class="bh__cap label">Белые оттенки Perel и Основит</p>
+      <p class="bh__cap label">Белые оттенки {BRAND_LIST}</p>
       <dl class="bh__stats">
         <div><dt>{plural(whiteKladka.length, 'позиция', 'позиции', 'позиций')} для кладки</dt><dd class="num">{whiteKladka.length}</dd></div>
         <div><dt>{plural(whiteRasshivka.length, 'позиция', 'позиции', 'позиций')} для расшивки</dt><dd class="num">{whiteRasshivka.length}</dd></div>
@@ -308,7 +313,7 @@ const itemList = {
   <Section
     id="galereya"
     kicker="Все белые оттенки"
-    title="Супербелый и белый у Perel и Основит"
+    title={`Супербелый и белый у ${BRAND_LIST}`}
     subtitle="Крупные образцы — кладочные смеси, под ними — белые растворы для расшивки готовой кладки. Нажмите на образец, чтобы узнать цену и наличие."
     bg="dark"
   >
@@ -342,7 +347,7 @@ const itemList = {
         <p>{nb('Как белый шов выглядит в кладке из разного кирпича — в подборе шва.')}</p>
         <a class="arrow-link" href={PAGES.podbor.href}>Посмотреть шов на кирпиче <span aria-hidden="true">→</span></a>
       </div>
-      <SwatchNote />
+      <SwatchNote series={whites.map((p) => p.series)} />
     </div>
   </Section>
 
@@ -383,18 +388,20 @@ const itemList = {
                   <p class="bw__pack label num">мешок {s.packKg}{'\u00a0'}кг</p>
                 </div>
                 <SwatchGrid series={s.id} tones={['white']} showSeries />
-                <figure class="bw__quote">
-                  <blockquote><p>«{nb(f.forBrick)}»</p></blockquote>
-                  <figcaption class="src">По данным производителя: <a href={f.forBrickSrc} rel="nofollow noopener" target="_blank">{srcLabel(f.forBrickSrc)}</a></figcaption>
-                </figure>
-                <p class="bw__specp"><a class="arrow-link bw__spec" href={brandHref(s.id)}>Характеристики {s.name}{'\u00a0'}<span aria-hidden="true">→</span></a></p>
+                {f && (
+                  <figure class="bw__quote">
+                    <blockquote><p>«{nb(f.forBrick)}»</p></blockquote>
+                    <figcaption class="src">По данным производителя: <a href={f.forBrickSrc} rel="nofollow noopener" target="_blank">{srcLabel(f.forBrickSrc)}</a></figcaption>
+                  </figure>
+                )}
+                <p class="bw__specp"><a class="arrow-link bw__spec" href={brandHref(s.id)}>{f ? 'Характеристики' : 'Все цвета'} {s.name}{'\u00a0'}<span aria-hidden="true">→</span></a></p>
               </div>
             ))}
           </div>
         </li>
       ))}
     </ol>
-    <SwatchNote />
+    <SwatchNote series={byBrick.flatMap((row) => row.series.map(({ s }) => s.id))} />
   </Section>
 
   <Section
@@ -565,7 +572,7 @@ const itemList = {
     text-transform: uppercase;
     color: var(--sand);
   }
-  .wh__brand--osnovit .wh__bname { margin-top: var(--space-8); }
+  .wh__brand + .wh__brand .wh__bname { margin-top: var(--space-8); }
   .wh__cols { grid-column: 1 / -1; grid-row: 2 / span 5; display: grid; grid-template-columns: subgrid; grid-template-rows: subgrid; margin: 0; padding: 0; list-style: none; }
   .wh__col { grid-row: span 5; display: grid; grid-template-rows: subgrid; min-width: 0; }
 
@@ -595,9 +602,12 @@ const itemList = {
 
   @media (min-width: 900px) {
     .wh { grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) clamp(12px, 2.4vw, 40px) minmax(0, 3fr) minmax(0, 2fr); column-gap: 14px; }
-    .wh__brand--perel { grid-column: 1 / span 2; grid-row: 1 / span 6; }
-    .wh__brand--osnovit { grid-column: 4 / span 2; grid-row: 1 / span 6; }
-    .wh__brand--osnovit .wh__bname { margin-top: 0; }
+    /* по две марки в ряд: Perel | Основит, Promix | Стройбриг */
+    .wh__brand:nth-child(odd) { grid-column: 1 / span 2; }
+    .wh__brand:nth-child(even) { grid-column: 4 / span 2; }
+    .wh__brand:nth-child(-n + 2) { grid-row: 1 / span 6; }
+    .wh__brand:nth-child(n + 3):nth-child(-n + 4) { grid-row: 7 / span 6; }
+    .wh__brand:nth-child(-n + 2) .wh__bname { margin-top: 0; }
   }
 
   .wh__foot { display: grid; gap: var(--space-6); margin-top: clamp(48px, 6vw, 88px); padding-top: var(--space-5); border-top: 1px solid rgb(247 244 238 / 0.28); }
@@ -637,9 +647,9 @@ const itemList = {
   .bw__specp .bw__spec { display: inline; padding-bottom: 2px; line-height: 1.6; }
 
   @media (min-width: 760px) {
-    .bw__series { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+    .bw__series { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-7) 0; }
     .bw__ser { padding-right: clamp(20px, 2.5vw, 40px); }
-    .bw__ser + .bw__ser { padding-right: 0; padding-left: clamp(20px, 2.5vw, 40px); border-left: 1px solid var(--hair); }
+    .bw__ser:nth-child(even) { padding-right: 0; padding-left: clamp(20px, 2.5vw, 40px); border-left: 1px solid var(--hair); }
   }
   @media (min-width: 1000px) {
     .bw { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: clamp(32px, 4vw, 64px); }

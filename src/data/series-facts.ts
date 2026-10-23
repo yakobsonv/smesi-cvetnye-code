@@ -23,12 +23,13 @@
  *    без добавлений от себя.
  *  - Конфликт источников: карточка товара на сайте производителя важнее PDF.
  *  - Цен здесь нет и не будет (цены производителей на сайт не ставим).
+ *  - Promix и Стройбриг (добавлены в каталог 23.10) здесь НЕТ: данных производителя у нас нет (см. catalog.ts).
  *  - Число цветов Основит НЕ пишем как факт: у производителя 34 / 32 / 23 / 22 в разных местах;
  *    на нашем сайте 22 цвета — это ассортимент дилера (см. catalog.ts → OSNOVIT_COLORS).
  *  - Зимние модификации описаны как факт производителя; возит ли их дилер — не знаем (вопрос Владу),
  *    поэтому в наличии их не показываем. У Perel на td-perel.ru нет ни одной карточки «зима».
  */
-import type { SeriesId } from './catalog';
+import type { FactSeriesId, SeriesId } from './catalog';
 
 export interface Fact { label: string; value: string; src: string /* URL */ }
 
@@ -223,7 +224,7 @@ function brikformWinter(name: string, card: string): { text: string; src: string
 
 /* ── Факты по сериям ───────────────────────────────────────────────────────────── */
 
-export const SERIES_FACTS: Record<SeriesId, SeriesFacts> = {
+export const SERIES_FACTS: Record<FactSeriesId, SeriesFacts> = {
   'perel-sl': {
     purpose: 'Серия SL цветных кладочных смесей «Perel», специально разработана для выполнения работ по облицовке фасада кирпичом с средним водопоглощением (от 5% - до 12%).',
     purposeSrc: PEREL.sl,
@@ -448,6 +449,16 @@ export const SERIES_FACTS: Record<SeriesId, SeriesFacts> = {
     ],
   },
 };
+
+/** Есть ли у серии данные производителя. У Promix и Стройбриг нет (catalog.ts, шапка): страницы, где
+ *  выводятся факты, показывают эти серии без цитат и характеристик. */
+export const hasFacts = (id: SeriesId): id is FactSeriesId => Object.hasOwn(SERIES_FACTS, id);
+
+/** Факты серии, где они обязательны (страницы брендов): серия без данных — ошибка сборки, а не пустое место. */
+export function factsOf(id: SeriesId): SeriesFacts {
+  if (!hasFacts(id)) throw new Error(`series-facts: у серии ${id} нет данных производителя`);
+  return SERIES_FACTS[id];
+}
 
 /* ── Расход для калькулятора ───────────────────────────────────────────────────── */
 

@@ -29,11 +29,10 @@ import SeriesCard from '../components/smesi/SeriesCard.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
 import SpecTable from '../components/content/SpecTable.astro';
 import FaqAccordion from '../components/content/FaqAccordion.astro';
-import { BRICK_TYPES, POSITIONS, seriesById, seriesFor, type SeriesId } from '../data/catalog';
-import { SERIES_FACTS, CONSUMPTION, type Fact } from '../data/series-facts';
+import { BRICK_TYPES, POSITIONS, seriesById, seriesFor, seriesHref, type FactSeriesId, type SeriesId } from '../data/catalog';
+import { SERIES_FACTS, CONSUMPTION, factsOf, type Fact } from '../data/series-facts';
 import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
-import { localPath } from '../lib/sites';
 import { plural } from '../lib/format';
 import { nb as typoNb } from '../lib/typo';
 // Пробел перед «—» — неразрывный: тире не начинает строку (сквозная проверка дизайна 11.10).
@@ -58,7 +57,7 @@ const kg = (n: number) => n.toFixed(1).replace('.', ',');
 
 const LABEL_ABS = 'Водопоглощение кирпича';
 const absOf = (id: SeriesId): Fact => {
-  const f = F[id].specs.find((x) => x.label === LABEL_ABS);
+  const f = factsOf(id).specs.find((x) => x.label === LABEL_ABS);
   if (!f) throw new Error(`Нет строки «${LABEL_ABS}» у ${id}`);
   return f;
 };
@@ -75,7 +74,7 @@ function parseRange(v: string): { from: number; to: number | null } {
 }
 
 // ── Шкала водопоглощения: на какой кирпич рассчитана каждая кладочная серия ──────────
-const scaleIds: SeriesId[] = ['perel-nl', 'perel-sl', 'perel-vl', 'osnovit-mc11', 'osnovit-mc11-1'];
+const scaleIds: FactSeriesId[] = ['perel-nl', 'perel-sl', 'perel-vl', 'osnovit-mc11', 'osnovit-mc11-1'];
 const parsed = scaleIds.map((id) => ({ id, value: absOf(id).value, ...parseRange(absOf(id).value) }));
 // Ось — 0–20 %: с запасом над самой верхней границей в данных (17 % у VL), чтобы открытый
 // диапазон «более 12 %» было куда продолжить. Если в данных появится граница выше — ось растянется.
@@ -102,7 +101,7 @@ const scaleSrc = [
 ];
 
 // ── Характеристики: ключевые строки производителя ─────────────────────────────────
-function pick(id: SeriesId, labels: string[]): { rows: SpecRow[]; srcs: string[] } {
+function pick(id: FactSeriesId, labels: string[]): { rows: SpecRow[]; srcs: string[] } {
   const facts = labels
     .map((l) => F[id].specs.find((f) => f.label === l))
     .filter((f): f is Fact => Boolean(f));
@@ -151,7 +150,7 @@ const xcPoints = [
   { text: xcFacts.notes?.[0]?.text ?? '', src: xcFacts.notes?.[0]?.src ?? '' },
 ].filter((p) => p.text);
 const xcSrcs = [...new Set(xcPoints.map((p) => p.src))];
-const xcHref = `${localPath('smesi', xc30.page)}#${xc30.id}`;
+const xcHref = seriesHref(xc30);
 
 // ── Вопросы и ответы: только факты из данных ─────────────────────────────────────
 const perelBrick = CONSUMPTION.perel.perBrick

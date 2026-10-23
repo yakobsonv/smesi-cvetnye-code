@@ -11,6 +11,8 @@
 //   о тёмном шве — DARK_JOINT_FACTS;
 //   оттенки плашек — src/data/swatches.ts (приближение по палитрам производителей → оговорка SwatchNote).
 // Цен нет намеренно (см. src/data/catalog.ts) — у позиции кнопка «Узнать цену».
+// С 23.10 в «Под ваш кирпич» и в серых — и Promix, и Стройбриг (только ассортимент дилера): без цитат производителя,
+// в таблице морозостойкости и прочности их нет — этих данных у нас нет. Тёмная палитра вверху — по-прежнему Perel и Основит.
 import Page from '../layouts/Page.astro';
 import PageHead from '../components/smesi/PageHead.astro';
 import Container from '../components/layout/Container.astro';
@@ -21,6 +23,7 @@ import CtaBand from '../components/smesi/CtaBand.astro';
 import FaqAccordion from '../components/content/FaqAccordion.astro';
 import {
   BRANDS,
+  BRAND_LIST,
   BRICK_TYPES,
   POSITIONS,
   SERIES,
@@ -31,7 +34,7 @@ import {
   type Color,
   type SeriesId,
 } from '../data/catalog';
-import { SERIES_FACTS, DARK_JOINT_FACTS, PEREL_BLACK_FROST_SRC } from '../data/series-facts';
+import { SERIES_FACTS, DARK_JOINT_FACTS, PEREL_BLACK_FROST_SRC, hasFacts } from '../data/series-facts';
 import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
 import { plural } from '../lib/format';
@@ -159,7 +162,7 @@ const brickGroups = typeOrder.map((t) => ({
 
 /* ── Расшивка ─────────────────────────────────────────────────────────────────── */
 
-const specOf = (id: SeriesId, label: string) => SERIES_FACTS[id].specs.find((f) => f.label === label);
+const specOf = (id: SeriesId, label: string) => (hasFacts(id) ? SERIES_FACTS[id].specs.find((f) => f.label === label) : undefined);
 
 const rlNote = SERIES_FACTS['perel-rl'].notes?.find((n) => n.text.startsWith('Цветную декоративную затирку'));
 const xcRenew = SERIES_FACTS['osnovit-xc30'].notes?.find((n) => n.text.startsWith('Подходит как для нового'));
@@ -188,6 +191,10 @@ const greyGroups = [
   { title: 'Perel RL — затирка', series: 'perel-rl' as SeriesId },
   { title: 'Основит Брикформ МС11 и МС11/1', series: 'osnovit-mc11' as SeriesId },
   { title: 'Основит Бриксэйв ХС30 — расшивка', series: 'osnovit-xc30' as SeriesId },
+  // коды цвета у CKS 512 и CKS 017 разные — по строке на серию
+  { title: 'Promix CKS 512', series: 'promix-cks512' as SeriesId },
+  { title: 'Promix CKS 017', series: 'promix-cks017' as SeriesId },
+  { title: 'Стройбриг Кирпирок MC11', series: 'stroybrig-mc11' as SeriesId },
 ].map((g) => ({
   ...g,
   colors: seriesById(g.series).colors.filter((c: Color) => c.tone === 'grey'),
@@ -206,7 +213,8 @@ const frostForDark = (id: SeriesId) => {
   return { value: darkPart ? darkPart[1] : f.value, other: darkPart ? f.value.split(';')[0] : null, src: (darkPart && PEREL_BLACK_FROST_SRC[id]) || f.src };
 };
 
-const specRows = darkAll.map((p) => {
+// только серии с данными производителя: у Promix и Стройбриг морозостойкости и прочности у нас нет
+const specRows = darkAll.filter((p) => hasFacts(p.series)).map((p) => {
   const s = seriesById(p.series);
   const frost = frostForDark(p.series);
   const strength = specOf(p.series, 'Прочность на сжатие');
@@ -304,8 +312,8 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
 ---
 
 <Page
-  title="Чёрная и графитовая кладочная смесь — Perel и Основит"
-  description="Чёрный шов Perel SL, VL, NL и графит Основит Брикформ, тёмные растворы для расшивки RL и ХС30. Как тёмный шов выглядит на светлом и красном кирпиче."
+  title={`Чёрная и графитовая кладочная смесь — ${BRAND_LIST}`}
+  description="Чёрный шов Perel SL, VL, NL и Promix, графит Основит Брикформ и Стройбриг, тёмные растворы для расшивки RL и ХС30. Как тёмный шов выглядит на светлом и красном кирпиче."
   slug={SLUG}
   current="chernaya"
   source="chernaya"
@@ -407,7 +415,7 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
     id="pozicii"
     kicker="Кладочные смеси"
     title={'Чёрный и графит — под ваш кирпич'}
-    subtitle="Сначала тип кирпича, потом смесь: для каждого типа — серии Perel и Основит с тёмным цветом. Нажмите на образец или «Узнать цену» — назовём цену и наличие."
+    subtitle={`Сначала тип кирпича, потом смесь: для каждого типа — серии ${BRAND_LIST} с тёмным цветом. Нажмите на образец или «Узнать цену» — назовём цену и наличие.`}
     bg="alt"
   >
     <ol class="bt3">
@@ -421,15 +429,19 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
           <ul class="ps" data-reveal-stagger>
             {g.series.map((s) => {
               const p = positionOf(s.id)!;
-              const f = SERIES_FACTS[s.id];
+              const f = hasFacts(s.id) ? SERIES_FACTS[s.id] : null;
               return (
                 <li class="ps__item">
                   <div class="ps__sw"><SwatchGrid series={s.id} tones={['black']} /></div>
                   <div class="ps__body">
                     <h4 class="ps__name">{s.name}</h4>
-                    <p class="ps__label label">Для какого кирпича</p>
-                    <p class="ps__quote">«{f.forBrick}»</p>
-                    <p class="ps__src">по данным производителя: <a href={f.forBrickSrc} {...ext}>{host(f.forBrickSrc)}</a></p>
+                    {f && (
+                      <Fragment>
+                        <p class="ps__label label">Для какого кирпича</p>
+                        <p class="ps__quote">«{f.forBrick}»</p>
+                        <p class="ps__src">по данным производителя: <a href={f.forBrickSrc} {...ext}>{host(f.forBrickSrc)}</a></p>
+                      </Fragment>
+                    )}
                     <p class="ps__meta">Мешок <span class="num">{nb(`${s.packKg} кг`)}</span></p>
                     <div class="ps__foot">
                       <button class="btn btn--ghost btn--sm" type="button" data-ask={p.title}>Узнать цену</button>
@@ -485,7 +497,7 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
       })}
     </ul>
     {/* одна оговорка на обе группы образцов подряд: кладочные (выше) и для расшивки */}
-    <SwatchNote />
+    <SwatchNote series={brickGroups.flatMap((g) => g.series.map((s) => s.id))} />
   </Section>
 
   <Section
@@ -515,7 +527,7 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
       <a class="btn btn--ghost" href={`${PAGES.katalog.href}?ton=grey`}>Все серые в каталоге — {greyCount} {plural(greyCount, 'позиция', 'позиции', 'позиций')}</a>
       <a class="arrow-link" href="#kladka">{nb('Тёмно-серые рядом с чёрным — в палитре выше')} <span aria-hidden="true">↑</span></a>
     </p>
-    <SwatchNote />
+    <SwatchNote series={greyGroups.map((g) => g.series)} />
   </Section>
 
   {DARK_JOINT_FACTS.length > 0 && (

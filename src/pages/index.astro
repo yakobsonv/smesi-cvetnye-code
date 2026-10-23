@@ -17,14 +17,17 @@ import SeamCarousel from '../components/smesi/SeamCarousel.astro';
 import BrickTypes from '../components/smesi/BrickTypes.astro';
 import SeriesCard from '../components/smesi/SeriesCard.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
-import { POSITIONS, SERIES, TONES, PEREL_COLORS, OSNOVIT_COLORS, PEREL_RL_COLORS, seriesById, type Tone } from '../data/catalog';
+import { POSITIONS, SERIES, TONES, BRAND_LIST, seriesById, type Tone } from '../data/catalog';
 import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
 import { OFFICES } from '../lib/sites';
+import { plural } from '../lib/format';
 
 // «супер-белый» (Perel) и «супербелый» (Основит) — один оттенок: считаем и пишем одним словом.
 const sameName = (n: string) => n.replace('супер-', 'супер');
-const uniqueColors = new Set([...PEREL_COLORS, ...PEREL_RL_COLORS, ...OSNOVIT_COLORS].map((c) => sameName(c.name))).size;
+// Считаем по всем сериям каталога (у Promix и Стройбриг названия цветов — как у Perel и Основит).
+const uniqueColors = new Set(SERIES.flatMap((s) => s.colors).map((c) => sameName(c.name))).size;
+const positionsWord = plural(POSITIONS.length, 'позиция', 'позиции', 'позиций');
 
 // Тона: все оттенки группы полосой; плашка — с кладочной палитры (у расшивочных RL и ХС30
 // оттенки сняты с фотографий образцов и темнее).
@@ -43,6 +46,11 @@ const tones = toneOrder
 
 const kladka = SERIES.filter((s) => s.purpose === 'kladka');
 const rasshivka = SERIES.filter((s) => s.purpose === 'rasshivka');
+// «Восемь кладочных серий и две — для расшивки» — из данных, а не руками
+const NUM_F = ['ноль', 'одна', 'две', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять'];
+const numF = (n: number) => NUM_F[n] ?? String(n);
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+const seriesTitle = `${cap(numF(kladka.length))} ${plural(kladka.length, 'кладочная серия', 'кладочные серии', 'кладочных серий')} и ${numF(rasshivka.length)} — для расшивки`;
 
 const index = [
   { href: PAGES.belaya.href, title: 'Белая кладочная смесь', note: 'белый и супербелый шов' },
@@ -55,7 +63,7 @@ const index = [
 
 <Page
   title="Цветные кладочные смеси для облицовочного кирпича в Москве"
-  description={`Perel и Основит: ${POSITIONS.length} позиций для клинкера, обычного кирпича и ручной формовки, растворы для расшивки. Подбор цвета шва и расчёт мешков.`}
+  description={`${BRAND_LIST}: ${POSITIONS.length} ${positionsWord} для клинкера, обычного кирпича и ручной формовки, растворы для расшивки. Подбор цвета шва и расчёт мешков.`}
   current="home"
   source="home"
 >
@@ -68,7 +76,7 @@ const index = [
         </div>
         <div class="hero__body">
           <p class="hero__lead" data-reveal>
-            Цветные кладочные смеси Perel и Основит — для клинкера, обычного кирпича и кирпича ручной формовки,
+            Цветные кладочные смеси {BRAND_LIST} — для клинкера, обычного кирпича и кирпича ручной формовки,
             плюс растворы для расшивки швов. Поможем выбрать оттенок и посчитаем мешки.
           </p>
           <div class="hero__actions" data-reveal>
@@ -79,7 +87,7 @@ const index = [
         {/* волна после текста в DOM: порядок Tab и чтения совпадает с видимым и на телефоне, и на компьютере */}
         <div class="hero__wave"><MortarWave /></div>
         <dl class="hero__facts num" data-reveal>
-          <div><dt>позиций</dt><dd>{POSITIONS.length}</dd></div>
+          <div><dt>{positionsWord}</dt><dd>{POSITIONS.length}</dd></div>
           <div><dt>оттенков шва</dt><dd>{uniqueColors}</dd></div>
           <div><dt>офиса в Москве</dt><dd>{OFFICES.length}</dd></div>
         </dl>
@@ -112,7 +120,7 @@ const index = [
     <BrickTypes />
   </Section>
 
-  <Section id="serii" kicker="02 — Серии" title={'Пять кладочных серий и две — для расшивки'} bg="alt">
+  <Section id="serii" kicker="02 — Серии" title={seriesTitle} bg="alt">
     <ul class="cards" data-reveal-stagger>
       {kladka.map((s) => <li><SeriesCard id={s.id} /></li>)}
     </ul>
@@ -122,7 +130,7 @@ const index = [
     </ul>
   </Section>
 
-  <Section id="ottenki" kicker="03 — Оттенки" title="Выберите тон шва" subtitle="Все оттенки обеих марок по тонам. Нажмите на тон — каталог покажет только его." bg="base">
+  <Section id="ottenki" kicker="03 — Оттенки" title="Выберите тон шва" subtitle="Все оттенки всех марок по тонам. Нажмите на тон — каталог покажет только его." bg="base">
     <ul class="tones">
       {tones.map((x) => (
         <li>
@@ -212,7 +220,8 @@ const index = [
   @media (min-width: 1080px) {
     .cards { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     .cards > li { grid-column: span 2; }
-    .cards > li:nth-child(4):nth-last-child(2), .cards > li:nth-child(5):last-child { grid-column: span 3; }
+    /* последний ряд из двух карточек — по половине ширины (5 серий: 3 + 2, 8 серий: 3 + 3 + 2) */
+    .cards > li:nth-child(3n + 1):nth-last-child(2), .cards > li:nth-child(3n + 2):last-child { grid-column: span 3; }
     .cards--2 > li { grid-column: span 3; }
   }
 

@@ -24,7 +24,7 @@ import SpecTable from '../components/content/SpecTable.astro';
 import FaqAccordion from '../components/content/FaqAccordion.astro';
 import Collapse from '../components/ui/Collapse.astro';
 import { SERIES, POSITIONS, PEREL_COLORS, seriesById, type SeriesId, type SeriesRef } from '../data/catalog';
-import { SERIES_FACTS, CONSUMPTION, BRAND_FACTS, type Fact } from '../data/series-facts';
+import { SERIES_FACTS, CONSUMPTION, BRAND_FACTS, factsOf, type Fact } from '../data/series-facts';
 import { swatchFor } from '../data/swatches';
 import { PAGES } from '../data/nav';
 import { liveUrl } from '../lib/sites';
@@ -43,7 +43,7 @@ const perelPositions = POSITIONS.filter((p) => seriesById(p.series).brand === 'p
 /** «Perel SL» → «SL» */
 const code = (s: SeriesRef) => s.name.replace(/^Perel\s+/, '');
 /** значение характеристики по подписи */
-const spec = (id: SeriesId, label: string): Fact | undefined => SERIES_FACTS[id].specs.find((f) => f.label === label);
+const spec = (id: SeriesId, label: string): Fact | undefined => factsOf(id).specs.find((f) => f.label === label);
 const val = (id: SeriesId, label: string) => spec(id, label)?.value ?? '';
 const num = (n: number) => String(n).replace('.', ',');
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -88,12 +88,12 @@ function sources(urls: string[]) {
 /** Характеристики серии для таблицы: характеристики + упаковка и хранение.
  *  Строку «Мешок» производителя не выводим — фасовку дилера показываем отдельно. */
 function specRows(id: SeriesId): SpecRow[] {
-  const f = SERIES_FACTS[id];
+  const f = factsOf(id);
   // пробел перед «—» неразрывный, чтобы строка значения не начиналась с тире (текст тот же)
   return [...f.specs, ...f.packaging.filter((p) => p.label !== 'Мешок')].map((x) => ({ label: x.label, value: x.value.replace(/ — /g, ' — ') }));
 }
 function specSources(id: SeriesId) {
-  const f = SERIES_FACTS[id];
+  const f = factsOf(id);
   return sources([...f.specs, ...f.packaging.filter((p) => p.label !== 'Мешок')].map((x) => x.src));
 }
 
@@ -110,7 +110,7 @@ const aboutLabel = (t: string) =>
 /* Общие для SL, VL, NL шаги и оговорки (текст одинаков на карточках трёх серий). */
 const sl = SERIES_FACTS['perel-sl'];
 const steps = sl.steps;
-const stepSources = MORTAR_IDS.map((id) => ({ s: seriesById(id), href: SERIES_FACTS[id].steps[0]?.src ?? '' }));
+const stepSources = MORTAR_IDS.map((id) => ({ s: seriesById(id), href: factsOf(id).steps[0]?.src ?? '' }));
 const winter = sl.winter;
 const winterHowTo = sl.notes?.find((n) => n.text.startsWith('Для модификации «зима»'));
 const colorTip = sl.notes?.find((n) => n.text.startsWith('Восприятие цвета шва'));
@@ -278,7 +278,7 @@ const bgOf = (i: number) => (i % 2 === 0 ? 'alt' : 'base') as 'base' | 'alt';
                 <a href={`#${s.id}`}><span class="cmp__brand">Perel</span> {code(s)}</a>
                 <span class="cmp__colors">{s.colors.length} цветов</span>
               </th>
-              <td data-label="Для какого кирпича">«{typoNb(SERIES_FACTS[s.id].forBrick)}»</td>
+              <td data-label="Для какого кирпича">«{typoNb(factsOf(s.id).forBrick)}»</td>
               <td data-label="Прочность на сжатие" class="num">{nb(val(s.id, 'Прочность на сжатие'))}</td>
               <td data-label="Морозостойкость" class="num">{nb(val(s.id, 'Морозостойкость'))}</td>
               <td data-label="Мешок у нас" class="cmp__pack num">{s.packKg}&nbsp;кг</td>
@@ -305,7 +305,7 @@ const bgOf = (i: number) => (i % 2 === 0 ? 'alt' : 'base') as 'base' | 'alt';
 
   <!-- ── Серии SL, VL, NL: крупное название, назначение курсивом, образцы и характеристики ── -->
   {mortar.map((s, i) => {
-    const f = SERIES_FACTS[s.id];
+    const f = factsOf(s.id);
     const srcs = specSources(s.id);
     const bg = bgOf(i);
     return (
