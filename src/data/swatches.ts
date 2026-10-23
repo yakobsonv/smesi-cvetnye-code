@@ -188,7 +188,7 @@ for (const s of SERIES) {
  *  ореховый 036, оранжевый 046, жёлтый 070, медный 083), дальше не меняются. */
 export const SWATCH_SATURATION = 2.4;
 
-/** Насыщеннее на k: hex → HSL → S × k (не выше 1) → hex; нейтральные (S < 0.08) не трогаем, до 0.25 — плавно. */
+/** Насыщеннее на k: hex → HSL → S × k (не выше 1) → hex; нейтральные (S < 0.08) не трогаем, до 0.25 — плавно, прирост ≤ +0.30. */
 export function saturate(hex: string, k: number): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   if (!m || k === 1) return hex;
@@ -204,7 +204,10 @@ export function saturate(hex: string, k: number): string {
   const ramp = Math.min(1, Math.max(0, (s0 - 0.08) / (0.25 - 0.08)));
   // Очень светлые (L ≥ 0.88 — супер-белые, белые) тоже не усиливаем, от 0.80 — плавно: белый с тёплым замером не должен розоветь.
   const light = Math.min(1, Math.max(0, (0.88 - l) / 0.08));
-  const s = Math.min(1, s0 * (1 + (k - 1) * ramp * light));
+  // Прирост не больше +0.30 к замеру: иначе соседние оттенки одной серии упираются в S = 1 и сливаются
+  // (QA 23.10: бежевый 030 / песочный 071 Основит ΔE 2,3 и ореховый 036 / оранжевый 046 ΔE 1,4;
+  // с потолком 0,30 — 3,2 и 2,8; пары, близкие уже в замере — Perel 25/30, Основит 010/027, — не хуже замера).
+  const s = Math.min(1, s0 * (1 + (k - 1) * ramp * light), s0 + 0.3);
   const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), mm = l - c / 2;
   const [r1, g1, b1] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
   const to = (v: number) => Math.round((v + mm) * 255).toString(16).padStart(2, '0');
