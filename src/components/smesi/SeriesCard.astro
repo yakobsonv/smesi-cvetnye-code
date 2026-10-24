@@ -36,6 +36,12 @@ const linkLabel = s.page || href ? 'Характеристики' : 'Все цв
 <style>
   .sr { display: flex; flex-direction: column; height: 100%; }
   .sr__strip { height: 92px; margin-bottom: var(--space-5); }
+  /* Паша 24.10: полосы в карточках серий — насыщеннее и ярче. Фактура раствора (зерно, тёмное пятно, тень у кромки)
+     здесь приглушала цвет: зерно слабее, тёмного пятна и тени нет, поверх — усиление цвета фильтром.
+     Белые и серые плашки остаются нейтральными: у них насыщенность около нуля, фильтр её почти не меняет. */
+  .sr__strip { filter: saturate(1.4) brightness(1.05) contrast(1.04); }
+  .sr__strip :global(.mortar) { background-image: radial-gradient(120% 90% at 18% 12%, rgb(255 255 255 / 0.12), transparent 55%); box-shadow: inset 0 0 0 1px rgb(33 30 26 / 0.06); }
+  .sr__strip :global(.mortar::after) { opacity: 0.16; }
   .sr__strip span { transition: flex-grow 0.5s var(--ease); }
   .sr__strip:hover span:hover { flex-grow: 2.4; }
   .sr__kind { margin: 0 0 var(--space-2); }
