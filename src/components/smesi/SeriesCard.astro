@@ -24,7 +24,8 @@ const linkLabel = s.page || href ? 'Характеристики' : 'Все цв
   <p class="sr__short">{nb(s.short)}</p>
   <dl class="sr__facts">
     {s.absorption && <div><dt>Водопоглощение кирпича</dt><dd class="num">{s.absorption}</dd></div>}
-    <div><dt>Оттенков у нас</dt><dd class="num">{s.colors.length}</dd></div>
+    {/* у Dauer (codeKind 'palette') позиций у дилера нет — число цветов по палитре производителя, а не «у нас» (QA 24.10) */}
+    <div><dt>{s.codeKind === 'palette' ? 'Оттенков в палитре' : 'Оттенков у нас'}</dt><dd class="num">{s.colors.length}</dd></div>
     <div><dt>Мешок</dt><dd class="num">{s.packKg} кг</dd></div>
   </dl>
   <div class="sr__actions">
