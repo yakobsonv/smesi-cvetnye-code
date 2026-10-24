@@ -346,7 +346,7 @@ const lead = `Для тёмного шва у Perel есть цвет «${perelB
     </div>
     {heroStrip.length > 0 && (
       <figure class="hs" slot="aside">
-        <div class="hs__strip strip" aria-hidden="true">
+        <div class="hs__strip strip strip--neutral" aria-hidden="true">
           {heroStrip.map((x, i) => (
             <span class="hs__band mortar" style={`--c:${x.hex};--i:${i}`}>
               <span class="hs__code"><span>{x.brand}</span><b class="num">{x.code}</b></span>

@@ -136,7 +136,7 @@ const index = [
         <li>
           <a class="tone" href={`${PAGES.katalog.href}?ton=${x.t}`}>
             <span class="tone__label">{x.label}</span>
-            <span class="tone__strip strip" aria-hidden="true">{x.colors.map((c) => <span class="mortar" style={`--c:${c}`}></span>)}</span>
+            <span class:list={['tone__strip', 'strip', ['white', 'grey', 'black'].includes(x.t) && 'strip--neutral']} aria-hidden="true">{x.colors.map((c) => <span class="mortar" style={`--c:${c}`}></span>)}</span>
             <span class="tone__meta"><span class="num">{x.count} поз.</span><span class="tone__names">{x.names.slice(0, 5).join(', ')}{x.names.length > 5 ? '…' : ''}</span></span>
           </a>
         </li>

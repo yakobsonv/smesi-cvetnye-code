@@ -197,6 +197,9 @@ const tags = WAVE_PALETTE.map((c, i) => ({
   .mw__stage {
     position: relative;
     aspect-ratio: 16 / 10;
+    /* Паша 24.10: первый экран — как все полосы оттенков, насыщеннее и ярче (smesi.css .strip); фильтр и на статичную
+       раскладку, и на canvas сцены — цвета плашек и пластин волны остаются одинаковыми */
+    filter: saturate(1.3) brightness(1.05) contrast(1.04);
     /* вертикальная прокрутка страницы пальцем по сцене не блокируется */
     touch-action: pan-y;
   }

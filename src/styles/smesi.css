@@ -156,6 +156,19 @@ html[data-site='smesi'] .mortar::after {
 /* Полоса палитры (несколько образцов подряд) */
 html[data-site='smesi'] .strip { display: flex; overflow: hidden; }
 html[data-site='smesi'] .strip > span { flex: 1 1 0; min-width: 0; }
+/* Паша 24.10: все полосы оттенков (карточки серий, тона на главной, первые экраны страниц брендов, белой, чёрной,
+   клинкера, подбора шва, доставки) — насыщеннее и ярче. Фактура раствора в полосе приглушала цвет: зерно слабее
+   (0,16 вместо 0,32), тёмного пятна и тени у кромки нет, поверх — усиление цвета фильтром. Белые и серые остаются
+   нейтральными: их насыщенность около нуля, фильтр её почти не меняет. Плашки-образцы (.chip) не трогаем. */
+html[data-site='smesi'] .strip { filter: saturate(1.3) brightness(1.05) contrast(1.04); }
+/* Полосы только из белых, серых и чёрных (первые экраны белой и чёрной смеси, нейтральные тона на главной) — без
+   фильтра: он вытягивал тёплый или холодный оттенок замера (пепельный 027 розовел, тёмно-серый 022 зеленел). */
+html[data-site='smesi'] .strip--neutral { filter: none; }
+html[data-site='smesi'] .strip .mortar {
+  background-image: radial-gradient(120% 90% at 18% 12%, rgb(255 255 255 / 0.12), transparent 55%);
+  box-shadow: inset 0 0 0 1px rgb(33 30 26 / 0.06);
+}
+html[data-site='smesi'] .strip .mortar::after { opacity: 0.16; }
 
 /* Сетка страницы: 12 колонок на десктопе */
 html[data-site='smesi'] .grid12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: clamp(16px, 2vw, 28px); }
