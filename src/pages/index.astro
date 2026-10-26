@@ -3,8 +3,8 @@
 // Входная страница под общий запрос «цветная кладочная смесь (для облицовочного кирпича)».
 // Главный материал — цвет раствора: объёмная волна образцов на первом экране (бриф 20.10, вместо стены оттенков),
 // полосы тонов, палитры серий. Факты — только из src/data (ассортимент дилера, данные производителей).
-// Под первым экраном — оттенок волны швом на кадре кладки и карусель сочетаний: кирпич вне /podbor-shva/
-// по брифу 20.10, решение Влада — ожидается.
+// Под первым экраном — оттенок волны швом на кадре кладки: кирпич вне /podbor-shva/ по брифу 20.10, решение Влада —
+// ожидается. Карусель сочетаний «кирпич + шов» убрана 26.10 (Паша: «давай уберём этот блок»).
 //
 // «Швы — до 15–20 % площади фасада» — утверждение самого дилера (вопросы и ответы на его сайтах
 // кирпича Старого Оскола и Железногорска: «Швы составляют до 15-20% площади фасада»).
@@ -13,7 +13,6 @@ import Container from '../components/layout/Container.astro';
 import Section from '../components/layout/Section.astro';
 import MortarWave from '../components/smesi/MortarWave.astro';
 import SeamStudio from '../components/smesi/SeamStudio.astro';
-import SeamCarousel from '../components/smesi/SeamCarousel.astro';
 import BrickTypes from '../components/smesi/BrickTypes.astro';
 import SeriesCard from '../components/smesi/SeriesCard.astro';
 import CtaBand from '../components/smesi/CtaBand.astro';
@@ -96,7 +95,7 @@ const index = [
   </section>
 
   <SeamStudio />
-  <SeamCarousel />
+  {/* Карусель сочетаний «кирпич + шов» (SeamCarousel) убрана с главной 26.10 по просьбе Паши; компонент оставлен в src/components/smesi */}
 
   <section class="claim">
     <Container>
