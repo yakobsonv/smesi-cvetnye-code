@@ -18,6 +18,7 @@ export const PAGES = {
   kalkulyator: { href: p('kalkulyator'), label: 'Калькулятор расхода' },
   klinker: { href: p('dlya-klinkernogo-kirpicha'), label: 'Для клинкерного кирпича' },
   dostavka: { href: p('dostavka'), label: 'Доставка и контакты' },
+  stati: { href: p('stati'), label: 'Статьи' },
   regulation: { href: p('regulation'), label: 'Положение об обработке персональных данных' },
   consent: { href: p('consent'), label: 'Согласие на обработку персональных данных' },
 } as const;
@@ -44,6 +45,7 @@ export function mainNav(current?: PageKey): NavItem[] {
     },
     item('podbor', 'Подбор шва'),
     item('kalkulyator', 'Калькулятор'),
+    item('stati'),
     item('dostavka', 'Доставка и контакты'),
   ];
 }
@@ -53,6 +55,6 @@ export function footerColumns() {
   return [
     { title: 'Смеси', links: [PAGES.katalog, PAGES.perel, PAGES.osnovit, PAGES.dauer, PAGES.klinker] },
     { title: 'Цвет шва', links: [PAGES.podbor, PAGES.belaya, PAGES.chernaya] },
-    { title: 'Покупателю', links: [PAGES.kalkulyator, PAGES.dostavka] },
+    { title: 'Покупателю', links: [PAGES.kalkulyator, PAGES.stati, PAGES.dostavka] },
   ].map((c) => ({ title: c.title, links: c.links.map((l) => ({ href: l.href, label: l.label })) }));
 }

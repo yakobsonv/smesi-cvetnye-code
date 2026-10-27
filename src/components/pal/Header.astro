@@ -18,6 +18,7 @@ const links: { key: PageKey; label: string; also?: PageKey[] }[] = [
   { key: 'dauer', label: 'Dauer' },
   { key: 'podbor', label: 'Подбор шва' },
   { key: 'kalkulyator', label: 'Расход' },
+  { key: 'stati', label: 'Статьи' },
   { key: 'dostavka', label: 'Контакты' },
 ];
 const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includes(current as PageKey);
@@ -106,7 +107,7 @@ const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includ
     backdrop-filter: saturate(1.2) blur(8px);
   }
   .hd.is-scrolled { border-bottom-color: var(--hair); }
-  .hd__row { display: flex; align-items: center; gap: var(--space-6); min-height: 72px; }
+  .hd__row { display: flex; align-items: center; gap: var(--space-5); min-height: 72px; }
 
   .hd__brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; flex: none; }
   .hd__mark { display: grid; gap: 3px; width: 26px; }
@@ -120,7 +121,8 @@ const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includ
 
   /* семь пунктов (с 24.10 — Dauer): кегль 14 и шаг меньше, пункт не рвётся изнутри (на 1440 «Подбор шва» рвался);
      запас — перенос целыми пунктами (flex-wrap), чтобы телефон и кнопка никогда не выходили за контейнер (QA 24.10) */
-  .hd__nav { display: none; flex-wrap: wrap; justify-content: flex-end; gap: 0 clamp(10px, 1.4vw, 20px); margin-left: auto; min-width: 0; }
+  /* восемь пунктов (с 27.10 — «Статьи»): шаг до 16 px, иначе на 1280–1920 меню переносилось на вторую строку */
+  .hd__nav { display: none; flex-wrap: wrap; justify-content: flex-end; gap: 0 clamp(10px, 1.2vw, 16px); margin-left: auto; min-width: 0; }
   .hd__link { position: relative; padding: 6px 0; color: var(--ink); font-size: 14px; text-decoration: none; white-space: nowrap; }
   .hd__link::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform var(--dur) var(--ease); }
   .hd__link:hover::after, .hd__link[aria-current='page']::after { transform: scaleX(1); }
@@ -148,8 +150,11 @@ const isCur = (l: (typeof links)[number]) => l.key === current || l.also?.includ
     .hd__burger { display: none; }
     .hd__side { margin-left: var(--space-5); }
   }
-  /* ноутбуки 1100–1279: контейнер 1030–1210 px — знак, семь пунктов, телефон и кнопка в одну строку только мельче */
+  /* ноутбуки 1100–1279: контейнер 1030–1210 px — знак, восемь пунктов и кнопка в одну строку только мельче;
+     телефон на этих ширинах скрыт (есть в кнопке «Заказать звонок», подвале и на странице контактов) —
+     с восьмым пунктом «Статьи» (27.10) места на него не оставалось */
   @media (min-width: 1100px) and (max-width: 1279px) {
+    .hd__phone { display: none; }
     .hd__row { gap: var(--space-5); }
     .hd__name { font-size: 24px; }
     .hd__sub { font-size: 9.5px; letter-spacing: 0.12em; }

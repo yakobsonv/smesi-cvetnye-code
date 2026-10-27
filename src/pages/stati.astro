@@ -1,0 +1,77 @@
+---
+// Раздел «Статьи» (Паша 27.10: «добавь вкладки статьи для сайтов сухих и цветных смесей, но сами статьи пока
+// не добавляй»). Пока здесь нет ни одной статьи — страница честно говорит об этом и ведёт в разделы сайта,
+// где уже собраны факты производителей. Когда появятся статьи — список статей вместо блока «Пока — разделы сайта»
+// (тексты статей — только по данным производителей, правило 1 CLAUDE.md).
+// Вид — язык «палитра шва»: строки через тонкие линии, как список «С чего обычно начинают» на главной.
+import Page from '../layouts/Page.astro';
+import PageHead from '../components/smesi/PageHead.astro';
+import Section from '../components/layout/Section.astro';
+import CtaBand from '../components/smesi/CtaBand.astro';
+import { PAGES } from '../data/nav';
+import { BRAND_LIST } from '../data/catalog';
+import { nb } from '../lib/typo';
+
+const guides = [
+  { href: PAGES.podbor.href, title: PAGES.podbor.label, note: 'как оттенок шва смотрится на кирпиче' },
+  { href: PAGES.kalkulyator.href, title: PAGES.kalkulyator.label, note: 'сколько мешков нужно по нормам производителей' },
+  { href: PAGES.klinker.href, title: PAGES.klinker.label, note: 'почему клинкеру нужна своя смесь' },
+  { href: PAGES.belaya.href, title: PAGES.belaya.label, note: 'белый шов и почему светлый шов пачкается' },
+  { href: PAGES.chernaya.href, title: PAGES.chernaya.label, note: 'тёмный шов для кладки и расшивки' },
+  { href: PAGES.perel.href, title: `${PAGES.perel.label} — серии и характеристики`, note: 'SL, VL, NL и затирка RL' },
+  { href: PAGES.osnovit.href, title: `${PAGES.osnovit.label} — растворы и расшивка`, note: 'Брикформ МС11, МС11/1 и Бриксэйв ХС30' },
+  { href: PAGES.dauer.href, title: `${PAGES.dauer.label} — три смеси под кирпич`, note: 'BRICK.COLOR 250, 251, 252' },
+];
+---
+
+<Page
+  title="Статьи о цветных кладочных смесях"
+  description={`Статьи о цветных кладочных смесях ${BRAND_LIST}: подбор оттенка шва под кирпич, расход, кладка и расшивка. Раздел наполняется — пока смотрите разделы сайта.`}
+  slug="stati"
+  current="stati"
+  source="stati"
+>
+  <PageHead
+    kicker="Статьи"
+    h1="Статьи о цветных кладочных смесях"
+    crumb="Статьи"
+    lead={nb('Здесь будут статьи о цветных кладочных смесях: как подобрать оттенок шва под кирпич, как посчитать расход, как класть и расшивать. Статей пока нет — а то, что уже собрано по данным производителей, лежит в разделах сайта.')}
+  />
+
+  <Section id="razdely" kicker="Пока — разделы сайта" title="С чего начать сейчас" bg="base">
+    <ol class="st">
+      {guides.map((g, i) => (
+        <li>
+          <a href={g.href}>
+            <span class="st__n num">{String(i + 1).padStart(2, '0')}</span>
+            <span class="st__t">{nb(g.title)}</span>
+            <span class="st__note">{nb(g.note)}</span>
+            <span class="st__arrow" aria-hidden="true">→</span>
+          </a>
+        </li>
+      ))}
+    </ol>
+  </Section>
+
+  <CtaBand
+    source="stati"
+    title={nb('Не нашли ответа — спросите')}
+    text={nb('Назовите кирпич и задачу — подскажем серию и оттенок, посчитаем мешки.')}
+  />
+</Page>
+
+<style>
+  .st { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hair-strong); }
+  .st a { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 20px; align-items: baseline; padding: 22px 0; border-bottom: 1px solid var(--hair); color: var(--ink); text-decoration: none; }
+  .st__n { font-size: 12px; color: var(--color-muted); }
+  .st__t { font-family: var(--font-head); font-size: clamp(26px, 3vw, 44px); line-height: 1; letter-spacing: -0.015em; }
+  .st__note { grid-column: 2; color: var(--color-muted); font-size: var(--fs-small); }
+  .st__arrow { grid-row: 1; grid-column: 3; font-size: 28px; transition: translate 0.4s var(--ease); }
+  .st a:hover .st__t { font-style: italic; }
+  .st a:hover .st__arrow { translate: 8px 0; }
+  @media (min-width: 900px) {
+    .st a { grid-template-columns: 60px minmax(0, 7fr) minmax(0, 4fr) auto; }
+    .st__note { grid-column: 3; }
+    .st__arrow { grid-column: 4; }
+  }
+</style>
